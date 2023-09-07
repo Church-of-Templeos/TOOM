@@ -1,2 +1,2 @@
 # TOOM
-A HolyC source port of the DOOM engine
+A TempleOS source port of the DOOM engine

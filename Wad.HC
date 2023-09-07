@@ -85,10 +85,133 @@ CWad *LoadWad(U8 *filename) {
   return FileRead(filename);
 }
 
+class CDoomThing:CQue {
+  F64 x,y,angle;
+  I16 thing_type,flags;
+};
+
+class CDoomTexture:CQue {
+  CDC *todo;
+};
+
+class CDoomSidedef:CQue {
+  I16 yoff,xoff;
+  CDoomTexture *ceil_texture;
+  CDoomTexture *floor_texture;
+  CDoomTexture *middle_texture;
+  //TODO sector
+};
+
+
+class CDoomLinedef:CQue {
+  CD2 *start,*end;
+  CDoomSidedef *front;
+  CDoomSidedef *back;
+  I16 flags;
+  I16 special_type;
+  I16 sector_tag;
+};
+
+
+
+class CDoomLevel {
+  CQue things;
+  I64 vertice_cnt;
+  CD2 *vertices;
+  CQue linedefs;
+};
+
+I64 StrCmp8(U8 *a,U8 *b) {
+  if(StrLen(a)>8||StrLen(b)>8)
+    return StrNCmp(a,b,8);
+  return StrCmp(a,b);
+}
+
+
+U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1) {
+//INCOMPLETE
+  CDoomLinedef *wall,*head=&level->linedefs;
+  dc->color=RED;
+  dc->thick=2;
+  I64 x=GR_WIDTH/2,y=GR_HEIGHT/2;
+  for(wall=head->next;wall!=head;wall=wall->next) {
+    GrLine3(dc,
+	x+wall->start->x*scale,y+wall->start->y*scale,0,
+	x+wall->end->x*scale,y+wall->end->y*scale,0
+	);
+  }
+}
+
+
+CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
+  I64 idx,cnt;
+  CDoomLevel *level=CAlloc(sizeof CDoomLevel);
+  CDoomThing *dthing;
+  CWadThing *wthing;
+  CWadVertex *vertex;
+  CWadDirectory *wad_dir;
+  CWadLinedef *wlinedef;
+  CDoomLinedef *dlinedef;
+  QueInit(&level->things);
+  QueInit(&level->linedefs);
+  wad_dir=wad->body+wad->directory_ptr;
+  for(idx=0;idx!=wad->lump_cnt;idx++) {
+    if(!StrCmp8(wad_dir->lump_name,level_name))
+      goto found;
+    wad_dir++;
+  }
+  Free(level);
+  return NULL;
+found:
+//Order of other lumps is 
+//THINGS
+//LINEDEFS
+//SIDEDEFS
+//VERTEXES
+//rest will not be used for now
+//Move past level lump
+  wad_dir++;
+  //Things
+  cnt=wad_dir->lump_size/sizeof(CWadThing);
+  wthing=wad_dir->ptr+wad->body;
+  for(idx=0;idx!=cnt;idx++) {
+    dthing=CAlloc(sizeof CDoomThing);
+    dthing->x=wthing->x;
+    dthing->y=wthing->y;
+    dthing->angle=wthing->angle/ToF64(I16_MAX)*2*pi;
+    dthing->thing_type=wthing->thing_type;
+    dthing->flags=wthing->flags;
+    QueIns(dthing,level->things.last);
+    wthing++;
+  }
+  //Load vertexes first P
+  cnt=wad_dir[3].lump_size/sizeof(CWadVertex);
+  vertex=wad_dir[3].ptr+wad->body;
+  level->vertice_cnt=cnt;
+  level->vertices=MAlloc(sizeof(CD2)*cnt);
+  if(StrCmp8("VERTEXES",wad_dir[3].lump_name)) throw('Wad');
+  for(idx=0;idx!=cnt;idx++) {
+    level->vertices[idx].x=vertex->x;
+    level->vertices[idx].y=vertex->y;
+    vertex++;
+  }  
+  //LINEDEFS
+  cnt=wad_dir[1].lump_size/sizeof(CWadLinedef);
+  wlinedef=wad_dir[1].ptr+wad(U8*);
+  if(StrCmp8("LINEDEFS",wad_dir[1].lump_name)) throw('Wad');
+  for(idx=0;idx!=cnt;idx++) {
+    dlinedef=CAlloc(sizeof(CDoomLinedef));
+    dlinedef->start=wlinedef->start_vertex+level->vertices;
+    dlinedef->end=wlinedef->end_vertex+level->vertices;
+    QueIns(dlinedef,level->linedefs.last);
+    wlinedef++;
+  }
+  return level;
+}
+
 U0 DumpWad(CWad *wad) {
   I64 lump,ptr,lump_sz,ptr2;
   U8 *name;
-DocMax;
   "IDENT:%s\n",wad->ident;
   ptr=wad->directory_ptr;
   for(lump=0;lump!=wad->lump_cnt;lump++) {
@@ -99,11 +222,16 @@ DocMax;
       "THING:\n"
       "\tX:%d\n",(wad->body+ptr)(CWadThing*)->x;
       "\tY:%d\n",(wad->body+ptr)(CWadThing*)->y;
-      "\tANGLE:%n\n",(wad->body+ptr)(CWadThing*)->angle/ToF64(I16_MAX)*2*pi;
+      "\tANGLE:%n\n",(wad->body+ptr)(CWadThing*)->angle/ToF64(I16_MAX)*2*pi;
       "\tTYPE:%X\n",(wad->body+ptr)(CWadThing*)->thing_type;
     }
     ptr(CWadDirectory*)++;
   }
   
 }
-DumpWad(LoadWad("DOOM.WAD"));
+
+CWad *wad=LoadWad("DOOM.WAD");
+CDoomLevel *l=LoadWadLevel(wad,"E1M1");
+DCFill;
+if(l)
+  DrawLevelOverview(l,gr.dc,1/16.);

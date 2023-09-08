@@ -173,7 +173,6 @@ CDoomGr *LoadWadGr(CWad *wad) {
   throw('Wad'); 
 found_sstart:
   wad_dir++; //Move past S_START
-PrintI(wad_dir->lump_name,wad_dir->lump_size);
   if(StrCmp8(wad_dir->lump_name,"S_END")) {
     gr=ReadDoomImage(wad,wad->body+wad_dir->ptr,ret->palette);
     GrBlot(,0,0,gr);

@@ -8,7 +8,7 @@
  */
 
 U32 class CRGB {
-  U8 r,g,b,pad;
+  U8 r,g,b,a;
 };
 
 CDC *PaletteizeImage(I64 w,I64 h,CRGB *data) {
@@ -28,16 +28,19 @@ CDC *PaletteizeImage(I64 w,I64 h,CRGB *data) {
       cur_pixel=data[x+y*w];
       best_color=0;
       best_dist=1e100;
-      for(canidate=0;canidate!=16;canidate++) {
-        dist=Sqrt(Sqr(normal[canidate].r-cur_pixel.r)+
-	      Sqr(normal[canidate].g-cur_pixel.g)+
-	      Sqr(normal[canidate].b-cur_pixel.b));
-	if(dist<best_dist) {
-	  best_dist=dist;
-	  best_color=canidate;
+      if(!cur_pixel.a)  {
+        for(canidate=0;canidate!=16;canidate++) {
+	  dist=Sqrt(Sqr(normal[canidate].r-cur_pixel.r)+
+	        Sqr(normal[canidate].g-cur_pixel.g)+
+	        Sqr(normal[canidate].b-cur_pixel.b));
+	  if(dist<best_dist) {
+	    best_dist=dist;
+	    best_color=canidate;
+	  }
         }
-      }
-      ret->color=best_color;
+        ret->color=best_color;
+      } else
+        ret->color=TRANSPARENT;
       GrPlot0(ret,x,y);
     }
   }
@@ -59,21 +62,20 @@ CDC *ReadDoomImage(U8 *wad_base,CDoomImage *header,CRGB *colors_pal) {
   I64 w=header->w,h=header->h,rowstart,i,j,px_cnt;
   U8 *ptr;
   CRGB *pdata=CAlloc(w*h*sizeof(CRGB));
+  for(i=0;i!=w;i++)
+    for(j=0;j!=h;j++)
+      pdata[j*w+i].a=0xff;
   for(i=0;i!=w;i++) {
     ptr=header(U8*)+header->col_offs[i];
     rowstart=0;
     while(rowstart!=255) {
-//PrintI("rs",rowstart);
       rowstart=*ptr++;
       if(rowstart==255) break;
       px_cnt=*ptr++;
       if(!px_cnt) throw('Poop');
       ptr++;
       for(j=0;j!=px_cnt;j++) {
-//PrintI("p",ptr);
-//PrintI("px",*ptr);
-        pdata[(j+rowstart)*w+i]=colors_pal[*ptr++];
-//PrintI("p2",ptr);
+        pdata[(j+rowstart)*w+i]=colors_pal[*ptr++];
       }
       ptr++;
     }

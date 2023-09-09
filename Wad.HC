@@ -1,3 +1,5 @@
+#define DEBUG 1
+
 #include "DoomGr.HC";
 //https://doomwiki.org/wiki/WAD
 class CWadDirectory {
@@ -103,6 +105,30 @@ class CDoomSidedef:CQue {
   //TODO sector
 };
 
+class CBoundBoxI16 {
+  I16 y,y2,x,x2;
+};
+
+class CWadBSPNode {
+  I16 x,y;
+  I16 dx,dy;
+  CBoundBoxI16 left,right;
+//Dont ask me what these do
+  I16 left_child,right_child;
+};
+
+class CBoundBoxF64 {
+  F64 y,y2,x,x2;
+};
+
+
+class CDoomBSPNode:CQue {
+  U64 signature;
+  F64 x,y;
+  F64 dx,dy;  
+  CBoundBoxF64 left,right;
+
+};
 
 class CDoomLinedef:CQue {
   CD2 *start,*end;
@@ -119,6 +145,7 @@ class CDoomGr {
 
 class CDoomLevel {
   CQue things;
+  CQue bsp_nodes;
   I64 vertice_cnt;
   CD2 *vertices;
   CQue linedefs;
@@ -131,17 +158,44 @@ I64 StrCmp8(U8 *a,U8 *b) {
 }
 
 
-U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1) {
+U0 GrDrawBBox(CDC *dc,I64 x,I64 y,I64 x2,I64 y2) {
+//Top
+  GrLine3(dc,x,y,0,x2,y,0);
+//Right
+  GrLine3(dc,x2,y,0,x2,y2,0);
+//Left
+  GrLine3(dc,x,y,0,x,y2,0);
+//Bottom
+  GrLine3(dc,x,y2,0,x2,y2,0);
+}
+
+U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,Bool show_bsp=FALSE) {
 //INCOMPLETE
+  CDoomBSPNode *node;
   CDoomLinedef *wall,*head=&level->linedefs;
   dc->color=RED;
   dc->thick=2;
-  I64 x=GR_WIDTH/2,y=GR_HEIGHT/2;
+  I64 x=GR_WIDTH/2,y=GR_HEIGHT/2+200;
   for(wall=head->next;wall!=head;wall=wall->next) {
     GrLine3(dc,
 	x+wall->start->x*scale,y+wall->start->y*scale,0,
 	x+wall->end->x*scale,y+wall->end->y*scale,0
 	);
+  }
+  if(show_bsp) {
+    head=&level->bsp_nodes;
+    dc->thick=1;
+    for(node=head->next;node!=head;node=node->next) {
+      dc->color=LTGREEN;
+      GrDrawBBox(dc,x+node->left.x*scale,y+node->left.y*scale,
+	x+node->left.x2*scale,y+node->left.y2*scale);
+      dc->color=LTRED;
+      GrDrawBBox(dc,x+scale*node->right.x,y+scale*node->right.y,
+	x+scale*node->right.x2,y+scale*node->right.y2);
+      dc->color=PURPLE;
+      GrArrow3(dc,node->x*scale+x,node->y*scale+y,0,
+	(node->x+node->dx)*scale+x,(node->y+node->dy)*scale+y,0);
+    }
   }
 }
 
@@ -175,11 +229,13 @@ found_sstart:
   wad_dir++; //Move past S_START
   if(StrCmp8(wad_dir->lump_name,"S_END")) {
     gr=ReadDoomImage(wad,wad->body+wad_dir->ptr,ret->palette);
-    GrBlot(,0,0,gr);
     lump_name[8]=0;
     MemCpy(lump_name,wad_dir->lump_name,8);
     FramePtrAdd(lump_name,gr);
-    Sleep(100);
+#ifdef DEBUG
+//    GrBlot(,0,0,gr);
+//    Sleep(100);
+#endif
     goto found_sstart;
   }
 }
@@ -191,10 +247,13 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   CWadThing *wthing;
   CWadVertex *vertex;
   CWadDirectory *wad_dir;
+  CWadBSPNode *wnode;
+  CDoomBSPNode *dnode;
   CWadLinedef *wlinedef;
   CDoomLinedef *dlinedef;
   QueInit(&level->things);
   QueInit(&level->linedefs);
+  QueInit(&level->bsp_nodes);
   wad_dir=wad->body+wad->directory_ptr;
   for(idx=0;idx!=wad->lump_cnt;idx++) {
     if(!StrCmp8(wad_dir->lump_name,level_name))
@@ -216,7 +275,7 @@ found:
   cnt=wad_dir->lump_size/sizeof(CWadThing);
   wthing=wad_dir->ptr+wad->body;
   for(idx=0;idx!=cnt;idx++) {
-    dthing=CAlloc(sizeof CDoomThing);
+    dthing=CAlloc(sizeof CDoomThing);
     dthing->x=wthing->x;
     dthing->y=wthing->y;
     dthing->angle=wthing->angle/ToF64(I16_MAX)*2*pi;
@@ -247,6 +306,28 @@ found:
     QueIns(dlinedef,level->linedefs.last);
     wlinedef++;
   }
+// Bsp NODES
+  cnt=wad_dir[6].lump_size/sizeof(CWadBSPNode);
+  wnode=wad_dir[6].ptr+wad(U8*);
+  if(StrCmp8("NODES",wad_dir[6].lump_name)) throw('Wad');
+  while(--cnt>=0) {
+    dnode=CAlloc(sizeof CDoomBSPNode);
+    dnode->x=wnode->x;
+    dnode->y=wnode->y;
+    dnode->dx=wnode->dx;
+    dnode->dy=wnode->dy;
+    dnode->left.x=wnode->left.x;
+    dnode->left.y=wnode->left.y;
+    dnode->left.x2=wnode->left.x2;
+    dnode->left.y2=wnode->left.y2;
+//TODO child nodes
+    dnode->right.x=wnode->right.x;
+    dnode->right.y=wnode->right.y;
+    dnode->right.x2=wnode->right.x2;
+    dnode->right.y2=wnode->right.y2;
+    QueIns(dnode,&level->bsp_nodes);
+    wnode++;
+  } 
   return level;
 }
 
@@ -277,6 +358,6 @@ CWad *wad=LoadWad("DOOM.WAD");
 CDoomLevel *l=LoadWadLevel(wad,"E1M1");
 DCFill;
 if(l)
-  DrawLevelOverview(l,gr.dc,1/16.);
+  DrawLevelOverview(l,gr.dc,1/8.,TRUE);
 DumpWad(wad);
 LoadWadGr(wad);

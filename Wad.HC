@@ -1,6 +1,7 @@
 #define DEBUG 1
 
 #include "DoomGr.HC";
+#include "Numbers/Vector.HC";
 //https://doomwiki.org/wiki/WAD
 class CWadDirectory {
   U32 ptr;
@@ -124,11 +125,29 @@ class CBoundBoxF64 {
 
 class CDoomBSPNode:CQue {
   U64 signature;
+  CDoomBSPNode *left_child,*right_child;
+  CDoomBSPNode *parent;
   F64 x,y;
   F64 dx,dy;  
   CBoundBoxF64 left,right;
 
 };
+
+Bool BoundBoxF64Inside(F64 x,F64 y,CBoundBoxF64 *box) {
+  if(box->x<box->x2) 
+    if(!(box->x<=x<=box->x2))
+      return FALSE;
+  if(box->y<box->y2) 
+    if(!(box->y<=y<=box->y2))
+      return FALSE;
+  if(box->x>box->x2) 
+    if(!(box->x2<=x<=box->x))
+      return FALSE;
+  if(box->y>box->y2) 
+    if(!(box->y2<=y<=box->y))
+      return FALSE;
+  return TRUE;
+}
 
 class CDoomLinedef:CQue {
   CD2 *start,*end;
@@ -146,10 +165,57 @@ class CDoomGr {
 class CDoomLevel {
   CQue things;
   CQue bsp_nodes;
+  CDoomBSPNode *root_node;
   I64 vertice_cnt;
   CD2 *vertices;
   CQue linedefs;
 };
+
+CDoomBSPNode *DoomWhichBSPNode(F64 x,F64 y,CDoomLevel *level) {
+  CDoomBSPNode *cur_node=level->root_node;
+  Vector pline;
+  Bool left,right;
+  CD2 dummy;
+  while(TRUE) {
+    if(!cur_node)
+      break;
+    right=left=FALSE;
+    if(BoundBoxF64Inside(x,y,&cur_node->left)) {
+      left=TRUE;
+    }
+    if(BoundBoxF64Inside(x,y,&cur_node->right)) {
+      right=TRUE;
+    }
+    if(!left&&!right) return cur_node;
+    if(left^^right) { //Check for difference
+      if(left) {
+lefts:
+        if(!cur_node->left_child) return cur_node;
+        cur_node=cur_node->left_child;
+      } else {
+rights:
+        if(!cur_node->right_child) return cur_node;
+        cur_node=cur_node->right_child;
+      }
+    } else if(left&&right) {
+//Check which side of parition line
+      pline=CreateVector(2);
+      dummy.x=x-cur_node->x;
+      dummy.y=y-cur_node->y;
+      SetVector(pline,cur_node->dx,0);
+      SetVector(pline,cur_node->dy,1);
+      if(!IsFrontSideOfVector2D(pline,&dummy)) {
+        DestroyVector(pline);
+	goto lefts;
+      }
+        DestroyVector(pline);
+	goto rights;
+//
+    }
+  }
+  return NULL;
+}
+
 
 I64 StrCmp8(U8 *a,U8 *b) {
   if(StrLen(a)>8||StrLen(b)>8)
@@ -169,13 +235,26 @@ U0 GrDrawBBox(CDC *dc,I64 x,I64 y,I64 x2,I64 y2) {
   GrLine3(dc,x,y2,0,x2,y2,0);
 }
 
-U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,Bool show_bsp=FALSE) {
+U0 DrawBSPNode(CDC *dc,I64 x,I64 y,CDoomBSPNode *node,F64 scale) {
+  dc->color=LTGREEN;
+  GrDrawBBox(dc,x+node->left.x*scale,y+node->left.y*scale,
+        x+node->left.x2*scale,y+node->left.y2*scale);
+  dc->color=LTRED;
+  GrDrawBBox(dc,x+scale*node->right.x,y+scale*node->right.y,
+        x+scale*node->right.x2,y+scale*node->right.y2);
+  dc->color=PURPLE;
+  GrArrow3(dc,node->x*scale+x,node->y*scale+y,0,
+        (node->x+node->dx)*scale+x,(node->y+node->dy)*scale+y,0);
+}
+
+U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,U8 show_bsp=TRUE) {
 //INCOMPLETE
-  CDoomBSPNode *node;
+DCFill;
+  CDoomBSPNode *node,*cur_bsp_node;
   CDoomLinedef *wall,*head=&level->linedefs;
   dc->color=RED;
   dc->thick=2;
-  I64 x=GR_WIDTH/2,y=GR_HEIGHT/2+200;
+  I64 x=GR_WIDTH/2,y=GR_HEIGHT/2+300;
   for(wall=head->next;wall!=head;wall=wall->next) {
     GrLine3(dc,
 	x+wall->start->x*scale,y+wall->start->y*scale,0,
@@ -184,17 +263,14 @@ U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,Bool show_bsp=F
   }
   if(show_bsp) {
     head=&level->bsp_nodes;
+    cur_bsp_node=DoomWhichBSPNode((ms.pos.x-x)/scale,(ms.pos.y-y)/scale,level);
     dc->thick=1;
     for(node=head->next;node!=head;node=node->next) {
-      dc->color=LTGREEN;
-      GrDrawBBox(dc,x+node->left.x*scale,y+node->left.y*scale,
-	x+node->left.x2*scale,y+node->left.y2*scale);
-      dc->color=LTRED;
-      GrDrawBBox(dc,x+scale*node->right.x,y+scale*node->right.y,
-	x+scale*node->right.x2,y+scale*node->right.y2);
-      dc->color=PURPLE;
-      GrArrow3(dc,node->x*scale+x,node->y*scale+y,0,
-	(node->x+node->dx)*scale+x,(node->y+node->dy)*scale+y,0);
+      if(node==cur_bsp_node) {
+        dc->thick=3;
+      } else 
+        dc->thick=1;
+      DrawBSPNode(dc,x,y,node,scale);
     }
   }
 }
@@ -248,7 +324,7 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   CWadVertex *vertex;
   CWadDirectory *wad_dir;
   CWadBSPNode *wnode;
-  CDoomBSPNode *dnode;
+  CDoomBSPNode *dnode,**dnode_list;
   CWadLinedef *wlinedef;
   CDoomLinedef *dlinedef;
   QueInit(&level->things);
@@ -310,7 +386,8 @@ found:
   cnt=wad_dir[6].lump_size/sizeof(CWadBSPNode);
   wnode=wad_dir[6].ptr+wad(U8*);
   if(StrCmp8("NODES",wad_dir[6].lump_name)) throw('Wad');
-  while(--cnt>=0) {
+  dnode_list=MAlloc(cnt*8);
+  for(idx=0;idx!=cnt;idx++) {
     dnode=CAlloc(sizeof CDoomBSPNode);
     dnode->x=wnode->x;
     dnode->y=wnode->y;
@@ -326,8 +403,24 @@ found:
     dnode->right.x2=wnode->right.x2;
     dnode->right.y2=wnode->right.y2;
     QueIns(dnode,&level->bsp_nodes);
+    dnode_list[idx]=dnode;
     wnode++;
   } 
+//Redo again,look for child nodes
+  wnode=wad_dir[6].ptr+wad(U8*);
+  for(idx=0;idx!=cnt;idx++) {
+    if(!(wnode->left_child&(1<<15))) {
+      dnode_list[idx]->left_child=dnode_list[wnode->left_child&(1<<15-1)];
+      dnode_list[idx]->left_child->parent=dnode_list[idx];
+    }
+    if(!(wnode->right_child&(1<<15))) {
+      dnode_list[idx]->right_child=dnode_list[wnode->right_child&(1<<15-1)];
+      dnode_list[idx]->right_child->parent=dnode_list[idx];
+    }
+    wnode++;
+  }
+  level->root_node=dnode_list[cnt-1];
+  Free(dnode_list);
   return level;
 }
 
@@ -352,12 +445,13 @@ U0 DumpWad(CWad *wad) {
   
 }
 
-
-
 CWad *wad=LoadWad("DOOM.WAD");
 CDoomLevel *l=LoadWadLevel(wad,"E1M1");
 DCFill;
 if(l)
-  DrawLevelOverview(l,gr.dc,1/8.,TRUE);
-DumpWad(wad);
-LoadWadGr(wad);
+  while(TRUE) {
+    DrawLevelOverview(l,gr.dc,1/8.,TRUE);
+    Refresh;
+  }
+//DumpWad(wad);
+//LoadWadGr(wad);

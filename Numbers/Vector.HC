@@ -197,21 +197,8 @@ U0 DestroyVector(Vector *v)
 }
 
 Bool IsFrontSideOfVector2D(Vector *v,CD2 *point) {
-  if(v->size!=2) throw('Vector'); 
-  F64 slope,x=v->data[0],y=v->data[1];
-  if(y==0) {
-    if(x>0)
-      return point->y>y;
-    return !(point->y>y);
-  } else if(x==0) {
-    if(y>0.)
-      return point->x<x;
-    return !(point->x<x);
-  }
-  slope=y/x;
-  if(point->x*slope<point->y)
-    return TRUE;
-  return FALSE;
+//https://stackoverflow.com/questions/1560492/how-to-tell-whether-a-point-is-to-the-right-or-left-side-of-a-line
+  return v->data[0]*point->y-v->data[1]*point->x>0;
 }
 
 //Main to demo vectors
@@ -248,7 +235,7 @@ U0 MainVector()
   DestroyVector(v1);
   DestroyVector(v2);
   DestroyVector(sum);
-  DestroyVector(scaled);
+  DestroyVector(scaled);
 }//MainVector;
 
 

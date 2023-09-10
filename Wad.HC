@@ -77,6 +77,23 @@ class CWadVertex {
   I16 x,y;
 };
 
+
+class CWadSeg {
+  I16 start_vertex,end_vertex;
+  I16 angle,linedef;
+//0 is same dir as linedef,else opposite
+  I16 side,offset; 
+
+};
+
+
+class CWadSubsector {
+//Consistys of SEGS
+  I16 cnt;
+  I16 first;
+}; 
+
+
 class CWad {
   U8 body[0];
   U8 ident[4];
@@ -105,6 +122,7 @@ class CDoomSidedef:CQue {
   CDoomTexture *middle_texture;
   //TODO sector
 };
+
 
 class CBoundBoxI16 {
   I16 y,y2,x,x2;
@@ -158,24 +176,40 @@ class CDoomLinedef:CQue {
   I16 sector_tag;
 };
 
+class CDoomSeg:CQue {
+  F64 x,y,x2,y2;
+  CDoomLinedef *linedef;
+};
+
+
+
+class CDoomSubsector:CQue {
+  U64 signature;
+  I64 cnt;
+  CDoomBSPNode *first;
+};
+
 class CDoomGr {
   CRGB *palette;
 };
 
 class CDoomLevel {
   CQue things;
+  CQue subsectors;
   CQue bsp_nodes;
+  CQue segs;
   CDoomBSPNode *root_node;
   I64 vertice_cnt;
   CD2 *vertices;
   CQue linedefs;
 };
 
-CDoomBSPNode *DoomWhichBSPNode(F64 x,F64 y,CDoomLevel *level) {
+CDoomBSPNode *DoomWhichBSPNode(F64 x,F64 y,CDoomLevel *level,CDoomSubsector **ss=NULL) {
   CDoomBSPNode *cur_node=level->root_node;
   Vector pline;
   Bool left,right;
   CD2 dummy;
+  if(ss) *ss=NULL;
   while(TRUE) {
     if(!cur_node)
       break;
@@ -190,11 +224,17 @@ CDoomBSPNode *DoomWhichBSPNode(F64 x,F64 y,CDoomLevel *level) {
     if(left^^right) { //Check for difference
       if(left) {
 lefts:
-        if(!cur_node->left_child) return cur_node;
+        if(cur_node->left_child->signature!='NODE') {
+	  if(ss) *ss=cur_node->left_child;
+	  return cur_node;
+	}
         cur_node=cur_node->left_child;
       } else {
 rights:
-        if(!cur_node->right_child) return cur_node;
+        if(cur_node->right_child->signature!='NODE') {
+	  if(ss) *ss=cur_node->right_child;
+	  return cur_node;
+	}
         cur_node=cur_node->right_child;
       }
     } else if(left&&right) {
@@ -249,21 +289,23 @@ U0 DrawBSPNode(CDC *dc,I64 x,I64 y,CDoomBSPNode *node,F64 scale) {
 
 U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,U8 show_bsp=TRUE) {
 //INCOMPLETE
-DCFill;
+  DCFill;
   CDoomBSPNode *node,*cur_bsp_node;
   CDoomLinedef *wall,*head=&level->linedefs;
+  CDoomSubsector *ss;
+  CDoomSeg *s;
   dc->color=RED;
   dc->thick=2;
-  I64 x=GR_WIDTH/2,y=GR_HEIGHT/2+300;
+  I64 x=GR_WIDTH/2,y=GR_HEIGHT/2+300,idx;
   for(wall=head->next;wall!=head;wall=wall->next) {
     GrLine3(dc,
-	x+wall->start->x*scale,y+wall->start->y*scale,0,
-	x+wall->end->x*scale,y+wall->end->y*scale,0
-	);
+	  x+wall->start->x*scale,y+wall->start->y*scale,0,
+	  x+wall->end->x*scale,y+wall->end->y*scale,0
+	  );
   }
   if(show_bsp) {
     head=&level->bsp_nodes;
-    cur_bsp_node=DoomWhichBSPNode((ms.pos.x-x)/scale,(ms.pos.y-y)/scale,level);
+    cur_bsp_node=DoomWhichBSPNode((ms.pos.x-x)/scale,(ms.pos.y-y)/scale,level,&ss);
     dc->thick=1;
     for(node=head->next;node!=head;node=node->next) {
       if(node==cur_bsp_node) {
@@ -271,6 +313,14 @@ DCFill;
       } else 
         dc->thick=1;
       DrawBSPNode(dc,x,y,node,scale);
+      if(ss) {
+	dc->color=YELLOW;
+        s=ss->first;
+        for(idx=0;idx!=ss->cnt;idx++) {
+	  GrLine3(dc,s->x*scale+x,s->y*scale+y,0,s->x2*scale+x,s->y2*scale+y,0);
+	  s=s->next;
+        }
+      }
     }
   }
 }
@@ -326,10 +376,16 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   CWadBSPNode *wnode;
   CDoomBSPNode *dnode,**dnode_list;
   CWadLinedef *wlinedef;
-  CDoomLinedef *dlinedef;
+  CDoomLinedef *dlinedef,*dlinedef_list;
+  CDoomSubsector *dss,*sslist;
+  CWadSubsector *wss;
+  CWadSeg *wseg;
+  CDoomSeg *dseg,*dseg_list;
   QueInit(&level->things);
   QueInit(&level->linedefs);
   QueInit(&level->bsp_nodes);
+  QueInit(&level->subsectors);
+  QueInit(&level->segs);
   wad_dir=wad->body+wad->directory_ptr;
   for(idx=0;idx!=wad->lump_cnt;idx++) {
     if(!StrCmp8(wad_dir->lump_name,level_name))
@@ -374,11 +430,13 @@ found:
   //LINEDEFS
   cnt=wad_dir[1].lump_size/sizeof(CWadLinedef);
   wlinedef=wad_dir[1].ptr+wad(U8*);
+  dlinedef_list=CAlloc(8*cnt);
   if(StrCmp8("LINEDEFS",wad_dir[1].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
     dlinedef=CAlloc(sizeof(CDoomLinedef));
     dlinedef->start=wlinedef->start_vertex+level->vertices;
     dlinedef->end=wlinedef->end_vertex+level->vertices;
+    dlinedef_list[idx]=dlinedef;
     QueIns(dlinedef,level->linedefs.last);
     wlinedef++;
   }
@@ -397,30 +455,70 @@ found:
     dnode->left.y=wnode->left.y;
     dnode->left.x2=wnode->left.x2;
     dnode->left.y2=wnode->left.y2;
-//TODO child nodes
     dnode->right.x=wnode->right.x;
     dnode->right.y=wnode->right.y;
     dnode->right.x2=wnode->right.x2;
     dnode->right.y2=wnode->right.y2;
+    dnode->signature='NODE';
     QueIns(dnode,&level->bsp_nodes);
     dnode_list[idx]=dnode;
     wnode++;
   } 
+//Load SEGS first homie
+  cnt=wad_dir[4].lump_size/sizeof(CWadSeg);
+  wseg=wad_dir[4].ptr+wad(U8*);
+  dseg_list=CAlloc(8*cnt);
+  if(StrCmp8("SEGS",wad_dir[4].lump_name)) throw('Wad');
+  for(idx=0;idx!=cnt;idx++) {
+    dseg=CAlloc(sizeof CDoomSeg);
+    dseg->x=level->vertices[wseg->start_vertex].x;
+    dseg->y=level->vertices[wseg->start_vertex].y;
+    dseg->x2=level->vertices[wseg->end_vertex].x;
+    dseg->y2=level->vertices[wseg->end_vertex].y;
+    dseg->linedef=dlinedef_list[wseg->linedef];
+    dseg_list[idx]=dseg;
+    QueIns(dseg,level->segs.last);
+    wseg++;
+  }  
+// SSECTORS 
+  cnt=wad_dir[5].lump_size/sizeof(CWadSubsector);
+  wss=wad_dir[5].ptr+wad(U8*);
+  sslist=CAlloc(cnt*8);
+  if(StrCmp8("SSECTORS",wad_dir[5].lump_name)) throw('Wad');
+  for(idx=0;idx!=cnt;idx++) {
+    dss=CAlloc(sizeof(CDoomSubsector));
+    QueIns(dss,&level->subsectors);
+    dss->signature='SSECTOR';
+    dss->cnt=wss->cnt;
+    dss->first=dseg_list[wss->first];
+    sslist[idx]=dss;
+    wss++;
+  }
 //Redo again,look for child nodes
   wnode=wad_dir[6].ptr+wad(U8*);
+  cnt=wad_dir[6].lump_size/sizeof(CWadBSPNode);
   for(idx=0;idx!=cnt;idx++) {
     if(!(wnode->left_child&(1<<15))) {
       dnode_list[idx]->left_child=dnode_list[wnode->left_child&(1<<15-1)];
       dnode_list[idx]->left_child->parent=dnode_list[idx];
+    } else {
+//SSECTORS
+      dnode_list[idx]->left_child=sslist[wnode->left_child&(1<<15-1)];
     }
     if(!(wnode->right_child&(1<<15))) {
       dnode_list[idx]->right_child=dnode_list[wnode->right_child&(1<<15-1)];
       dnode_list[idx]->right_child->parent=dnode_list[idx];
+    } else {
+//SSECTORS
+      dnode_list[idx]->right_child=sslist[wnode->right_child&(1<<15-1)];
     }
     wnode++;
   }
   level->root_node=dnode_list[cnt-1];
+  Free(sslist);
+  Free(dseg_list);
   Free(dnode_list);
+  Free(dlinedef_list);
   return level;
 }
 

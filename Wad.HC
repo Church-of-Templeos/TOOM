@@ -244,7 +244,7 @@ rights:
       dummy.y=y-cur_node->y;
       SetVector(pline,cur_node->dx,0);
       SetVector(pline,cur_node->dy,1);
-      if(!IsFrontSideOfVector2D(pline,&dummy)) {
+      if(!IsFrontSideOfVector2D(pline,&dummy)) {
         DestroyVector(pline);
 	goto lefts;
       }
@@ -376,11 +376,11 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   CWadBSPNode *wnode;
   CDoomBSPNode *dnode,**dnode_list;
   CWadLinedef *wlinedef;
-  CDoomLinedef *dlinedef,*dlinedef_list;
-  CDoomSubsector *dss,*sslist;
+  CDoomLinedef *dlinedef,**dlinedef_list;
+  CDoomSubsector *dss,**sslist;
   CWadSubsector *wss;
   CWadSeg *wseg;
-  CDoomSeg *dseg,*dseg_list;
+  CDoomSeg *dseg,**dseg_list;
   QueInit(&level->things);
   QueInit(&level->linedefs);
   QueInit(&level->bsp_nodes);
@@ -433,7 +433,7 @@ found:
   dlinedef_list=CAlloc(8*cnt);
   if(StrCmp8("LINEDEFS",wad_dir[1].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
-    dlinedef=CAlloc(sizeof(CDoomLinedef));
+    dlinedef=CAlloc(sizeof(CDoomLinedef));
     dlinedef->start=wlinedef->start_vertex+level->vertices;
     dlinedef->end=wlinedef->end_vertex+level->vertices;
     dlinedef_list[idx]=dlinedef;

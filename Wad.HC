@@ -256,6 +256,86 @@ rights:
   return NULL;
 }
 
+#include "Intersect.HC"
+
+Bool _DoomClipLinedef(F64 fov,F64 vx,F64 vy,F64 angle,CDoomLinedef *ld,CD2 *left,CD2 *right,Bool swap) {
+  CD2 at,view,view_end,tmp,tmp2;
+  I64 try_swap;
+  Bool hit_left,hit_right,res=TRUE;
+  Vector *side=CreateVector(2),*side2=CreateVector(2);
+  F64 relx,rely;
+  view.x=vx;
+  view.y=vy;
+  view_end.x=vx+65000*Cos(angle-fov/2);
+  view_end.y=vy+65000*Sin(angle-fov/2);
+  SetVector(side,view_end.x-vx,0);
+  SetVector(side,view_end.y-vy,1);
+  hit_left=PlaneIntersect(&at,&view,&view_end,ld->start,ld->end);
+  if(!left) left=&tmp;
+  if(hit_left) {
+    left->x=at.x;
+    left->y=at.y;
+  } else {
+    if(swap) {
+      left->x=ld->end->x;
+      left->y=ld->end->y;
+    } else {
+      left->x=ld->start->x;
+      left->y=ld->start->y;
+    }
+  }
+  view_end.x=vx+65000*Cos(angle+fov/2);
+  view_end.y=vy+65000*Sin(angle+fov/2);
+  SetVector(side2,view_end.x-vx,0);
+  SetVector(side2,view_end.y-vy,1);
+  hit_right=PlaneIntersect(&at,&view,&view_end,ld->start,ld->end);
+  if(!right) right=&tmp;
+  if(hit_right) {
+    right->x=at.x;
+    right->y=at.y;
+  } else {
+    if(swap) {
+      right->x=ld->start->x;
+      right->y=ld->start->y;
+    } else {
+      right->x=ld->end->x;
+      right->y=ld->end->y;
+    }
+  }
+//Check +/- fov/2 left AND right
+  res=TRUE;
+  if(!hit_left) {
+    tmp2.x=left->x-vx;
+    tmp2.y=left->y-vy;
+    if(SideOfVector2D(side2,&tmp2)>0) {
+      res=FALSE;
+    }
+    if(SideOfVector2D(side,&tmp2)<0) {
+      res=FALSE;
+    }
+  }
+  if(!hit_right) {
+    tmp2.x=right->x-vx;
+    tmp2.y=right->y-vy;
+    if(SideOfVector2D(side2,&tmp2)>0) {
+      res=FALSE;
+    }
+    if(SideOfVector2D(side,&tmp2)<0) {
+      res=FALSE;
+    }
+  }
+  DestroyVector(side);
+  DestroyVector(side2);
+  return res;
+}
+
+Bool DoomClipLinedef(F64 fov,F64 vx,F64 vy,F64 angle,CDoomLinedef *ld,CD2 *left,CD2 *right) {
+  if(_DoomClipLinedef(fov,vx,vy,angle,ld,left,right,FALSE))
+    return TRUE;
+  if(_DoomClipLinedef(fov,vx,vy,angle,ld,left,right,TRUE))
+    return TRUE;
+  return FALSE;
+}
 
 I64 StrCmp8(U8 *a,U8 *b) {
   if(StrLen(a)>8||StrLen(b)>8)
@@ -290,6 +370,8 @@ U0 DrawBSPNode(CDC *dc,I64 x,I64 y,CDoomBSPNode *node,F64 scale) {
 U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,U8 show_bsp=TRUE) {
 //INCOMPLETE
   DCFill;
+  F64 fov=45*pi/180;
+  CD2 left,right;
   CDoomBSPNode *node,*cur_bsp_node;
   CDoomLinedef *wall,*head=&level->linedefs;
   CDoomSubsector *ss;
@@ -298,12 +380,13 @@ U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,U8 show_bsp=TRU
   dc->thick=2;
   I64 x=GR_WIDTH/2,y=GR_HEIGHT/2+300,idx;
   for(wall=head->next;wall!=head;wall=wall->next) {
-    GrLine3(dc,
-	  x+wall->start->x*scale,y+wall->start->y*scale,0,
-	  x+wall->end->x*scale,y+wall->end->y*scale,0
+    if(DoomClipLinedef(fov,(ms.pos.x-x)/scale,(ms.pos.y-y)/scale,tS,wall,&left,&right))
+      GrLine3(dc,
+	  x+left.x*scale,y+left.y*scale,0,
+	  x+right.x*scale,y+right.y*scale,0
 	  );
   }
-  if(show_bsp) {
+  if(show_bsp) {
     head=&level->bsp_nodes;
     cur_bsp_node=DoomWhichBSPNode((ms.pos.x-x)/scale,(ms.pos.y-y)/scale,level,&ss);
     dc->thick=1;
@@ -433,7 +516,7 @@ found:
   dlinedef_list=CAlloc(8*cnt);
   if(StrCmp8("LINEDEFS",wad_dir[1].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
-    dlinedef=CAlloc(sizeof(CDoomLinedef));
+    dlinedef=CAlloc(sizeof(CDoomLinedef));
     dlinedef->start=wlinedef->start_vertex+level->vertices;
     dlinedef->end=wlinedef->end_vertex+level->vertices;
     dlinedef_list[idx]=dlinedef;

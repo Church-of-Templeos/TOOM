@@ -449,7 +449,7 @@ CDoomGr *LoadWadGr(CWad *wad) {
     wad_dir++;
   }
   throw('Wad');
-  found_pal:
+found_pal:
   ret->palette=LoadPLAYPALFromLump(wad->body+wad_dir->ptr);
 //Find the sprites start
   wad_dir=wad->body+wad->directory_ptr;
@@ -468,9 +468,9 @@ found_sstart:
     MemCpy(lump_name,wad_dir->lump_name,8);
     FramePtrAdd(lump_name,gr);
 #ifdef DEBUG
-//    GrBlot(,0,0,gr);
-//    Sleep(100);
-#endif
+    //    GrBlot(,0,0,gr);
+    //    Sleep(100);
+    #endif
     goto found_sstart;
   }
 //Yeah homie,im straight up gunna load Flats. Take a moment to praise God
@@ -485,20 +485,51 @@ found_sstart:
 found_fstart:
   wad_dir++; //Move past S_START
   if(StrCmp8(wad_dir->lump_name,"F_END")) {
-    gr=ReadDoomFlat(wad->body+wad_dir->ptr,ret->palette);
-    lump_name[8]=0;
-    MemCpy(lump_name,wad_dir->lump_name,8);
-    FramePtrAdd(lump_name,gr);
+//There are lumps like F1_START/F1_END/F2_START/F2_END
+    //There are empty are are used for shareware/registered lumps
+    if(wad_dir->lump_size) {
+      gr=ReadDoomFlat(wad->body+wad_dir->ptr,ret->palette);
+      lump_name[8]=0;
+      MemCpy(lump_name,wad_dir->lump_name,8);
+      FramePtrAdd(lump_name,gr);
 #ifdef DEBUG
-    GrBlot(,0,0,gr);
-    Sleep(100);
-#endif
+          GrBlot(,0,0,gr);
+          Sleep(100);
+      #endif
+    }
     goto found_fstart;
+  }
+//Load wall patches
+  wad_dir=wad->body+wad->directory_ptr;
+  for(idx=0;idx!=wad->lump_cnt;idx++) {
+    if(!StrCmp8(wad_dir->lump_name,"P_START")) {
+      goto found_pstart;
+    }
+    wad_dir++;
+  }
+  throw('Wad'); 
+found_pstart:
+  wad_dir++; //Move past S_START
+  if(StrCmp8(wad_dir->lump_name,"P_END")) {
+//There are lumps like P1_START/P1_END/P2_START/P2_END
+    //There are empty are are used for shareware/registered lumps
+    if(wad_dir->lump_size) {
+      lump_name[8]=0;
+      MemCpy(lump_name,wad_dir->lump_name,8);
+      gr=ReadDoomImage(wad,wad->body+wad_dir->ptr,ret->palette);
+      FramePtrAdd(lump_name,gr);
+#ifdef DEBUG
+      GrBlot(,0,0,gr);
+      Sleep(100);
+#endif
+    }
+    goto found_pstart;
   }
 }
 
 CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   I64 idx,cnt;
+  U8 name[9];
   CDoomLevel *level=CAlloc(sizeof CDoomLevel);
   CDoomThing *dthing;
   CWadThing *wthing;
@@ -511,7 +542,7 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   CDoomSubsector *dss,**sslist;
   CWadSubsector *wss;
   CWadSeg *wseg;
-  CDoomSeg *dseg,**dseg_list;
+  CDoomSeg *dseg,**dseg_list;
   CWadSector *wsect;
   CDoomSector **dsect_list,*dsect;
   QueInit(&level->sectors);
@@ -520,6 +551,7 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   QueInit(&level->bsp_nodes);
   QueInit(&level->subsectors);
   QueInit(&level->segs);
+  name[8]=0;
   wad_dir=wad->body+wad->directory_ptr;
   for(idx=0;idx!=wad->lump_cnt;idx++) {
     if(!StrCmp8(wad_dir->lump_name,level_name))
@@ -659,7 +691,10 @@ found:
     QueIns(dsect,&level->sectors);
     dsect->floor_height=wsect->floor_height;
     dsect->ceil_height=wsect->ceil_height;
-//TODO textures
+    MemCpy(name,wsect->floor_texture_name,8);
+    dsect->floor_dc=FramePtr(name);
+    MemCpy(name,wsect->ceil_texture_name,8);
+    dsect->ceil_dc=FramePtr(name);
     dsect->base_light_level=wsect->light_level;
     dsect->cur_light_level=wsect->light_level;
     dsect->special_type=wsect->special_type;
@@ -708,12 +743,12 @@ U0 DumpWad(CWad *wad) {
 }
 
 CWad *wad=LoadWad("DOOM.WAD");
+DumpWad(wad);
+LoadWadGr(wad);
 CDoomLevel *l=LoadWadLevel(wad,"E1M1");
 DCFill;
-/*if(l)
+if(l)
   while(TRUE) {
     DrawLevelOverview(l,gr.dc,1/8.,TRUE);
     Refresh;
-  }*/
-//DumpWad(wad);
-LoadWadGr(wad);
+  }

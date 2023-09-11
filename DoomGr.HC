@@ -87,7 +87,7 @@ CDC *ReadDoomImage(U8 *wad_base,CDoomImage *header,CRGB *colors_pal) {
   return ptr;
 }
 
-CDC *ReadDoomFlat(U8 *flat,CRGB *pal) {
+CDC *ReadDoomFlat(U8 *flat,CRGB *pal) {
   CRGB *flat3=CAlloc(4*64*64);
   I64 idx=64*64;
   CDC *ret;

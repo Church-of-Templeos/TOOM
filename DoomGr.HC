@@ -28,7 +28,7 @@ CDC *PaletteizeImage(I64 w,I64 h,CRGB *data) {
       cur_pixel=data[x+y*w];
       best_color=0;
       best_dist=1e100;
-      if(!cur_pixel.a)  {
+      if(!cur_pixel.a)  {
         for(canidate=0;canidate!=16;canidate++) {
 	  dist=Sqrt(Sqr(normal[canidate].r-cur_pixel.r)+
 	        Sqr(normal[canidate].g-cur_pixel.g)+
@@ -87,6 +87,16 @@ CDC *ReadDoomImage(U8 *wad_base,CDoomImage *header,CRGB *colors_pal) {
   return ptr;
 }
 
+CDC *ReadDoomFlat(U8 *flat,CRGB *pal) {
+  CRGB *flat3=CAlloc(4*64*64);
+  I64 idx=64*64;
+  CDC *ret;
+  while(--idx>=0)
+    flat3[idx]=pal[flat[idx]];
+  ret=PaletteizeImage(64,64,flat3);
+  Free(flat3);
+  return ret;
+}
 CRGB *LoadPLAYPALFromLump(U8 *lump) {
   CRGB *ret=CAlloc(sizeof(CRGB)*256);
   I64 cnt;

@@ -124,6 +124,7 @@ class CDoomSidedef:CQue {
 };
 
 
+
 class CBoundBoxI16 {
   I16 y,y2,x,x2;
 };
@@ -193,16 +194,42 @@ class CDoomGr {
   CRGB *palette;
 };
 
+class CDoomSector:CQue {
+  CDC *floor_dc;
+  CDC *ceil_dc;
+  F64 ceil_height;
+  F64 floor_height;
+  F64 base_light_level,cur_light_level;
+  I64 special_type;
+  I64 linedef_cnt;
+  CDoomLinedef **linedefs;
+//TODO make up polygon(s) lines
+};
+
+
+
 class CDoomLevel {
   CQue things;
   CQue subsectors;
   CQue bsp_nodes;
   CQue segs;
+  CQue sectors;
   CDoomBSPNode *root_node;
   I64 vertice_cnt;
   CD2 *vertices;
   CQue linedefs;
 };
+
+
+
+
+U0 AddLinedefToSector(CDoomSector *ld,CDoomSector *s) {
+  CDoomLinedef **list=MAlloc(8*s->linedef_cnt);
+  if(s->linedef_cnt)
+    MemCpy(list,s->linedefs,8*s->linedef_cnt++);
+  Free(s->linedefs);
+  s->linedefs=list;
+}
 
 CDoomBSPNode *DoomWhichBSPNode(F64 x,F64 y,CDoomLevel *level,CDoomSubsector **ss=NULL) {
   CDoomBSPNode *cur_node=level->root_node;
@@ -368,7 +395,6 @@ U0 DrawBSPNode(CDC *dc,I64 x,I64 y,CDoomBSPNode *node,F64 scale) {
 }
 
 U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,U8 show_bsp=TRUE) {
-//INCOMPLETE
   DCFill;
   F64 fov=45*pi/180;
   CD2 left,right;
@@ -386,7 +412,7 @@ U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,U8 show_bsp=TRU
 	  x+right.x*scale,y+right.y*scale,0
 	  );
   }
-  if(show_bsp) {
+  if(show_bsp) {
     head=&level->bsp_nodes;
     cur_bsp_node=DoomWhichBSPNode((ms.pos.x-x)/scale,(ms.pos.y-y)/scale,level,&ss);
     dc->thick=1;
@@ -447,6 +473,28 @@ found_sstart:
 #endif
     goto found_sstart;
   }
+//Yeah homie,im straight up gunna load Flats. Take a moment to praise God
+  wad_dir=wad->body+wad->directory_ptr;
+  for(idx=0;idx!=wad->lump_cnt;idx++) {
+    if(!StrCmp8(wad_dir->lump_name,"F_START")) {
+      goto found_fstart;
+    }
+    wad_dir++;
+  }
+  throw('Wad');
+found_fstart:
+  wad_dir++; //Move past S_START
+  if(StrCmp8(wad_dir->lump_name,"F_END")) {
+    gr=ReadDoomFlat(wad->body+wad_dir->ptr,ret->palette);
+    lump_name[8]=0;
+    MemCpy(lump_name,wad_dir->lump_name,8);
+    FramePtrAdd(lump_name,gr);
+#ifdef DEBUG
+    GrBlot(,0,0,gr);
+    Sleep(100);
+#endif
+    goto found_fstart;
+  }
 }
 
 CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
@@ -463,7 +511,10 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   CDoomSubsector *dss,**sslist;
   CWadSubsector *wss;
   CWadSeg *wseg;
-  CDoomSeg *dseg,**dseg_list;
+  CDoomSeg *dseg,**dseg_list;
+  CWadSector *wsect;
+  CDoomSector **dsect_list,*dsect;
+  QueInit(&level->sectors);
   QueInit(&level->things);
   QueInit(&level->linedefs);
   QueInit(&level->bsp_nodes);
@@ -598,6 +649,36 @@ found:
     wnode++;
   }
   level->root_node=dnode_list[cnt-1];
+//SECTORS
+  cnt=wad_dir[7].lump_size/sizeof(CWadSector);
+  wsect=wad_dir[7].ptr+wad(U8*);
+  dsect_list=CAlloc(cnt*8);
+  if(StrCmp8("SECTORS",wad_dir[7].lump_name)) throw('Wad');
+  for(idx=0;idx!=cnt;idx++) {
+    dsect=CAlloc(sizeof(CDoomSector));
+    QueIns(dsect,&level->sectors);
+    dsect->floor_height=wsect->floor_height;
+    dsect->ceil_height=wsect->ceil_height;
+//TODO textures
+    dsect->base_light_level=wsect->light_level;
+    dsect->cur_light_level=wsect->light_level;
+    dsect->special_type=wsect->special_type;
+    dsect_list[idx]=dsect;
+    wsect++;
+  }
+//SECTORS(2) Get all the linedefs for the sector
+  cnt=wad_dir[1].lump_size/sizeof(CWadLinedef);
+  wlinedef=wad_dir[1].ptr+wad(U8*);
+  dlinedef_list=CAlloc(8*cnt);
+  if(StrCmp8("LINEDEFS",wad_dir[1].lump_name)) throw('Wad');
+  for(idx=0;idx!=cnt;idx++) {
+    AddLinedefToSector(
+	dlinedef_list[idx],
+	dsect_list[wlinedef->sector_tag]
+	);
+    wlinedef++;
+  }
+  Free(dsect_list);
   Free(sslist);
   Free(dseg_list);
   Free(dnode_list);
@@ -629,10 +710,10 @@ U0 DumpWad(CWad *wad) {
 CWad *wad=LoadWad("DOOM.WAD");
 CDoomLevel *l=LoadWadLevel(wad,"E1M1");
 DCFill;
-if(l)
+/*if(l)
   while(TRUE) {
     DrawLevelOverview(l,gr.dc,1/8.,TRUE);
     Refresh;
-  }
+  }*/
 //DumpWad(wad);
-//LoadWadGr(wad);
+LoadWadGr(wad);

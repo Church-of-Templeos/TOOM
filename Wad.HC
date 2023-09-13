@@ -274,6 +274,98 @@ U0 LoadWadTEXTUREs(CWadTEXTURE1 *header,CDoomGr *gr) {
   }
 }
 
+// Patches.
+// A patch holds one or more columns.
+// Patches are used for sprites and all masked pictures,
+// and we compose textures from the TEXTURE1/2 lists
+// of patches.
+class patch_t 
+{ 
+    I32 width;		// bounding box size 
+    I32 height; 
+    I32 leftoffset;	// pixels to the left of origin 
+    I32 topoffset;	// pixels below the origin 
+    I64 columnofs[8];	// only [width] used
+    // the [0] is &columnofs[width] 
+};
+
+
+//
+// W_CheckNumForName
+// Returns -1 if name not found.
+//
+
+I64 W_CheckNumForName (U8 name)
+{
+    union {
+	char	s[9];
+	int	x[2];
+	
+    } name8;
+    
+    int		v1;
+    int		v2;
+    lumpinfo_t*	lump_p;
+
+    // make the name into two integers for easy compares
+    strncpy (name8.s,name,8);
+
+    // in case the name was a fill 8 chars
+    name8.s[8] = 0;
+
+    // case insensitive
+    strupr (name8.s);		
+
+    v1 = name8.x[0];
+    v2 = name8.x[1];
+
+
+    // scan backwards so patch lump files take precedence
+    lump_p = lumpinfo + numlumps;
+
+    while (lump_p-- != lumpinfo)
+    {
+	if ( *(int *)lump_p->name == v1
+	     && *(int *)&lump_p->name[4] == v2)
+	{
+	    return lump_p - lumpinfo;
+	}
+    }
+
+    // TFB. Not found.
+    return -1;
+}
+
+//
+// W_GetNumForName
+// Calls W_CheckNumForName, but bombs out if not found.
+//
+U0 W_GetNumForName (U8 *name)
+{
+    int	i;
+
+    i = W_CheckNumForName (name);
+    
+    if (i == -1)
+      PutExcept("W_GetNumForName: %s not found!", name);
+      
+    return i;
+}
+
+
+//
+// W_LumpLength
+// Returns the buffer size needed to load the given lump.
+//
+U0 W_LumpLength (I64 lump)
+{
+    if (lump >= numlumps)
+	PutExcept("W_LumpLength: %i >= numlumps",lump);
+
+    return lumpinfo[lump].size;
+}
+
+
 U0 AddLinedefToSector(CDoomSector *ld,CDoomSector *s) {
   CDoomLinedef **list=MAlloc(8*s->linedef_cnt);
   if(s->linedef_cnt)

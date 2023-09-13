@@ -1,3 +1,5 @@
+#ifndef DOOM_WAD
+#define DOOM_WAD
 #define DEBUG 1
 
 #include "DoomGr.HC";
@@ -110,17 +112,14 @@ class CDoomThing:CQue {
   F64 x,y,angle;
   I16 thing_type,flags;
 };
-
-class CDoomTexture:CQue {
-  CDC *todo;
-};
+extern class CDoomSector;
 
 class CDoomSidedef:CQue {
   I16 yoff,xoff;
-  CDoomTexture *ceil_texture;
-  CDoomTexture *floor_texture;
-  CDoomTexture *middle_texture;
-  //TODO sector
+  CDC *upper_texture;
+  CDC *lower_texture;
+  CDC *middle_texture;
+  CDoomSector *sector;
 };
 
 
@@ -182,8 +181,6 @@ class CDoomSeg:CQue {
   CDoomLinedef *linedef;
 };
 
-
-
 class CDoomSubsector:CQue {
   U64 signature;
   I64 cnt;
@@ -211,7 +208,7 @@ class CDoomSector:CQue {
 
 
 class CDoomLevel {
-  CQue things;
+  CQue things,sidedefs;
   CQue subsectors;
   CQue bsp_nodes;
   CQue segs;
@@ -269,10 +266,17 @@ U0 LoadWadTEXTUREs(CWadTEXTURE1 *header,CDoomGr *gr) {
 	patch);
     } 
     FramePtrAdd(name,result);
-    GrBlot(,0,0,result);
-    Sleep(10);
+//    GrBlot(,0,0,result);
+//    Sleep(10);
   }
 }
+
+I64 StrCmp8(U8 *a,U8 *b) {
+  if(StrLen(a)>8||StrLen(b)>8)
+    return StrNCmp(a,b,8);
+  return StrCmp(a,b);
+}
+
 
 // Patches.
 // A patch holds one or more columns.
@@ -295,46 +299,41 @@ class patch_t
 // Returns -1 if name not found.
 //
 
-I64 W_CheckNumForName (U8 name)
+I64 W_CheckNumForName (U8 *name,CWad *doom_wad)
 {
-    union {
-	char	s[9];
-	int	x[2];
-	
-    } name8;
+
+    U8 name8[9];    
     
-    int		v1;
-    int		v2;
-    lumpinfo_t*	lump_p;
+    I32		v1;
+    I32		v2;
+    CWadDirectory*	lump_p;
 
     // make the name into two integers for easy compares
-    strncpy (name8.s,name,8);
+    MemCpy (name8,name,8);
 
     // in case the name was a fill 8 chars
-    name8.s[8] = 0;
+    name8[8] = 0;
 
     // case insensitive
-    strupr (name8.s);		
-
-    v1 = name8.x[0];
-    v2 = name8.x[1];
-
+    for(v1=0;v1!=8;v1++)
+      name8[v1]=ToUpper(name8[v1]);
 
     // scan backwards so patch lump files take precedence
-    lump_p = lumpinfo + numlumps;
+    CWadDirectory *lumpinfo = doom_wad(U8*)+doom_wad->directory_ptr;
+    lump_p=lumpinfo+doom_wad->lump_cnt;
 
     while (lump_p-- != lumpinfo)
     {
-	if ( *(int *)lump_p->name == v1
-	     && *(int *)&lump_p->name[4] == v2)
+	if (!StrCmp8(lump_p->lump_name,name8))
 	{
 	    return lump_p - lumpinfo;
 	}
     }
 
-    // TFB. Not found.
-    return -1;
+   return -1;
 }
+
+#if 0 //Sorry,make sure the code compiles
 
 //
 // W_GetNumForName
@@ -364,14 +363,31 @@ U0 W_LumpLength (I64 lump)
 
     return lumpinfo[lump].size;
 }
-
+#endif
+//
+//Nroot,get lump by num
+//
+U8 *W_GetLumpPtrFromNum(I64 idx,CWad *wad,I64 *lump_len=NULL) {
+  CWadDirectory *dir=wad(U8*)+wad->directory_ptr;
+  dir+=idx;
+  if(lump_len) *lump_len=dir->lump_size;
+  return wad(U8*)+dir->ptr;
+} 
+//
+// Nroot,Get pointer to lump
+//
+U8 *W_GetLumpPtrFromName(U8 *name,CWad *wad,I64 *lump_len=NULL) {
+  I64 idx=W_CheckNumForName(name,wad);
+  return W_GetLumpPtrFromNum(idx,wad,lump_len);
+}
 
 U0 AddLinedefToSector(CDoomSector *ld,CDoomSector *s) {
-  CDoomLinedef **list=MAlloc(8*s->linedef_cnt);
+  CDoomLinedef **list=MAlloc(8*(s->linedef_cnt+1));
   if(s->linedef_cnt)
-    MemCpy(list,s->linedefs,8*s->linedef_cnt++);
+    MemCpy(list,s->linedefs,8*s->linedef_cnt);
   Free(s->linedefs);
   s->linedefs=list;
+  list[s->linedef_cnt++]=ld;
 }
 
 CDoomBSPNode *DoomWhichBSPNode(F64 x,F64 y,CDoomLevel *level,CDoomSubsector **ss=NULL) {
@@ -507,13 +523,6 @@ Bool DoomClipLinedef(F64 fov,F64 vx,F64 vy,F64 angle,CDoomLinedef *ld,CD2 *left,
   return FALSE;
 }
 
-I64 StrCmp8(U8 *a,U8 *b) {
-  if(StrLen(a)>8||StrLen(b)>8)
-    return StrNCmp(a,b,8);
-  return StrCmp(a,b);
-}
-
-
 U0 GrDrawBBox(CDC *dc,I64 x,I64 y,I64 x2,I64 y2) {
 //Top
   GrLine3(dc,x,y,0,x2,y,0);
@@ -599,25 +608,11 @@ CDoomGr *LoadWadGr(CWad *wad) {
   U8 lump_name[9];
   CWadPnames *pnames;
   CDC *gr;
-//Load Play palette
-  wad_dir=wad->body+wad->directory_ptr;
-  for(idx=0;idx!=wad->lump_cnt;idx++) {
-    if(!StrCmp8(wad_dir->lump_name,"PLAYPAL"))
-      goto found_pal;
-    wad_dir++;
-  }
-  throw('Wad');
-found_pal:
-  ret->palette=LoadPLAYPALFromLump(wad->body+wad_dir->ptr);
+//Load Player palett
+  ret->palette=LoadPLAYPALFromLump(W_GetLumpPtrFromName("PLAYPAL",wad));
 //Find the sprites start
   wad_dir=wad->body+wad->directory_ptr;
-  for(idx=0;idx!=wad->lump_cnt;idx++) {
-    if(!StrCmp8(wad_dir->lump_name,"S_START")) {
-      goto found_sstart;
-    }
-    wad_dir++;
-  }
-  throw('Wad'); 
+  wad_dir+=W_CheckNumForName("S_START",wad);
 found_sstart:
   wad_dir++; //Move past S_START
   if(StrCmp8(wad_dir->lump_name,"S_END")) {
@@ -626,22 +621,16 @@ found_sstart:
     MemCpy(lump_name,wad_dir->lump_name,8);
     FramePtrAdd(lump_name,gr);
 #ifdef DEBUG
-    GrBlot(,0,0,gr);
-    Sleep(10);
+//    GrBlot(,0,0,gr);
+//    Sleep(10);
 #endif
     goto found_sstart;
   }
 //Yeah homie,im straight up gunna load Flats. Take a moment to praise God
   wad_dir=wad->body+wad->directory_ptr;
-  for(idx=0;idx!=wad->lump_cnt;idx++) {
-    if(!StrCmp8(wad_dir->lump_name,"F_START")) {
-      goto found_fstart;
-    }
-    wad_dir++;
-  }
-  throw('Wad');
+  wad_dir+=W_CheckNumForName("F_START",wad);
 found_fstart:
-  wad_dir++; //Move past S_START
+  wad_dir++; //Move past F_START
   if(StrCmp8(wad_dir->lump_name,"F_END")) {
 //There are lumps like F1_START/F1_END/F2_START/F2_END
     //There are empty are are used for shareware/registered lumps
@@ -651,21 +640,15 @@ found_fstart:
       MemCpy(lump_name,wad_dir->lump_name,8);
       FramePtrAdd(lump_name,gr);
 #ifdef DEBUG
-      GrBlot(,0,0,gr);
-      Sleep(10);
+//      GrBlot(,0,0,gr);
+//      Sleep(10);
 #endif
     }
     goto found_fstart;
   }
 //Load Wall Patch names
   wad_dir=wad->body+wad->directory_ptr;
-  for(idx=0;idx!=wad->lump_cnt;idx++) {
-    if(!StrCmp8(wad_dir->lump_name,"PNAMES")) {
-      goto found_pnames;
-    }
-    wad_dir++;
-  }
-  throw('Wad');
+  wad_dir+=W_CheckNumForName("PNAMES",wad);
 found_pnames:
   pnames=wad->body+wad_dir->ptr;
   ret->pname_cnt=pnames->len;
@@ -673,13 +656,7 @@ found_pnames:
   MemCpy(ret->pnames,pnames->names,ret->pname_cnt*8);
 //Load wall patches
   wad_dir=wad->body+wad->directory_ptr;
-  for(idx=0;idx!=wad->lump_cnt;idx++) {
-    if(!StrCmp8(wad_dir->lump_name,"P_START")) {
-      goto found_pstart;
-    }
-    wad_dir++;
-  }
-  throw('Wad');
+  wad_dir+=W_CheckNumForName("P_START",wad);
 found_pstart:
   wad_dir++; //Move past S_START
   if(StrCmp8(wad_dir->lump_name,"P_END")) {
@@ -690,23 +667,16 @@ found_pstart:
       MemCpy(lump_name,wad_dir->lump_name,8);
       gr=ReadDoomImage(wad,wad->body+wad_dir->ptr,ret->palette);
 #ifdef DEBUG
-      GrBlot(,0,0,gr);
-      Sleep(10);
+//      GrBlot(,0,0,gr);
+//      Sleep(10);
 #endif
       FramePtrAdd(lump_name,gr);
     }
     goto found_pstart;
   }
-  wad_dir=wad->body+wad->directory_ptr;
-  for(idx=0;idx!=wad->lump_cnt;idx++) {
-    if(!StrCmp8(wad_dir->lump_name,"TEXTURE1")) {
-      LoadWadTEXTUREs(wad(U8*)+wad_dir->ptr,ret);
-    }
-    if(!StrCmp8(wad_dir->lump_name,"TEXTURE2")) {
-      LoadWadTEXTUREs(wad(U8*)+wad_dir->ptr,ret);
-    }
-    wad_dir++;
-  }
+  LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE1",wad),ret);
+  if(W_GetLumpPtrFromName("TEXTURE2",wad)>=0)
+    LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE2",wad),ret);
   return ret;
 }
 
@@ -728,6 +698,9 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   CDoomSeg *dseg,**dseg_list;
   CWadSector *wsect;
   CDoomSector **dsect_list,*dsect;
+  CWadSidedef *wside;
+  CDoomSidedef *dside,**dside_list;
+  QueInit(&level->sidedefs);
   QueInit(&level->sectors);
   QueInit(&level->things);
   QueInit(&level->linedefs);
@@ -771,8 +744,27 @@ found:
     level->vertices[idx].x=vertex->x;
     level->vertices[idx].y=vertex->y;
     vertex++;
+  }
+//SIDEDEFS
+  cnt=wad_dir[2].lump_size/sizeof(CWadSidedef);
+  wside=wad_dir[2].ptr+wad(U8*);
+  dside_list=MAlloc(8*cnt);
+  if(StrCmp8("SIDEDEFS",wad_dir[2].lump_name)) throw('Wad');
+  for(idx=0;idx!=cnt;idx++) {
+    dside=CAlloc(sizeof CDoomSidedef);
+    dside->xoff=wside->x_offset;
+    dside->yoff=wside->y_offset;
+    name[8]=0;
+    MemCpy(name,wside->middle_texture_name,8);
+    dside->middle_texture=FramePtr(name);
+    MemCpy(name,wside->upper_texture_name,8);
+    dside->upper_texture=FramePtr(name);
+    MemCpy(name,wside->lower_texture_name,8);
+    dside->lower_texture=FramePtr(name);
+    dside_list[idx]=dside;
+    wside++;
   }  
-  //LINEDEFS
+//LINEDEFS
   cnt=wad_dir[1].lump_size/sizeof(CWadLinedef);
   wlinedef=wad_dir[1].ptr+wad(U8*);
   dlinedef_list=CAlloc(8*cnt);
@@ -781,6 +773,10 @@ found:
     dlinedef=CAlloc(sizeof(CDoomLinedef));
     dlinedef->start=wlinedef->start_vertex+level->vertices;
     dlinedef->end=wlinedef->end_vertex+level->vertices;
+    if(wlinedef->front!=-1)
+      dlinedef->front=dside_list[wlinedef->front];
+    if(wlinedef->front!=-1)
+      dlinedef->back=dside_list[wlinedef->back];
     dlinedef_list[idx]=dlinedef;
     QueIns(dlinedef,level->linedefs.last);
     wlinedef++;
@@ -883,15 +879,21 @@ found:
 //SECTORS(2) Get all the linedefs for the sector
   cnt=wad_dir[1].lump_size/sizeof(CWadLinedef);
   wlinedef=wad_dir[1].ptr+wad(U8*);
-  dlinedef_list=CAlloc(8*cnt);
   if(StrCmp8("LINEDEFS",wad_dir[1].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
     AddLinedefToSector(
 	dlinedef_list[idx],
 	dsect_list[wlinedef->sector_tag]
 	);
-    wlinedef++;
   }
+//SECTORS(3) Get sidedefs for the sector
+  cnt=wad_dir[2].lump_size/sizeof(CWadSidedef);
+  wside=wad_dir[2].ptr+wad(U8*);
+  for(idx=0;idx!=cnt;idx++) {
+    dside_list[idx]->sector=dsect_list[wside->sector];
+    wside++;
+  }
+  Free(dside_list);
   Free(dsect_list);
   Free(sslist);
   Free(dseg_list);
@@ -922,13 +924,14 @@ U0 DumpWad(CWad *wad) {
 }
 
 CWad *wad=LoadWad("DOOM.WAD");
-DumpWad(wad);
+//DumpWad(wad);
 CDoomGr *dgr=LoadWadGr(wad);
-
-CDoomLevel *l=LoadWadLevel(wad,"E1M1");
-DCFill;
+CDoomLevel *l=LoadWadLevel(wad,"E1M1");;
+/*DCFill;
 if(l)
   while(TRUE) {
     DrawLevelOverview(l,gr.dc,1/8.,FALSE);
     Refresh;
   }
+*/
+#endif

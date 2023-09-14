@@ -174,6 +174,10 @@ class CDoomLinedef:CQue {
   I16 flags;
   I16 special_type;
   I16 sector_tag;
+  I16 pad;
+//private
+  CD2 clip_start,clip_end;
+  Bool in_view;
 };
 
 class CDoomSeg:CQue {
@@ -202,7 +206,7 @@ class CDoomSector:CQue {
   I64 special_type;
   I64 linedef_cnt;
   CDoomLinedef **linedefs;
-//TODO make up polygon(s) lines
+//TODO make up polygon(s) lines
 };
 
 
@@ -387,6 +391,7 @@ U0 AddLinedefToSector(CDoomSector *ld,CDoomSector *s) {
     MemCpy(list,s->linedefs,8*s->linedef_cnt);
   Free(s->linedefs);
   s->linedefs=list;
+PrintF("linedef",s->linedef_cnt);
   list[s->linedef_cnt++]=ld;
 }
 
@@ -876,22 +881,30 @@ found:
     dsect_list[idx]=dsect;
     wsect++;
   }
-//SECTORS(2) Get all the linedefs for the sector
-  cnt=wad_dir[1].lump_size/sizeof(CWadLinedef);
-  wlinedef=wad_dir[1].ptr+wad(U8*);
-  if(StrCmp8("LINEDEFS",wad_dir[1].lump_name)) throw('Wad');
-  for(idx=0;idx!=cnt;idx++) {
-    AddLinedefToSector(
-	dlinedef_list[idx],
-	dsect_list[wlinedef->sector_tag]
-	);
-  }
-//SECTORS(3) Get sidedefs for the sector
+//SECTORS(2) Get sidedefs for the sector
   cnt=wad_dir[2].lump_size/sizeof(CWadSidedef);
   wside=wad_dir[2].ptr+wad(U8*);
   for(idx=0;idx!=cnt;idx++) {
     dside_list[idx]->sector=dsect_list[wside->sector];
     wside++;
+  }
+//SECTORS(3) Get all the linedefs for the sector
+  cnt=wad_dir[1].lump_size/sizeof(CWadLinedef);
+  wlinedef=wad_dir[1].ptr+wad(U8*);
+  if(StrCmp8("LINEDEFS",wad_dir[1].lump_name)) throw('Wad');
+  for(idx=0;idx!=cnt;idx++) {
+    if(dlinedef_list[idx]->front) {
+    AddLinedefToSector(
+	dlinedef_list[idx],
+	dlinedef_list[idx]->front->sector,
+	);
+    }
+    if(dlinedef_list[idx]->back) {     
+    AddLinedefToSector(
+	dlinedef_list[idx],
+	dlinedef_list[idx]->back->sector,
+	);
+    }
   }
   Free(dside_list);
   Free(dsect_list);

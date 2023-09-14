@@ -3,7 +3,7 @@ class CDoomCamera {
   F64 x,y,h;
   F64 angle,fov;
 };
-#define GRID_SZ 64
+#define GRID_SZ  128
 #define DIST_SCALE (GR_HEIGHT*GRID_SZ*3)
 /*
  * Listen up,here's the deal
@@ -14,6 +14,7 @@ class CDoomCamera {
  */
 F64 Shrink(F64 vangle,F64 distance,F64 height=GR_HEIGHT) {
   distance*=Cos(vangle);  
+  if(!distance) return height;
   return (DIST_SCALE/distance);
 }
 
@@ -24,11 +25,9 @@ F64 SectorHighestCeilHeight(CDoomSector *sector) {
   for(idx=0;idx!=sector->linedef_cnt;idx++) {
     ld=sector->linedefs[idx];
     if(ld->front)
-      if(ld->front->sector!=sector)
-	highest=Max(ld->front->sector->ceil_height,highest);
+      highest=Min(ld->front->sector->ceil_height,highest);
     if(ld->back)
-      if(ld->back->sector!=sector)
-	highest=Max(ld->back->sector->ceil_height,highest);
+      highest=Min(ld->back->sector->ceil_height,highest);
   }
   return highest;
 }
@@ -41,9 +40,9 @@ F64 SectorLowestFloorHeight(CDoomSector *sector) {
   for(idx=0;idx!=sector->linedef_cnt;idx++) {
     ld=sector->linedefs[idx];
     if(ld->front)
-	lowest=Min(ld->front->sector->floor_height,lowest);
+      lowest=Max(ld->front->sector->floor_height,lowest);
     if(ld->back)
-	lowest=Min(ld->back->sector->floor_height,lowest);
+      lowest=Max(ld->back->sector->floor_height,lowest);
   }
   return lowest;
 }
@@ -62,7 +61,8 @@ F64 PointToBaseY(CDoomCamera *cam,F64 h,CD2 *coord) {
   F64 y=coord->y-cam->y;
   F64 dist=Sqrt(x*x+y*y);
   F64 angle=Arg(x,y);
-  return cam->h+Shrink(angle-cam->angle,dist,h)+GR_HEIGHT/2;
+  F64 without_h=cam->h+Shrink(angle-cam->angle,dist)+GR_HEIGHT/2;
+  return without_h-Shrink(angle-cam->angle,dist)/GR_HEIGHT*h;
 }
 
 I64 PointToLinedefSegment(CDoomCamera *cam,CDoomLinedef *def,CD2 *coord) {
@@ -83,35 +83,57 @@ F64 Lerp(F64 per,F64 min,F64 max) {
 
 }
 
+U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture) {
+  if(!sector->linedef_cnt) return;
+  CD3 *polygon=CAlloc(2*sector->linedef_cnt*sizeof(CD3));
+  CD2 *p;
+  I64 idx,actual_cnt=0;
+  for(idx=0;idx<sector->linedef_cnt;idx++) {
+    if(sector->linedefs[idx]->in_view) {
+      polygon[actual_cnt].x=PointToScreenX(cam,p=&sector->linedefs[idx]->clip_start);
+      polygon[actual_cnt].z=10;
+      polygon[actual_cnt].y=PointToBaseY(cam,at,p);    
+      polygon[actual_cnt+1].x=PointToScreenX(cam,p=&sector->linedefs[idx]->clip_end);
+      polygon[actual_cnt+1].z=10;
+      polygon[actual_cnt+1].y=PointToBaseY(cam,at,p);    
+      actual_cnt+=2;
+    } else {
+    }
+  }
+  if(!actual_cnt) goto fin;
+  for(idx=0;idx<actual_cnt;idx+=2) {
+    to_dc->color=YELLOW;
+    to_dc->thick=1;
+    GrLine3(to_dc,polygon[idx].x,polygon[idx].y,10,polygon[idx+1].x,polygon[idx+1].y,10);
+  }
+fin:
+ Free(polygon);
+} 
+
 U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
-	I64 start_seg,I64 end_seg,CDC *texture) {
-  F64 cx,h,cy,at_y;
-  I64 texture_x;
+	I64 start_seg,I64 end_seg,CDC *texture,F64 sz,F64 ez) {
+  F64 cx,h,cy,at_y,cur_z;
+  I64 texture_x,texture_y;
   if(sx>ex) {
     SwapI64(&sx,&ex);
     SwapI64(&sy,&ey);
     SwapI64(&sh,&eh);
+    SwapI64(&sz,&ez);
     SwapI64(&start_seg,&end_seg);
   }  
-/*PrintF("start",start_seg);
-PrintF("end",end_seg);
-PrintF("sx",sx);
-PrintF("ex",ex);
-PrintF("sh",sh);
-PrintF("eh",eh);
-PrintF("sy",sy);
-PrintF("ey",ey);*/
   for(cx=sx;cx<=ex;cx++) {
     h=Lerp((cx-sx)/(ex-sx),sh,eh);
     texture_x=Lerp((cx-sx)/(ex-sx),start_seg,end_seg)%texture->width;
     at_y=Lerp((cx-sx)/(ex-sx),sy,ey);
+    cur_z=Lerp((cx-sx)/(ex-sx),sz,ez);
     for(cy=0;cy<=h;cy++) {
+	texture_y=Lerp(cy/h,0,texture->height);
 	to_dc->color=GrPeek0(
 	texture,
 	texture_x,
-	Lerp(cy/h,0,texture->height)
+	texture_y
 	);
-	GrPlot(to_dc,cx,at_y-h+cy);
+	GrPlot3(to_dc,cx,at_y-h+cy,cur_z);
     } 
   }
 }
@@ -123,18 +145,21 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   I64 start_seg,end_seg;
   F64 floor,ceil,sx,sy,ex,ey,sh,eh,cx,cy,h,sect_y,sect_y2;
   Vector *wall_vector=CreateVector(2);
-  Bool front;
+  Bool front=FALSE;
   cam_cord.x=cam->x,cam_cord.y=cam->y;
   CDoomSector *sector;
   CDoomSidedef *sidedef;
 //TODO bsp
   for(ld=head->next;ld!=head;ld=ld->next) {
-    if(DoomClipLinedef(cam->fov,cam->x,cam->y,cam->angle,ld,&left,&right)) {
+    if(ld->in_view=DoomClipLinedef(cam->fov,cam->x,cam->y,cam->angle,ld,&ld->clip_start,&ld->clip_end)) {
+      MemCpy(&left,&ld->clip_start,sizeof CD2);
+      MemCpy(&right,&ld->clip_end,sizeof CD2);
       SetVector(wall_vector,ld->end->x-ld->start->x,0);
       SetVector(wall_vector,ld->end->y-ld->start->y,1);
-      if(ld->front)
+      for(front=0;front!=2;front++) {
+      if(front)
         sidedef=ld->front;
-      if(ld->back)
+      if(!front)
         sidedef=ld->back;
       if(!sidedef) goto next;
       sector=sidedef->sector;
@@ -148,59 +173,78 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
         end_seg=PointToLinedefSegment(cam,ld,&right);
         sect_y=PointToBaseY(cam,sector->floor_height,&left)-sy;
         sect_y2=PointToBaseY(cam,sector->floor_height,&right)-ey;
-        sect_y=100;
-	sect_y2=100;
         TextureMapWall(to_dc,sx,sy,sect_y,ex,ey,sect_y2,
-	      start_seg,end_seg,sidedef->lower_texture
+	      start_seg,end_seg,sidedef->lower_texture,
+		Sqrt(Sqr(left.x-cam->x)+Sqr(left.y-cam->y)),
+		Sqrt(Sqr(right.x-cam->x)+Sqr(right.y-cam->y))
 	      );
       }
       if(sidedef->upper_texture) {
-        ceil=sector->ceil_height;
+        ceil=SectorHighestCeilHeight(sector);
         sy=PointToBaseY(cam,ceil,&left);
         sx=PointToScreenX(cam,&left);
         ey=PointToBaseY(cam,ceil,&right);
         ex=PointToScreenX(cam,&right);
         start_seg=PointToLinedefSegment(cam,ld,&left);
         end_seg=PointToLinedefSegment(cam,ld,&right);
-        sect_y=PointToBaseY(cam,sector->ceil_height,&left)-sy;
-        sect_y2=PointToBaseY(cam,sector->ceil_height,&right)-ey;
-        sect_y=100;
-	sect_y2=100;
+        sect_y=sy-PointToBaseY(cam,sector->ceil_height,&left);
+        sect_y2=ey-PointToBaseY(cam,sector->ceil_height,&right);
         TextureMapWall(to_dc,sx,sy,sect_y,ex,ey,sect_y2,
-	      start_seg,end_seg,sidedef->upper_texture
+	      start_seg,end_seg,sidedef->upper_texture,
+		Sqrt(Sqr(left.x-cam->x)+Sqr(left.y-cam->y)),
+		Sqrt(Sqr(right.x-cam->x)+Sqr(right.y-cam->y))
 	      );
       }
       if(sidedef->middle_texture) {
-        ceil=sector->ceil_height;
+        ceil=SectorLowestFloorHeight(sector);
         sy=PointToBaseY(cam,ceil,&left);
         sx=PointToScreenX(cam,&left);
         ey=PointToBaseY(cam,ceil,&right);
         ex=PointToScreenX(cam,&right);
         start_seg=PointToLinedefSegment(cam,ld,&left);
         end_seg=PointToLinedefSegment(cam,ld,&right);
-        sect_y=PointToBaseY(cam,sector->ceil_height,&left)-sy;
-        sect_y2=PointToBaseY(cam,sector->ceil_height,&right)-ey;
-        sect_y=20;
-	sect_y2=20;
+	ceil=SectorHighestCeilHeight(sector);
+        sect_y=sy-PointToBaseY(cam,ceil,&left);
+        sect_y2=ey-PointToBaseY(cam,ceil,&right);
         TextureMapWall(to_dc,sx,sy,sect_y,ex,ey,sect_y2,
-	      start_seg,end_seg,sidedef->middle_texture
+	      start_seg,end_seg,sidedef->middle_texture,
+		Sqrt(Sqr(left.x-cam->x)+Sqr(left.y-cam->y)),
+		Sqrt(Sqr(right.x-cam->x)+Sqr(right.y-cam->y))
 	      );
       }
-    }
 next:;
+      }
+    }
+  }
+  for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next) {
+      DrawTexturedFlat(to_dc,cam,sector,sector->floor_height,NULL);
   }
   DestroyVector(wall_vector);
 }
 
-CDoomSector *sect=l->sectors.last;
 CDoomCamera cam;
+CDoomSector *sect=l->sectors.last;
 "%x,$ER$%x\n",sect->linedef_cnt,sect->linedefs[0];
 cam.x=sect->linedefs[0]->start->x-100;
 cam.y=sect->linedefs[0]->start->y-100;
 cam.fov=pi/4;
+cam.h=0;
 while(TRUE) {
 DCFill;
-  cam.angle=tS;
   DrawDoomWorld(&cam,l,gr.dc);
+  if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {
+    cam.x+=GRID_SZ*Cos(cam.angle);
+    cam.y+=GRID_SZ*Sin(cam.angle);
+  }
+  if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)) {
+    cam.x-=GRID_SZ*Cos(cam.angle);
+    cam.y-=GRID_SZ*Sin(cam.angle);
+  }
+  if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
+     cam.angle-=pi/16;
+  }
+  if(Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)) {
+     cam.angle+=pi/16;
+  }
   Refresh;
 }

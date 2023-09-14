@@ -278,22 +278,6 @@ I64 StrCmp8(U8 *a,U8 *b) {
 }
 
 
-// Patches.
-// A patch holds one or more columns.
-// Patches are used for sprites and all masked pictures,
-// and we compose textures from the TEXTURE1/2 lists
-// of patches.
-class patch_t 
-{ 
-    I32 width;		// bounding box size 
-    I32 height; 
-    I32 leftoffset;	// pixels to the left of origin 
-    I32 topoffset;	// pixels below the origin 
-    I64 columnofs[8];	// only [width] used
-    // the [0] is &columnofs[width] 
-};
-
-
 //
 // W_CheckNumForName
 // Returns -1 if name not found.

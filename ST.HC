@@ -1,4 +1,3 @@
-#include "Wad.HC";
 #include "Weapons.HC";
 #define BG 4
 #define FG 0
@@ -228,6 +227,9 @@ static I64 veryfirsttime = 1;
 // used to use appopriately pained face
 static I64 st_oldhealth = -1;
 
+// main bar left
+static CDoomImage *sbar;
+
 
 /*
 **
@@ -257,7 +259,7 @@ class STNum
     Bool *on;
 
     // list of patches for 0-9
-    patch_t**	p;
+    CDoomImage**	p;
 
     // user data
     I64 data;    
@@ -268,7 +270,7 @@ class PercentWidget
     //number information
     STNum n;
     //percent graphic
-    patch_t *p;
+    CDoomImage *p;
 };
 
 
@@ -290,7 +292,7 @@ class MultiIcon
     Bool *on;
 
     // list of icons
-    patch_t** p;
+    CDoomImage** p;
     
     // user data
     I64 data;
@@ -319,7 +321,7 @@ class BinaryIcon
     Bool *on;  
 
 
-    patch_t* p;	// icon
+    CDoomImage* p;	// icon
     I64 data;   // user data
     
 };
@@ -350,6 +352,9 @@ static STNum		w_ammo[4];
 static STNum		w_maxammo[4]; 
 // holds key-type for each key box on bar
 static I64 		keyboxes[3]; 
+
+
+static Bool st_stopped = TRUE;
 
 /*
 **
@@ -476,15 +481,19 @@ U0 ST_Drawer (Bool fullscreen, Bool refresh)
 U0 ST_loadGraphics()
 {
 
-    I64 i,j,facenum;
+    //I64 i,j,facenum;
+    //faceback = W_CheckNumForName(namebuf, wad);
+
+    // status bar background bits
+
         
-    U8 namebuf[9];
+    //U8 namebuf[9];
 }
 
-U0 ST_loadData(void)
+U0 ST_loadData()
 {
-    lu_palette = W_GetNumForName("PLAYPAL");
-    ST_loadGraphics();
+    //lu_palette = W_GetNumForName("PLAYPAL");
+    //ST_loadGraphics();
 
 }
 
@@ -493,25 +502,25 @@ U0 ST_loadData(void)
     for (i=0;i<10;i++)
     {
 	StrPrint(namebuf, "STTNUM%d", i);
-	tallnum[i] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
+	tallnum[i] = (CDoomImage *) W_CacheLumpName(namebuf, PU_STATIC);
 
 	StrPrint(namebuf, "STYSNUM%d", i);
-	shortnum[i] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
+	shortnum[i] = (CDoomImage *) W_CacheLumpName(namebuf, PU_STATIC);
     }
 
     // Load percent key.
     //Note: why not load STMINUS here, too?
-    tallpercent = (patch_t *) W_CacheLumpName("STTPRCNT", PU_STATIC);
+    tallpercent = (CDoomImage *) W_CacheLumpName("STTPRCNT", PU_STATIC);
 
     // key cards
     for (i=0;i<NUMCARDS;i++)
     {
 	sprintf(namebuf, "STKEYS%d", i);
-	keys[i] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
+	keys[i] = (CDoomImage *) W_CacheLumpName(namebuf, PU_STATIC);
     }
 
     // arms background
-    armsbg = (patch_t *) W_CacheLumpName("STARMS", PU_STATIC);
+    armsbg = (CDoomImage *) W_CacheLumpName("STARMS", PU_STATIC);
 
     // arms ownership widgets
     for (i=0;i<6;i++)
@@ -519,7 +528,7 @@ U0 ST_loadData(void)
 	sprintf(namebuf, "STGNUM%d", i+2);
 
 	// gray #
-	arms[i][0] = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
+	arms[i][0] = (CDoomImage *) W_CacheLumpName(namebuf, PU_STATIC);
 
 	// yellow #
 	arms[i][1] = shortnum[i+2]; 
@@ -527,10 +536,10 @@ U0 ST_loadData(void)
 
     // face backgrounds for different color players
     sprintf(namebuf, "STFB%d", consoleplayer);
-    faceback = (patch_t *) W_CacheLumpName(namebuf, PU_STATIC);
+    faceback = (CDoomImage *) W_CacheLumpName(namebuf, PU_STATIC);
 
     // status bar background bits
-    sbar = (patch_t *) W_CacheLumpName("STBAR", PU_STATIC);
+    sbar = (CDoomImage *) W_CacheLumpName("STBAR", PU_STATIC);
 
     // face states
     facenum = 0;
@@ -603,12 +612,12 @@ void ST_unloadData(void)
 
 
 
-
+*/
 U0 ST_createWidgets()
 {
 
-    int i;
-
+    I64 i;
+    /*
     // ready weapon ammo
     STlib_initNum(&w_ready,
 		  ST_AMMOX,
@@ -760,9 +769,10 @@ U0 ST_createWidgets()
 		  &plyr->maxammo[3],
 		  &st_statusbaron,
 		  ST_MAXAMMO3WIDTH);
+  */
 
 }
-*/
+
 
 
 U0GrChar(CDC*dc=gr.dc,U8 ch,I64 x,I64 y,I64 scale)
@@ -777,13 +787,35 @@ U0GrChar(CDC*dc=gr.dc,U8 ch,I64 x,I64 y,I64 scale)
   }
 }
 
+U0 ST_refreshBackground()
+{
+
+    if (!st_statusbaron)
+    {
+        //wad_dir=wad->body+wad->directory_ptr;
+        //wad_dir+=W_CheckNumForName("F_START",wad);
+        CDoomGr *ret=CAlloc(sizeof(CDoomGr));
+        //TODO: need palette
+	CWadDirectory *wad_dir;
+        wad_dir=wad->body+wad->directory_ptr;
+        wad_dir+=W_CheckNumForName("STBAR",wad);
+	ReadDoomImage(wad,wad->body+wad_dir->ptr, ret->palette);
+	//V_CopyRect(ST_X, 0, BG, ST_WIDTH, ST_HEIGHT, ST_X, ST_Y, FG);
+    }
+
+}
+
+U0 ST_refresh()
+{
+  ST_refreshBackground();
+}
+
 U0 Text()
 {
 //dc->color=WHITE;
 //GrChar(dc,x,y,SCRN_SCALE/2,5);
 }
 
-static Bool st_stopped = TRUE;
 
 U0 ST_Stop ()
 {
@@ -800,8 +832,9 @@ U0 ST_Start ()
     if (!st_stopped)
 	ST_Stop();
 
-   // ST_initData();
-    //ST_createWidgets();
+    ST_initData();
+    ST_createWidgets();
+    ST_refresh();
     st_stopped = FALSE;
 
 }
@@ -814,4 +847,5 @@ U0 ST_Init ()
    // ST_loadData();
    // screens[4] = (byte *) Z_Malloc(ST_WIDTH*ST_HEIGHT, PU_STATIC, 0);
 }
-ST_Start;
+//ST_Start;
+DCFill;

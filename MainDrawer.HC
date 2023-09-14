@@ -1,4 +1,24 @@
+
+
+class CWad {
+  U8 body[0];
+  U8 ident[4];
+  U32 lump_cnt;
+  U32 directory_ptr;
+}; 
+
+
+CWad *LoadWad(U8 *filename) {
+  return FileRead(filename);
+}
+
+static CWad *wad=LoadWad("DOOM.WAD");
+
+#include "DoomGr.HC";
 #include "Wad.HC";
+#include "System.HC";
+//#include "ST.HC";
+
 class CDoomCamera {
   F64 x,y,h;
   F64 angle,fov;
@@ -7,7 +27,7 @@ class CDoomCamera {
 #define DIST_SCALE (GR_HEIGHT*GRID_SZ*3)
 /*
  * Listen up,here's the deal
- * A view plane is FLAT,not a point,so when we look at an angle,we 
+ * A view plane is FLAT,not a point,so when we look at an angle,we 
  * need to "straigten" our line,otherwise we will have a curved lense effect 
  *
  * Ask Nroot about this
@@ -93,7 +113,7 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
     SwapI64(&sh,&eh);
     SwapI64(&start_seg,&end_seg);
   }  
-/*PrintF("start",start_seg);
+/*PrintF("start",start_seg);
 PrintF("end",end_seg);
 PrintF("sx",sx);
 PrintF("ex",ex);

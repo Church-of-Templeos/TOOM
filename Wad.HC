@@ -2,7 +2,6 @@
 #define DOOM_WAD
 #define DEBUG 1
 
-#include "DoomGr.HC";
 #include "Numbers/Vector.HC";
 //https://doomwiki.org/wiki/WAD
 class CWadDirectory {
@@ -96,17 +95,6 @@ class CWadSubsector {
 }; 
 
 
-class CWad {
-  U8 body[0];
-  U8 ident[4];
-  U32 lump_cnt;
-  U32 directory_ptr;
-}; 
-
-
-CWad *LoadWad(U8 *filename) {
-  return FileRead(filename);
-}
 
 class CDoomThing:CQue {
   F64 x,y,angle;
@@ -594,7 +582,7 @@ CDoomGr *LoadWadGr(CWad *wad) {
   CDC *gr;
 //Load Player palett
   ret->palette=LoadPLAYPALFromLump(W_GetLumpPtrFromName("PLAYPAL",wad));
-//Find the sprites start
+//Find the sprites start
   wad_dir=wad->body+wad->directory_ptr;
   wad_dir+=W_CheckNumForName("S_START",wad);
 found_sstart:
@@ -907,7 +895,6 @@ U0 DumpWad(CWad *wad) {
   
 }
 
-CWad *wad=LoadWad("DOOM.WAD");
 //DumpWad(wad);
 CDoomGr *dgr=LoadWadGr(wad);
 CDoomLevel *l=LoadWadLevel(wad,"E1M1");;

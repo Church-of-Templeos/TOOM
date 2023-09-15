@@ -114,7 +114,7 @@ class CDoomThing:CQue {
 };
 extern class CDoomSector;
 
-class CDoomSidedef:CQue {
+class CDoomSidedef:CQue {
   I16 yoff,xoff;
   CDC *upper_texture;
   CDC *lower_texture;
@@ -206,7 +206,7 @@ class CDoomSector:CQue {
   I64 special_type;
   I64 linedef_cnt;
   CDoomLinedef **linedefs;
-//TODO make up polygon(s) lines
+//TODO make up polygon(s) lines
 };
 
 
@@ -391,7 +391,6 @@ U0 AddLinedefToSector(CDoomSector *ld,CDoomSector *s) {
     MemCpy(list,s->linedefs,8*s->linedef_cnt);
   Free(s->linedefs);
   s->linedefs=list;
-PrintF("linedef",s->linedef_cnt);
   list[s->linedef_cnt++]=ld;
 }
 

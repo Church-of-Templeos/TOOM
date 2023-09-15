@@ -58,7 +58,7 @@ class CDoomImageCol {
 };
 
 //https://doomwiki.org/wiki/Picture_format
-CDC *ReadDoomImage(U8 *wad_base,CDoomImage *header,CRGB *colors_pal) {
+CDC *ReadDoomImage(U8 *wad_base,CDoomImage *header,CRGB *colors_pal) {
   I64 w=header->w,h=header->h,rowstart,i,j,px_cnt;
   U8 *ptr;
   CRGB *pdata=CAlloc(w*h*sizeof(CRGB));

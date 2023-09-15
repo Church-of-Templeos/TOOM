@@ -17,35 +17,6 @@ F64 Shrink(F64 vangle,F64 distance,F64 height=GR_HEIGHT) {
   if(!distance) return height;
   return (DIST_SCALE/distance);
 }
-
-F64 SectorHighestCeilHeight(CDoomSector *sector) {
-  I64 idx;
-  F64 highest=sector->ceil_height;
-  CDoomLinedef *ld;
-  for(idx=0;idx!=sector->linedef_cnt;idx++) {
-    ld=sector->linedefs[idx];
-    if(ld->front)
-      highest=Min(ld->front->sector->ceil_height,highest);
-    if(ld->back)
-      highest=Min(ld->back->sector->ceil_height,highest);
-  }
-  return highest;
-}
-
-
-F64 SectorLowestFloorHeight(CDoomSector *sector) {
-  I64 idx;
-  F64 lowest=sector->floor_height;
-  CDoomLinedef *ld;
-  for(idx=0;idx!=sector->linedef_cnt;idx++) {
-    ld=sector->linedefs[idx];
-    if(ld->front)
-      lowest=Max(ld->front->sector->floor_height,lowest);
-    if(ld->back)
-      lowest=Max(ld->back->sector->floor_height,lowest);
-  }
-  return lowest;
-}
 F64 PointToScreenX(CDoomCamera *cam,CD2 *coord) {
   F64 x=coord->x-cam->x;
   F64 y=coord->y-cam->y;
@@ -254,7 +225,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
 	    p2.y,0
 	    );
       starts[line_cnt].x=p.x;
-      starts[line_cnt].y=p.y;
+      starts[line_cnt].y=p.y;
       ends[line_cnt].x=p2.x;
       ends[line_cnt].y=p2.y;
       line_cnt++;
@@ -294,6 +265,31 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
   }
 }
 
+F64 FloorRaise(CDoomLinedef *l,CDoomSector *sector) {
+  F64 ret=sector->floor_height;
+  if(l->back^^l->front) {
+    if(l->back) return Max(ret,l->back->sector->floor_height);
+    if(l->front) return Max(ret,l->front->sector->floor_height);
+    return ret;
+  }
+  return Max(l->front->sector->floor_height,Max(
+	l->back->sector->floor_height,ret
+	));
+}
+
+F64 CeilDepress(CDoomLinedef *l,CDoomSector *sector) {
+  F64 ret=sector->ceil_height;
+  if(l->back^^l->front) {
+    if(l->back) return Min(ret,l->back->sector->ceil_height);
+    if(l->front) return Min(ret,l->front->sector->ceil_height);
+    return ret;
+  }
+  return Min(l->front->sector->ceil_height,Min(
+	l->back->sector->ceil_height,ret
+	));
+}
+
+
 U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   DCDepthBufAlloc(to_dc);
   CDoomLinedef *ld,*head=&level->linedefs;
@@ -301,76 +297,81 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   I64 start_seg,end_seg;
   F64 floor,ceil,sx,sy,ex,ey,sh,eh,cx,cy,h,sect_y,sect_y2;
   Vector *wall_vector=CreateVector(2);
-  Bool front=FALSE;
+  I64 front=FALSE,is_one_sided;
   cam_cord.x=cam->x,cam_cord.y=cam->y;
   CDoomSector *sector;
   CDoomSidedef *sidedef;
 //TODO bsp
   for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next) {
-      DrawTexturedFlat(to_dc,cam,sector,sector->floor_height,NULL);
+    DrawTexturedFlat(to_dc,cam,sector,sector->floor_height,NULL);
   }
+  DCDepthBufRst(to_dc);
   for(ld=head->next;ld!=head;ld=ld->next) {
     if(ld->in_view=DoomClipLinedef(cam->fov,cam->x,cam->y,cam->angle,ld,&ld->clip_start,&ld->clip_end)) {
-      MemCpy(&left,&ld->clip_start,sizeof CD2);
-      MemCpy(&right,&ld->clip_end,sizeof CD2);
-      SetVector(wall_vector,ld->end->x-ld->start->x,0);
-      SetVector(wall_vector,ld->end->y-ld->start->y,1);
       for(front=0;front!=2;front++) {
-      if(front)
-        sidedef=ld->front;
-      if(!front)
-        sidedef=ld->back;
-      if(!sidedef) goto next;
- /*     sector=sidedef->sector;
-      if(sidedef->lower_texture) {
-        floor=SectorLowestFloorHeight(sector);
-        sy=PointToBaseY(cam,floor,&left);
-        sx=PointToScreenX(cam,&left);
-        ey=PointToBaseY(cam,floor,&right);
-        ex=PointToScreenX(cam,&right);
-        start_seg=PointToLinedefSegment(cam,ld,&left);
-        end_seg=PointToLinedefSegment(cam,ld,&right);
-        sect_y=PointToBaseY(cam,sector->floor_height,&left)-sy;
-        sect_y2=PointToBaseY(cam,sector->floor_height,&right)-ey;
-        TextureMapWall(to_dc,sx,sy+sect_y,sect_y,ex,ey+sect_y2,sect_y2,
-	      start_seg,end_seg,sidedef->lower_texture,
-		Sqrt(Sqr(left.x-cam->x)+Sqr(left.y-cam->y)),
-		Sqrt(Sqr(right.x-cam->x)+Sqr(right.y-cam->y))
-	      );
-      }
-      if(sidedef->upper_texture) {
-        ceil=SectorHighestCeilHeight(sector);
-        sy=PointToBaseY(cam,ceil,&left);
-        sx=PointToScreenX(cam,&left);
-        ey=PointToBaseY(cam,ceil,&right);
-        ex=PointToScreenX(cam,&right);
-        start_seg=PointToLinedefSegment(cam,ld,&left);
-        end_seg=PointToLinedefSegment(cam,ld,&right);
-        sect_y=sy-PointToBaseY(cam,sector->ceil_height,&left);
-        sect_y2=ey-PointToBaseY(cam,sector->ceil_height,&right);
-        TextureMapWall(to_dc,sx,sy,sect_y,ex,ey,sect_y2,
-	      start_seg,end_seg,sidedef->upper_texture,
-		Sqrt(Sqr(left.x-cam->x)+Sqr(left.y-cam->y)),
-		Sqrt(Sqr(right.x-cam->x)+Sqr(right.y-cam->y))
-	      );
-      }
-      if(sidedef->middle_texture) {
-        ceil=SectorLowestFloorHeight(sector);
-        sy=PointToBaseY(cam,ceil,&left);
-        sx=PointToScreenX(cam,&left);
-        ey=PointToBaseY(cam,ceil,&right);
-        ex=PointToScreenX(cam,&right);
-        start_seg=PointToLinedefSegment(cam,ld,&left);
-        end_seg=PointToLinedefSegment(cam,ld,&right);
-	ceil=SectorHighestCeilHeight(sector);
-        sect_y=sy-PointToBaseY(cam,ceil,&left);
-        sect_y2=ey-PointToBaseY(cam,ceil,&right);
-        TextureMapWall(to_dc,sx,sy,sect_y,ex,ey,sect_y2,
-	      start_seg,end_seg,sidedef->middle_texture,
-		Sqrt(Sqr(left.x-cam->x)+Sqr(left.y-cam->y)),
-		Sqrt(Sqr(right.x-cam->x)+Sqr(right.y-cam->y))
-	      );
-      }*/
+        MemCpy(&left,&ld->clip_start,sizeof CD2);
+        MemCpy(&right,&ld->clip_end,sizeof CD2);
+        SetVector(wall_vector,ld->end->x-ld->start->x,0);
+        SetVector(wall_vector,ld->end->y-ld->start->y,1);
+	  if(front)
+	    sidedef=ld->front;
+	  if(!front)
+	    sidedef=ld->back;
+	  if(!sidedef) goto next;
+	  is_one_sided=ld->front^^ld->back;
+	  sector=sidedef->sector;
+	  if(sidedef->lower_texture) {
+	    floor=Max(sector->floor_height,FloorRaise(ld,sector));
+	    sy=PointToBaseY(cam,floor,&left);
+	    sx=PointToScreenX(cam,&left);
+	    ey=PointToBaseY(cam,floor,&right);
+	    ex=PointToScreenX(cam,&right);
+	    start_seg=PointToLinedefSegment(cam,ld,&left);
+	    end_seg=PointToLinedefSegment(cam,ld,&right);
+	    floor=Min(sector->floor_height,FloorRaise(ld,sector));
+	    sect_y=PointToBaseY(cam,floor,&left)-sy;
+	    sect_y2=PointToBaseY(cam,floor,&right)-ey;
+	    TextureMapWall(to_dc,sx,sy+sect_y,sect_y,ex,ey+sect_y2,sect_y2,
+		  start_seg,end_seg,sidedef->lower_texture,
+		  Sqrt(Sqr(left.x-cam->x)+Sqr(left.y-cam->y)),
+		  Sqrt(Sqr(right.x-cam->x)+Sqr(right.y-cam->y))
+	    );
+	  }
+	  if(sidedef->upper_texture) {
+	    ceil=Min(sector->ceil_height,CeilDepress(ld,sector));
+	    sy=PointToBaseY(cam,ceil,&left);
+	    sx=PointToScreenX(cam,&left);
+	    ey=PointToBaseY(cam,ceil,&right);
+	    ex=PointToScreenX(cam,&right);
+	    start_seg=PointToLinedefSegment(cam,ld,&left);
+	    end_seg=PointToLinedefSegment(cam,ld,&right);
+	    ceil=Max(sector->ceil_height,CeilDepress(ld,sector));
+	    sect_y=sy-PointToBaseY(cam,ceil,&left);
+	    sect_y2=ey-PointToBaseY(cam,ceil,&right);
+	    if(ToI64(sect_y)||ToI64(sect_y2))
+	    TextureMapWall(to_dc,sx,sy,sect_y,ex,ey,sect_y2,
+		  start_seg,end_seg,sidedef->upper_texture,
+		  Sqrt(Sqr(left.x-cam->x)+Sqr(left.y-cam->y)),
+		  Sqrt(Sqr(right.x-cam->x)+Sqr(right.y-cam->y))
+	    );
+	  }
+	  if(sidedef->middle_texture) {
+	    floor=sector->floor_height;
+	    sy=PointToBaseY(cam,floor,&left);
+	    sx=PointToScreenX(cam,&left);
+	    ey=PointToBaseY(cam,floor,&right);
+	    ex=PointToScreenX(cam,&right);
+	    start_seg=PointToLinedefSegment(cam,ld,&left);
+	    end_seg=PointToLinedefSegment(cam,ld,&right);
+	    ceil=sector->ceil_height;
+	    sect_y=Abs(PointToBaseY(cam,ceil,&left)-sy);
+	    sect_y2=Abs(PointToBaseY(cam,ceil,&right)-ey);
+	    TextureMapWall(to_dc,sx,sy,sect_y,ex,ey,sect_y2,
+		  start_seg,end_seg,sidedef->middle_texture,
+		  Sqrt(Sqr(left.x-cam->x)+Sqr(left.y-cam->y)),
+		  Sqrt(Sqr(right.x-cam->x)+Sqr(right.y-cam->y))
+	    );
+	  }
 next:;
       }
     }

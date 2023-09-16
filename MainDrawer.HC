@@ -12,29 +12,6 @@ class CDoomCamera {
  *
  * Ask Nroot about this
  */
-F64 Shrink(F64 vangle,F64 distance,F64 height=GR_HEIGHT) {
-  distance*=Cos(vangle);  
-  if(!distance) return height;
-  return (DIST_SCALE/distance);
-}
-F64 PointToScreenX(CDoomCamera *cam,CD2 *coord) {
-  F64 x=coord->x-cam->x;
-  F64 y=coord->y-cam->y;
-  F64 angle=Wrap(Arg(x,y)-cam->angle);
-  if(angle<-cam->fov/2)
-    return 0;
-  if(angle>cam->fov/2)
-    return GR_WIDTH-1;
-  return GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2-1);
-}
-F64 PointToBaseY(CDoomCamera *cam,F64 h,CD2 *coord) {
-  F64 x=coord->x-cam->x;
-  F64 y=coord->y-cam->y;
-  F64 dist=Sqrt(x*x+y*y);
-  F64 angle=Arg(x,y);
-  F64 without_h=cam->h+Shrink(angle-cam->angle,dist)+GR_HEIGHT/2;
-  return without_h-Shrink(angle-cam->angle,dist)/GR_HEIGHT*h;
-}
 
 I64 PointToLinedefSegment(CDoomCamera *cam,CDoomLinedef *def,CD2 *coord) {
   CD2 line_s,at;
@@ -94,8 +71,8 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0) {
     else ptr=p2;
     angle=Arg(ptr->x,ptr->y);
     at.x=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2-1);
-    at.y=cam->h+GR_HEIGHT/2+DIST_SCALE/Sqrt(ptr->x*ptr->x+ptr->y*ptr->y);
-    at.y-=DIST_SCALE/Sqrt(ptr->x*ptr->x+ptr->y*ptr->y)/GR_HEIGHT*level;
+    at.y=cam->h+GR_HEIGHT/2+DIST_SCALE/(1+Sqrt(ptr->x*ptr->x+ptr->y*ptr->y));
+    at.y-=DIST_SCALE/Sqrt(ptr->x*ptr->x+ptr->y*ptr->y)*Cos(angle)/GR_HEIGHT*level;
     ptr->x=at.x;
     ptr->y=at.y;
   }
@@ -135,7 +112,7 @@ U0 FillPolygon(CDC *to_dc,I64 cnt,CD2 *starts,CD2 *ends,CDC *texture,F64 altitud
     maxx=Max(ends[idx].x,maxx);
     maxy=Max(ends[idx].y,maxy);
   }
-  for(y=miny-2;y<maxy+2;y++)  {
+  for(y=miny;y<=maxy;y++)  {
     s.x=minx-2;
     e.x=maxx+2;
     s.y=y;
@@ -149,13 +126,11 @@ U0 FillPolygon(CDC *to_dc,I64 cnt,CD2 *starts,CD2 *ends,CDC *texture,F64 altitud
     QSortI64(hits,hit_cnt,&HitCmp);
     odd=FALSE;
     for(idx=0;idx<hit_cnt-1;idx++) {
-      if(ToI64(hits[idx])!=ToI64(hits[idx+1])) {
         odd=!odd;
         if(odd) {
-	  for(x=Max(hits[idx],0);x<Min(hits[idx+1],GR_WIDTH);x++)
-	   FloorShader(to_dc,texture,x,y,altitude,cam);
+	  for(x=Max(hits[idx],0);x<=Min(hits[idx+1],GR_WIDTH);x++)
+	    FloorShader(to_dc,texture,x,y,altitude,cam);
         }
-      }
     }
   }
   Free(hits);
@@ -212,7 +187,6 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
   I64 idx,w,idx2,h,len,minx,maxx,rx,ry,maxy,miny;
   U8 *row_ptr,*orp;
   F64 angle,x;
-  to_dc->color=RED;
   maxx=0;
   minx=GR_WIDTH;
   maxy=0;
@@ -227,12 +201,6 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
       minx=MinI64(p.x,minx);
       maxy=MaxI64(p.y,maxy);
       miny=MinI64(p.y,miny);
-      GrLine3(to_dc,
-	    p.x,
-	    p.y,0,
-	    p2.x,
-	    p2.y,0
-	    );
       starts[line_cnt].x=p.x;
       starts[line_cnt].y=p.y;
       ends[line_cnt].x=p2.x;
@@ -240,7 +208,6 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
       line_cnt++;
     }
   }
-  to_dc->color=YELLOW;
   FillPolygon(to_dc,line_cnt,starts,ends,texture,at,cam);
   Free(starts),Free(ends);
 fin:;
@@ -251,7 +218,7 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
   F64 cx,h,cy,at_y,cur_z;
   I64 texture_x,texture_y;
   if(sx>ex) {
-    SwapI64(&sx,&ex);
+    SwapI64(&sx,&ex);
     SwapI64(&sy,&ey);
     SwapI64(&sh,&eh);
     SwapI64(&sz,&ez);
@@ -272,7 +239,7 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
 	      );
         GrPlot3(to_dc,cx,at_y-h+cy,cur_z);
       }
-    } 
+    }
   }
 }
 
@@ -333,20 +300,26 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
 	    sidedef=ld->back;
 	  if(!sidedef) goto next;
 	  is_one_sided=ld->front^^ld->back;
+	  if(!is_one_sided) {
+	    cam_cord.x=cam->x-ld->start->x;
+	    cam_cord.y=cam->y-ld->start->y;
+	    if(ToI64(IsFrontSideOfVector2D(wall_vector,&cam_cord))^^!front)
+	      goto next;
+	  }
 	  sector=sidedef->sector;
 	  for(idx=0;idx!=3;idx++){
 	  if(idx==0&&(texture=sidedef->lower_texture)) {
 	    floor=Min(sector->floor_height,FloorRaise(ld,sector));
 	    ceil=Max(sector->floor_height,FloorRaise(ld,sector));
 draw_wall:
-	    start_floor.x=left.x;
-	    start_floor.y=left.y;
-	    end_floor.x=right.x;
-	    end_floor.y=right.y;
-	    start_ceil.x=left.x;
-	    start_ceil.y=left.y;
-	    end_ceil.x=right.x;
-	    end_ceil.y=right.y;
+	    start_floor.x=ld->start->x;
+	    start_floor.y=ld->start->y;
+	    end_floor.x=ld->end->x;
+	    end_floor.y=ld->end->y;
+	    start_ceil.x=ld->start->x;
+	    start_ceil.y=ld->start->y;
+	    end_ceil.x=ld->end->x;
+	    end_ceil.y=ld->end->y;
 	    ClipLineToScrenCoords(cam,&start_floor,&end_floor,floor);
 	    ClipLineToScrenCoords(cam,&start_ceil,&end_ceil,ceil);
 	    start_seg=PointToLinedefSegment(cam,ld,&left);
@@ -387,8 +360,8 @@ CDoomSector *sect=l->sectors.last;
 cam.x=sect->linedefs[0]->start->x-100;
 cam.y=sect->linedefs[0]->start->y-100;
 cam.fov=pi/4;
-cam.angle=0;
-cam.h=-100;
+cam.angle=pi;
+cam.h=0;
 while(TRUE) {
 DCFill;
   DrawDoomWorld(&cam,l,gr.dc);

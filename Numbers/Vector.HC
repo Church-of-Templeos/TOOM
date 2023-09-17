@@ -196,14 +196,14 @@ U0 DestroyVector(Vector *v)
 
 }
 
-I64 SideOfVector2D(Vector *v,CD2 *point) {
+I64 SideOfVector2D(Vector *v,CD2 *point) {
 //https://stackoverflow.com/questions/1560492/how-to-tell-whether-a-point-is-to-the-right-or-left-side-of-a-line
-  return v->data[0]*point->y-v->data[1]*point->x;
+  return v->data[0]*point->y-v->data[1]*-point->x;
 }
 
 Bool IsFrontSideOfVector2D(Vector *v,CD2 *point) {
 //https://stackoverflow.com/questions/1560492/how-to-tell-whether-a-point-is-to-the-right-or-left-side-of-a-line
-  return v->data[0]*point->y-v->data[1]*point->x>0;
+  return v->data[0]*point->y-v->data[1]*-point->x>0;
 }
 
 //Main to demo vectors

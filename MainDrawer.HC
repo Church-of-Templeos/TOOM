@@ -5,6 +5,13 @@ class CDoomCamera {
 };
 #define GRID_SZ  128
 #define DIST_SCALE (GR_HEIGHT*GRID_SZ*3)
+
+#define FLOOR_VPIXEL_WIDTH 2
+#define WALL_VPIXEL_WIDTH 2
+#define WALL_HPIXEL_HEIGHT 2
+#define FLOOR_HPIXEL_HEIGHT 2
+
+
 /*
  * Listen up,here's the deal
  * A view plane is FLAT,not a point,so when we look at an angle,we 
@@ -71,8 +78,8 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0) {
     else ptr=p2;
     angle=Arg(ptr->x,ptr->y);
     at.x=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2-1);
-    at.y=cam->h+GR_HEIGHT/2+DIST_SCALE/(1+Sqrt(ptr->x*ptr->x+ptr->y*ptr->y));
-    at.y-=DIST_SCALE/Sqrt(ptr->x*ptr->x+ptr->y*ptr->y)*Cos(angle)/GR_HEIGHT*level;
+    at.y=cam->h+GR_HEIGHT/2+DIST_SCALE/Sqrt(ptr->x*ptr->x+ptr->y*ptr->y);
+    at.y-=DIST_SCALE/Sqrt(ptr->x*ptr->x+ptr->y*ptr->y)/GR_HEIGHT*level;
     ptr->x=at.x;
     ptr->y=at.y;
   }
@@ -86,11 +93,25 @@ I64 HitCmp(F64 a,F64 b) {
 }
 
 I64 FloorShader(CDC *to_dc,CDC *texture,F64 x,F64 y,F64 altitude,CDoomCamera *cam) {
-  F64 angle=(x-GR_WIDTH/2)/GR_WIDTH*cam->fov/2;
-  F64 dist=DIST_SCALE/(y-altitude-GR_HEIGHT/2-cam->h)*Cos(angle);
+  F64 angle=(x-GR_WIDTH/2)/GR_WIDTH*cam->fov/2+cam->angle;
+  F64 dist=DIST_SCALE/(y-GR_HEIGHT/2-cam->h);
   I64 floorx=Cos(angle)*dist,floory=Sin(angle)*dist;
-  to_dc->color=GrPeek0(texture,floorx&63,floory&63);
-  GrPlot(to_dc,x,y);
+  U16 *base,color;
+  if(y>to_dc->height-2)
+    y=to_dc->height-2;
+  if(x>to_dc->width-2)
+    x=to_dc->width-2;
+  floorx%=texture->width_internal-2;
+  floory%=texture->width_internal-2;
+  if(floorx<0) floorx=-floorx;
+  if(floory<0) floory=-floory;
+  base=&texture->body[floorx+floory*texture->width_internal];
+  color=*base;
+  base=&to_dc->body[ToI64(x)+ToI64(y)*to_dc->width_internal];
+  *base=color;
+  base(U8*)+=to_dc->width_internal;
+  *base=color;
+
 }
 
 
@@ -112,7 +133,7 @@ U0 FillPolygon(CDC *to_dc,I64 cnt,CD2 *starts,CD2 *ends,CDC *texture,F64 altitud
     maxx=Max(ends[idx].x,maxx);
     maxy=Max(ends[idx].y,maxy);
   }
-  for(y=miny;y<=maxy;y++)  {
+  for(y=miny;y<=maxy;y+=FLOOR_HPIXEL_HEIGHT)  {
     s.x=minx-2;
     e.x=maxx+2;
     s.y=y;
@@ -120,7 +141,11 @@ U0 FillPolygon(CDC *to_dc,I64 cnt,CD2 *starts,CD2 *ends,CDC *texture,F64 altitud
     hit_cnt=0;
     for(idx=0;idx!=cnt;idx++) {
       if(PlaneIntersect(&at,&s,&e,starts+idx,ends+idx)) {
+	if(hit_cnt)
+	  if(ToI64(hits[hit_cnt-1])==ToI64(at.x))
+	   goto skip;
         hits[hit_cnt++]=ToI64(at.x);
+skip:;
       }
     }
     QSortI64(hits,hit_cnt,&HitCmp);
@@ -128,10 +153,18 @@ U0 FillPolygon(CDC *to_dc,I64 cnt,CD2 *starts,CD2 *ends,CDC *texture,F64 altitud
     for(idx=0;idx<hit_cnt-1;idx++) {
         odd=!odd;
         if(odd) {
-	  for(x=Max(hits[idx],0);x<=Min(hits[idx+1],GR_WIDTH);x++)
+	  for(x=Max(hits[idx],0);x<=Min(hits[idx+1],GR_WIDTH-1);x+=FLOOR_VPIXEL_WIDTH)
 	    FloorShader(to_dc,texture,x,y,altitude,cam);
         }
     }
+//If we have an odd number of hits,color for both sides
+   if(hit_cnt&1) {
+     for(idx=hit_cnt-2;idx>=(hit_cnt-1)/2;idx--) {
+       for(x=Max(hits[idx],0);x<=Min(hits[idx+1],GR_WIDTH-1);x+=FLOOR_VPIXEL_WIDTH)
+         FloorShader(to_dc,texture,x,y,altitude,cam);
+     } 
+   }
+
   }
   Free(hits);
 }
@@ -215,30 +248,39 @@ fin:;
 
 U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
 	I64 start_seg,I64 end_seg,CDC *texture,F64 sz,F64 ez) {
-  F64 cx,h,cy,at_y,cur_z;
+  F64 cx,h,cy,at_y,cur_z,to_x,to_h;
+  F64 percent;
   I64 texture_x,texture_y;
   if(sx>ex) {
-    SwapI64(&sx,&ex);
+    SwapI64(&sx,&ex);
     SwapI64(&sy,&ey);
     SwapI64(&sh,&eh);
     SwapI64(&sz,&ez);
     SwapI64(&start_seg,&end_seg);
-  }  
-  for(cx=sx;cx<=ex;cx++) {
-    h=Lerp((cx-sx)/(ex-sx),sh,eh);
-    texture_x=Lerp((cx-sx)/(ex-sx),start_seg,end_seg)%texture->width;
-    at_y=Lerp((cx-sx)/(ex-sx),sy,ey);
-    cur_z=Lerp((cx-sx)/(ex-sx),sz,ez);
-    for(cy=0;cy<=h;cy++) {
-      if(0<=at_y-h<GR_HEIGHT) {
-        texture_y=Lerp(cy/h,0,texture->height);
-        to_dc->color=GrPeek0(
-	      texture,
-	      texture_x,
-	      texture_y
-	      );
-        GrPlot3(to_dc,cx,at_y-h+cy,cur_z);
-      }
+  }
+  to_x=Min(ex,GR_WIDTH-WALL_VPIXEL_WIDTH);
+  if(sy-sh>=GR_HEIGHT&&ey-eh>=GR_HEIGHT) return;
+  for(cx=Max(sx,0);cx<=to_x;cx+=WALL_VPIXEL_WIDTH) {
+    percent=(cx-sx)/(ex-sx);
+    h=percent*(eh-sh)+sh;
+    texture_x=percent*(end_seg-start_seg)+start_seg;
+    texture_x%=texture->width;
+    if(texture_x<0) texture_x=-texture_x;
+    at_y=percent*(ey-sy)+sy;
+    cur_z=percent*(ez-sz)+sz;
+    for(cy=0;cy<=h;cy+=WALL_HPIXEL_HEIGHT) {
+        if(0<=at_y-h<GR_HEIGHT-WALL_HPIXEL_HEIGHT) {
+	  texture_y=Lerp(cy/h,0,texture->height);
+	  to_dc->color=GrPeek0(
+	        texture,
+	        texture_x,
+	        texture_y
+	        );
+	  GrPlot(to_dc,cx,at_y-h+cy);
+	  GrPlot(to_dc,cx+1,at_y-h+cy);
+	  GrPlot(to_dc,cx,at_y-h+cy+1);
+	  GrPlot(to_dc,cx+1,at_y-h+cy+1);
+        }
     }
   }
 }
@@ -268,91 +310,124 @@ F64 CeilDepress(CDoomLinedef *l,CDoomSector *sector) {
 }
 
 
+U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
+  CD2 start_floor,start_ceil;
+  CD2 end_floor,end_ceil;
+  I64 seg_idx,wall,start_seg,end_seg;
+  CDC *texture;
+  F64 h,h2;
+  CDoomBSPSeg *seg;
+  CDoomSidedef *sidedef;
+  CDoomSector *sector;
+  Vector *wall_vect=CreateVector(2);
+  CD2 cam_cord;
+  I64 miss_cnt=0;
+  F64 floor,ceil;
+  for(seg_idx=0;seg_idx!=ss->cnt;seg_idx++) {
+    seg=&ss->first[seg_idx];
+    if(seg->linedef->front^^seg->linedef->back) {
+      if(seg->linedef->front)
+        sidedef=seg->linedef->front;
+       else
+        sidedef=seg->linedef->back;
+    } else {
+      cam_cord.x=cam->x-seg->start->x;
+      cam_cord.x=cam->y-seg->start->y;
+      SetVector(wall_vect,seg->end->x-seg->start->x,0);
+      SetVector(wall_vect,seg->end->y-seg->start->y,1);
+      if(SideOfVector2D(wall_vect,&cam_cord)>0)
+        sidedef=seg->linedef->front;
+      else
+        sidedef=seg->linedef->back;
+    }
+    sector=sidedef->sector;
+    for(wall=0;wall!=3;wall++) {
+      if(wall==0&&(texture=sidedef->lower_texture)) {
+        floor=Min(sector->floor_height,FloorRaise(seg->linedef,sector));
+        ceil=Max(sector->floor_height,FloorRaise(seg->linedef,sector));
+draw_wall:
+        start_floor.x=seg->start->x;
+        start_floor.y=seg->start->y;
+        end_floor.x=seg->end->x;
+        end_floor.y=seg->end->y;
+        start_ceil.x=seg->start->x;
+        start_ceil.y=seg->start->y;
+        end_ceil.x=seg->end->x;
+        end_ceil.y=seg->end->y;
+        ClipLineToScrenCoords(cam,&start_floor,&end_floor,floor);
+        ClipLineToScrenCoords(cam,&start_ceil,&end_ceil,ceil);
+        start_seg=PointToLinedefSegment(cam,seg->linedef,seg->start);
+        end_seg=PointToLinedefSegment(cam,seg->linedef,seg->end);
+        h=Abs(start_floor.y-start_ceil.y);
+        h2=Abs(end_ceil.y-end_floor.y);
+        if(ToI64(h)&&ToI64(h2)) {
+	  TextureMapWall(to_dc,start_floor.x,start_floor.y,h,end_floor.x,end_floor.y,h2,
+	        start_seg,end_seg,texture,
+	        Sqrt(Sqr(seg->start->x-cam->x)+Sqr(seg->start->y-cam->y)),
+	        Sqrt(Sqr(seg->end->x-cam->x)+Sqr(seg->end->y-cam->y))
+	  );
+        }
+      } else if(wall==1&&(texture=sidedef->upper_texture)) {
+        floor=Min(sector->ceil_height,CeilDepress(seg->linedef,sector));
+        ceil=Max(sector->ceil_height,CeilDepress(seg->linedef,sector));
+        goto draw_wall;
+      } else if(wall==2&&(texture=sidedef->middle_texture)) {
+        floor=sector->floor_height;
+        ceil=sector->ceil_height;
+        goto draw_wall;
+      }
+skip:;
+    }
+  }
+}
+
+U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
+  if(node->signature!='NODE') {
+    DrawSubsector(to_dc,cam,node);
+    return;
+  }
+  if(node->visited) return;
+  node->visited=TRUE;
+  F64 left_dist,right_dist;
+  CD2 cam_cord;
+  cam_cord.x=node->x-cam->x;
+  cam_cord.y=node->y-cam->y;
+  Vector *vect=CreateVector(2);
+  SetVector(vect,node->left_child->dx,0);
+  SetVector(vect,node->left_child->dy,1);
+  if(SideOfVector2D(vect,&cam_cord)<0) {
+    DestroyVector(vect);
+    DrawBSP0(to_dc,cam,node->left_child);
+    DrawBSP0(to_dc,cam,node->right_child);
+  } else {
+    DestroyVector(vect);
+    DrawBSP0(to_dc,cam,node->right_child);
+    DrawBSP0(to_dc,cam,node->left_child);
+  }
+//  if(node->parent) DrawBSP0(to_dc,cam,node->parent);
+  node->visited=FALSE;
+}
+
+U0 DrawBSP(CDC *to_dc,CDoomCamera *cam,CDoomLevel *level) {
+  CDoomSubsector *ss;
+//  CDoomBSPNode *node=DoomWhichBSPNode(cam->x,cam->y,level,&ss);
+  DrawBSP0(to_dc,cam,level->root_node);
+}
+
 U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
-  DCDepthBufAlloc(to_dc);
   CDoomLinedef *ld,*head=&level->linedefs;
   CD2 left,right,cam_cord,wall_coord;
   CD2 start_floor,end_floor,start_ceil,end_ceil;
   I64 start_seg,end_seg;
   F64 floor,ceil,sx,sy,ex,ey,sh,eh,cx,cy,h,sect_y,sect_y2;
-  Vector *wall_vector=CreateVector(2);
-  I64 front=FALSE,is_one_sided,idx;
-  cam_cord.x=cam->x,cam_cord.y=cam->y;
   CDoomSector *sector;
-  CDoomSidedef *sidedef;
-  CDC*texture;
 //TODO bsp
   for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next) {
     DrawTexturedFlat(to_dc,cam,sector,sector->floor_height,sector->floor_dc);
   }
-  DCDepthBufRst(to_dc);
-  for(ld=head->next;ld!=head;ld=ld->next) {
-    &ld->clip_start,&ld->clip_end;
-    if(ld->in_view=DoomClipLinedef(cam->fov,cam->x,cam->y,cam->angle,ld,&ld->clip_start,&ld->clip_end)) {
-      for(front=0;front!=2;front++) {
-        MemCpy(&left,&ld->clip_start,sizeof CD2);
-        MemCpy(&right,&ld->clip_end,sizeof CD2);
-        SetVector(wall_vector,ld->end->x-ld->start->x,0);
-        SetVector(wall_vector,ld->end->y-ld->start->y,1);
-	  if(front)
-	    sidedef=ld->front;
-	  if(!front)
-	    sidedef=ld->back;
-	  if(!sidedef) goto next;
-	  is_one_sided=ld->front^^ld->back;
-	  if(!is_one_sided) {
-	    cam_cord.x=cam->x-ld->start->x;
-	    cam_cord.y=cam->y-ld->start->y;
-	    if(ToI64(IsFrontSideOfVector2D(wall_vector,&cam_cord))^^!front)
-	      goto next;
-	  }
-	  sector=sidedef->sector;
-	  for(idx=0;idx!=3;idx++){
-	  if(idx==0&&(texture=sidedef->lower_texture)) {
-	    floor=Min(sector->floor_height,FloorRaise(ld,sector));
-	    ceil=Max(sector->floor_height,FloorRaise(ld,sector));
-draw_wall:
-	    start_floor.x=ld->start->x;
-	    start_floor.y=ld->start->y;
-	    end_floor.x=ld->end->x;
-	    end_floor.y=ld->end->y;
-	    start_ceil.x=ld->start->x;
-	    start_ceil.y=ld->start->y;
-	    end_ceil.x=ld->end->x;
-	    end_ceil.y=ld->end->y;
-	    ClipLineToScrenCoords(cam,&start_floor,&end_floor,floor);
-	    ClipLineToScrenCoords(cam,&start_ceil,&end_ceil,ceil);
-	    start_seg=PointToLinedefSegment(cam,ld,&left);
-	    end_seg=PointToLinedefSegment(cam,ld,&right);
-	    sect_y=Abs(start_floor.y-start_ceil.y);
-	    sect_y2=Abs(end_ceil.y-end_floor.y);
-	    sx=start_floor.x;
-	    sy=start_floor.y;
-	    ex=end_floor.x;
-	    ey=end_floor.y;
-	    if(ToI64(sect_y)&&ToI64(sect_y2)) {
-	    TextureMapWall(to_dc,sx,sy,sect_y,ex,ey,sect_y2,
-		  start_seg,end_seg,texture,
-		  Sqrt(Sqr(left.x-cam->x)+Sqr(left.y-cam->y)),
-		  Sqrt(Sqr(right.x-cam->x)+Sqr(right.y-cam->y))
-	    );
-	    }
-	  } else if(idx==1&&(texture=sidedef->upper_texture)) {
-	    floor=Min(sector->ceil_height,CeilDepress(ld,sector));
-	    ceil=Max(sector->ceil_height,CeilDepress(ld,sector));
-	    goto draw_wall;
-	  } else if(idx==2&&(texture=sidedef->middle_texture)) {
-	    floor=sector->floor_height;
-	    ceil=sector->ceil_height;
-	    goto draw_wall;
-	  }
-	}
-next:;
-      }
-    }
-  }
-  DestroyVector(wall_vector);
+  DrawBSP(to_dc,cam,level);
 }
+
 
 CDoomCamera cam;
 CDoomSector *sect=l->sectors.last;

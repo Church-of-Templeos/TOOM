@@ -114,7 +114,7 @@ class CDoomThing:CQue {
 };
 extern class CDoomSector;
 
-class CDoomSidedef:CQue {
+class CDoomSidedef:CQue {
   I16 yoff,xoff;
   CDC *upper_texture;
   CDC *lower_texture;
@@ -148,7 +148,7 @@ class CDoomBSPNode:CQue {
   F64 x,y;
   F64 dx,dy;  
   CBoundBoxF64 left,right;
-
+  Bool visited;
 };
 
 Bool BoundBoxF64Inside(F64 x,F64 y,CBoundBoxF64 *box) {
@@ -180,15 +180,17 @@ class CDoomLinedef:CQue {
   Bool in_view;
 };
 
-class CDoomSeg:CQue {
-  F64 x,y,x2,y2;
+
+class CDoomBSPSeg {
+  CD2 *start,*end;
   CDoomLinedef *linedef;
+  I64 size,offset;
 };
 
 class CDoomSubsector:CQue {
   U64 signature;
   I64 cnt;
-  CDoomBSPNode *first;
+  CDoomBSPSeg *first;
 };
 
 class CDoomGr {
@@ -215,7 +217,7 @@ class CDoomLevel {
   CQue things,sidedefs;
   CQue subsectors;
   CQue bsp_nodes;
-  CQue segs;
+  CDoomBSPSeg *segs;
   CQue sectors;
   CDoomBSPNode *root_node;
   I64 vertice_cnt;
@@ -428,7 +430,7 @@ rights:
         cur_node=cur_node->right_child;
       }
     } else if(left&&right) {
-//Check which side of parition line
+//Check which side of parition line
       pline=CreateVector(2);
       dummy.x=x-cur_node->x;
       dummy.y=y-cur_node->y;
@@ -557,7 +559,7 @@ U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,U8 show_bsp=TRU
   CDoomBSPNode *node,*cur_bsp_node;
   CDoomLinedef *wall,*head=&level->linedefs;
   CDoomSubsector *ss;
-  CDoomSeg *s;
+  CDoomBSPSeg *s;
   dc->color=RED;
   dc->thick=2;
   I64 x=GR_WIDTH/2,y=GR_HEIGHT/2+300,idx;
@@ -582,8 +584,8 @@ U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,U8 show_bsp=TRU
 	dc->color=YELLOW;
         s=ss->first;
         for(idx=0;idx!=ss->cnt;idx++) {
-	  GrLine3(dc,s->x*scale+x,s->y*scale+y,0,s->x2*scale+x,s->y2*scale+y,0);
-	  s=s->next;
+	  GrLine3(dc,s->start->x*scale+x,s->start->y*scale+y,0,s->end->x*scale+x,s->end->y*scale+y,0);
+	  s++;
         }
       }
     }
@@ -699,7 +701,7 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   CDoomSubsector *dss,**sslist;
   CWadSubsector *wss;
   CWadSeg *wseg;
-  CDoomSeg *dseg,**dseg_list;
+  CDoomBSPSeg *dseg,*dseg_list;
   CWadSector *wsect;
   CDoomSector **dsect_list,*dsect;
   CWadSidedef *wside;
@@ -710,7 +712,6 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   QueInit(&level->linedefs);
   QueInit(&level->bsp_nodes);
   QueInit(&level->subsectors);
-  QueInit(&level->segs);
   name[8]=0;
   wad_dir=wad->body+wad->directory_ptr;
   for(idx=0;idx!=wad->lump_cnt;idx++) {
@@ -812,17 +813,14 @@ found:
 //Load SEGS first homie
   cnt=wad_dir[4].lump_size/sizeof(CWadSeg);
   wseg=wad_dir[4].ptr+wad(U8*);
-  dseg_list=CAlloc(8*cnt);
+  dseg_list=level->segs=CAlloc(sizeof(CDoomBSPSeg)*cnt);
   if(StrCmp8("SEGS",wad_dir[4].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
-    dseg=CAlloc(sizeof CDoomSeg);
-    dseg->x=level->vertices[wseg->start_vertex].x;
-    dseg->y=level->vertices[wseg->start_vertex].y;
-    dseg->x2=level->vertices[wseg->end_vertex].x;
-    dseg->y2=level->vertices[wseg->end_vertex].y;
+    dseg=&dseg_list[idx];
+    dseg->start=&level->vertices[wseg->start_vertex];
+    dseg->end=&level->vertices[wseg->end_vertex];
     dseg->linedef=dlinedef_list[wseg->linedef];
-    dseg_list[idx]=dseg;
-    QueIns(dseg,level->segs.last);
+    dseg->offset=wseg->offset;
     wseg++;
   }  
 // SSECTORS 
@@ -835,7 +833,7 @@ found:
     QueIns(dss,&level->subsectors);
     dss->signature='SSECTOR';
     dss->cnt=wss->cnt;
-    dss->first=dseg_list[wss->first];
+    dss->first=&level->segs[wss->first];
     sslist[idx]=dss;
     wss++;
   }
@@ -905,10 +903,9 @@ found:
 	);
     }
   }
+  Free(sslist);
   Free(dside_list);
   Free(dsect_list);
-  Free(sslist);
-  Free(dseg_list);
   Free(dnode_list);
   Free(dlinedef_list);
   return level;
@@ -942,7 +939,7 @@ CDoomLevel *l=LoadWadLevel(wad,"E1M1");;
 /*DCFill;
 if(l)
   while(TRUE) {
-    DrawLevelOverview(l,gr.dc,1/8.,FALSE);
+    DrawLevelOverview(l,gr.dc,1/8.,TRUE);
     Refresh;
   }
 */

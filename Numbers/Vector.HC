@@ -196,14 +196,28 @@ U0 DestroyVector(Vector *v)
 
 }
 
+//
+// See P_DivlineSide in DOOM
+//
 I64 SideOfVector2D(Vector *v,CD2 *point) {
-//https://stackoverflow.com/questions/1560492/how-to-tell-whether-a-point-is-to-the-right-or-left-side-of-a-line
-  return v->data[0]*point->y-v->data[1]*-point->x;
+  if(!v->data[0]) {
+    if(point->x<=0)
+      return v->data[1]>0;
+    return v->data[1]<0;
+  }
+  if(!v->data[1]) {
+    if(point->y<=0)
+      return v->data[0]>0;
+    return v->data[0]<0;
+  }
+  F64 left=v->data[1]*point->x,right=v->data[0]*point->y;
+  if(right<left)
+    return 0;
+  return 1;
 }
 
 Bool IsFrontSideOfVector2D(Vector *v,CD2 *point) {
-//https://stackoverflow.com/questions/1560492/how-to-tell-whether-a-point-is-to-the-right-or-left-side-of-a-line
-  return v->data[0]*point->y-v->data[1]*-point->x>0;
+  return SideOfVector2D(v,point)==0;
 }
 
 //Main to demo vectors

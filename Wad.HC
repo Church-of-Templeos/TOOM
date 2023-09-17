@@ -84,7 +84,7 @@ class CWadSeg {
   I16 start_vertex,end_vertex;
   I16 angle,linedef;
 //0 is same dir as linedef,else opposite
-  I16 side,offset; 
+  I16 opposite_side,offset; 
 
 };
 
@@ -185,6 +185,7 @@ class CDoomBSPSeg {
   CD2 *start,*end;
   CDoomLinedef *linedef;
   I64 size,offset;
+  Bool same_side;
 };
 
 class CDoomSubsector:CQue {
@@ -430,16 +431,16 @@ rights:
         cur_node=cur_node->right_child;
       }
     } else if(left&&right) {
-//Check which side of parition line
+//Check which side of parition line
       pline=CreateVector(2);
       dummy.x=x-cur_node->x;
       dummy.y=y-cur_node->y;
       SetVector(pline,cur_node->dx,0);
       SetVector(pline,cur_node->dy,1);
-      if(!IsFrontSideOfVector2D(pline,&dummy)) {
+      if(IsFrontSideOfVector2D(pline,&dummy)) {
         DestroyVector(pline);
 	goto lefts;
-      }
+      } 
         DestroyVector(pline);
 	goto rights;
 //
@@ -450,84 +451,6 @@ rights:
 
 #include "Intersect.HC"
 
-Bool _DoomClipLinedef(F64 fov,F64 vx,F64 vy,F64 angle,CDoomLinedef *ld,CD2 *left,CD2 *right,Bool swap) {
-  CD2 at,view,view_end,tmp,tmp2;
-  I64 try_swap;
-  Bool hit_left,hit_right,res=TRUE;
-  Vector *side=CreateVector(2),*side2=CreateVector(2);
-  F64 relx,rely;
-  view.x=vx;
-  view.y=vy;
-  view_end.x=vx+65000*Cos(angle-fov/2);
-  view_end.y=vy+65000*Sin(angle-fov/2);
-  SetVector(side,view_end.x-vx,0);
-  SetVector(side,view_end.y-vy,1);
-  hit_left=PlaneIntersect(&at,&view,&view_end,ld->start,ld->end);
-  if(!left) left=&tmp;
-  if(hit_left) {
-    left->x=at.x;
-    left->y=at.y;
-  } else {
-    if(swap) {
-      left->x=ld->end->x;
-      left->y=ld->end->y;
-    } else {
-      left->x=ld->start->x;
-      left->y=ld->start->y;
-    }
-  }
-  view_end.x=vx+65000*Cos(angle+fov/2);
-  view_end.y=vy+65000*Sin(angle+fov/2);
-  SetVector(side2,view_end.x-vx,0);
-  SetVector(side2,view_end.y-vy,1);
-  hit_right=PlaneIntersect(&at,&view,&view_end,ld->start,ld->end);
-  if(!right) right=&tmp;
-  if(hit_right) {
-    right->x=at.x;
-    right->y=at.y;
-  } else {
-    if(swap) {
-      right->x=ld->start->x;
-      right->y=ld->start->y;
-    } else {
-      right->x=ld->end->x;
-      right->y=ld->end->y;
-    }
-  }
-//Check +/- fov/2 left AND right
-  res=TRUE;
-  if(!hit_left) {
-    tmp2.x=left->x-vx;
-    tmp2.y=left->y-vy;
-    if(SideOfVector2D(side2,&tmp2)>0) {
-      res=FALSE;
-    }
-    if(SideOfVector2D(side,&tmp2)<0) {
-      res=FALSE;
-    }
-  }
-  if(!hit_right) {
-    tmp2.x=right->x-vx;
-    tmp2.y=right->y-vy;
-    if(SideOfVector2D(side2,&tmp2)>0) {
-      res=FALSE;
-    }
-    if(SideOfVector2D(side,&tmp2)<0) {
-      res=FALSE;
-    }
-  }
-  DestroyVector(side);
-  DestroyVector(side2);
-  return res;
-}
-
-Bool DoomClipLinedef(F64 fov,F64 vx,F64 vy,F64 angle,CDoomLinedef *ld,CD2 *left,CD2 *right) {
-  if(_DoomClipLinedef(fov,vx,vy,angle,ld,left,right,FALSE))
-    return TRUE;
-  if(_DoomClipLinedef(fov,vx,vy,angle,ld,left,right,TRUE))
-    return TRUE;
-  return FALSE;
-}
 
 U0 GrDrawBBox(CDC *dc,I64 x,I64 y,I64 x2,I64 y2) {
 //Top
@@ -564,11 +487,11 @@ U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,U8 show_bsp=TRU
   dc->thick=2;
   I64 x=GR_WIDTH/2,y=GR_HEIGHT/2+300,idx;
   for(wall=head->next;wall!=head;wall=wall->next) {
-    if(DoomClipLinedef(fov,(ms.pos.x-x)/scale,(ms.pos.y-y)/scale,tS,wall,&left,&right))
+/*    if(DoomClipLinedef(fov,(ms.pos.x-x)/scale,(ms.pos.y-y)/scale,tS,wall,&left,&right))
       GrLine3(dc,
 	  x+left.x*scale,y+left.y*scale,0,
 	  x+right.x*scale,y+right.y*scale,0
-	  );
+	  );*/
   }
   if(show_bsp) {
     head=&level->bsp_nodes;
@@ -821,6 +744,7 @@ found:
     dseg->end=&level->vertices[wseg->end_vertex];
     dseg->linedef=dlinedef_list[wseg->linedef];
     dseg->offset=wseg->offset;
+    dseg->same_side=!wseg->opposite_side;
     wseg++;
   }  
 // SSECTORS 
@@ -936,7 +860,8 @@ CWad *wad=LoadWad("DOOM.WAD");
 //DumpWad(wad);
 CDoomGr *dgr=LoadWadGr(wad);
 CDoomLevel *l=LoadWadLevel(wad,"E1M1");;
-/*DCFill;
+/*
+DCFill;
 if(l)
   while(TRUE) {
     DrawLevelOverview(l,gr.dc,1/8.,TRUE);

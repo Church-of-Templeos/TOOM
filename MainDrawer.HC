@@ -11,6 +11,50 @@ class CDoomCamera {
 #define WALL_HPIXEL_HEIGHT 2
 #define FLOOR_HPIXEL_HEIGHT 2
 
+asm {
+_FAST_FIND_NOT_TRANSPARENT::
+  PUSH RBP
+  MOV RBP,RSP
+  PUSH RDI
+  MOV AX,TRANSPARENT
+  MOV RCX,U64 SF_ARG2[RBP]
+  MOV RDI,U64 SF_ARG1[RBP]
+  REPE SCASB 
+  CMP RCX,0
+  JLE @@fail
+  MOV RAX,RDI
+  POP RDI
+  LEAVE
+  RET1 16
+@@fail:
+  POP RDI
+  MOVRAX,NULL
+  LEAVE
+  RET1 16
+_FAST_FIND_TRANSPARENT::
+  PUSH RBP
+  MOV RBP,RSP
+  PUSH RDI
+  MOV AX,TRANSPARENT
+  MOV RCX,U64 SF_ARG2[RBP]
+  MOV RDI,U64 SF_ARG1[RBP]
+  REPNE SCASB 
+  CMP RCX,0
+  JLE @@fail
+  MOV RAX,RDI
+  POP RDI
+  LEAVE
+  RET1 16
+@@fail:
+  POP RDI
+  MOVRAX,NULL
+  LEAVE
+  RET1 16
+};
+_extern _FAST_FIND_NOT_TRANSPARENT U8 *FastFindNotTransparent(U8 *data,I64 cnt);
+_extern _FAST_FIND_TRANSPARENT U8 *FastFindTransparent(U8 *data,I64 cnt);
+
+
 
 /*
  * Listen up,here's the deal
@@ -120,7 +164,8 @@ U0 FillPolygon(CDC *to_dc,I64 cnt,CD2 *starts,CD2 *ends,CDC *texture,F64 altitud
   F64 *hits=CAlloc(8*cnt);
   F64 minx=GR_WIDTH,maxx=0;
   F64 miny=GR_HEIGHT,maxy=0;
-  F64 x,y;
+  F64 mingx,maxgx,mingy,maxgy;
+  F64 x,y,from_x,to_x;
   CD2 at,s,e;
   Bool odd;
   for(idx=0;idx!=cnt;idx++) {
@@ -133,7 +178,11 @@ U0 FillPolygon(CDC *to_dc,I64 cnt,CD2 *starts,CD2 *ends,CDC *texture,F64 altitud
     maxx=Max(ends[idx].x,maxx);
     maxy=Max(ends[idx].y,maxy);
   }
-  for(y=miny;y<=maxy;y+=FLOOR_HPIXEL_HEIGHT)  {
+  mingy=Max(0,miny);
+  maxgy=Min(GR_HEIGHT,maxy);
+  mingx=Max(0,minx);
+  maxgx=Min(GR_WIDTH,maxx);
+  for(y=mingy;y<=maxgy;y+=FLOOR_HPIXEL_HEIGHT)  {
     s.x=minx-2;
     e.x=maxx+2;
     s.y=y;
@@ -141,9 +190,9 @@ U0 FillPolygon(CDC *to_dc,I64 cnt,CD2 *starts,CD2 *ends,CDC *texture,F64 altitud
     hit_cnt=0;
     for(idx=0;idx!=cnt;idx++) {
       if(PlaneIntersect(&at,&s,&e,starts+idx,ends+idx)) {
-	if(hit_cnt)
+        if(hit_cnt)
 	  if(ToI64(hits[hit_cnt-1])==ToI64(at.x))
-	   goto skip;
+	    goto skip;
         hits[hit_cnt++]=ToI64(at.x);
 skip:;
       }
@@ -151,89 +200,43 @@ skip:;
     QSortI64(hits,hit_cnt,&HitCmp);
     odd=FALSE;
     for(idx=0;idx<hit_cnt-1;idx++) {
-        odd=!odd;
-        if(odd) {
-	  for(x=Max(hits[idx],0);x<=Min(hits[idx+1],GR_WIDTH-1);x+=FLOOR_VPIXEL_WIDTH)
+      odd=!odd;
+      if(odd)  {
+        if(hits[idx+1]<mingx||hits[idx]>maxgx)
+	  ;
+        else {
+	  from_x=Max(hits[idx],mingx);
+	  to_x=Min(hits[idx+1],maxgx);
+	  for(x=from_x;x<=to_x;x+=FLOOR_VPIXEL_WIDTH) {
 	    FloorShader(to_dc,texture,x,y,altitude,cam);
+	  }
         }
+      }
     }
 //If we have an odd number of hits,color for both sides
-   if(hit_cnt&1) {
-     for(idx=hit_cnt-2;idx>=(hit_cnt-1)/2;idx--) {
-       for(x=Max(hits[idx],0);x<=Min(hits[idx+1],GR_WIDTH-1);x+=FLOOR_VPIXEL_WIDTH)
-         FloorShader(to_dc,texture,x,y,altitude,cam);
-     } 
-   }
-
+    if(hit_cnt&1) {
+      for(idx=hit_cnt-2;idx>=(hit_cnt-1)/2;idx--) {
+        for(x=Max(hits[idx],0);x<=Min(hits[idx+1],GR_WIDTH-1);x+=FLOOR_VPIXEL_WIDTH)
+	  FloorShader(to_dc,texture,x,y,altitude,cam);
+      } 
+    }
   }
   Free(hits);
 }
 
-asm {
-_FAST_FIND_NZ::
-  PUSH RBP
-  MOV RBP,RSP
-  PUSH RDI
-  MOV AL,0
-  MOV RCX,U64 SF_ARG2[RBP]
-  MOV RDI,U64 SF_ARG1[RBP]
-  REPE SCASB 
-  CMP RCX,0
-  JLE @@fail
-  MOV RAX,RDI
-  POP RDI
-  LEAVE
-  RET1 16
-@@fail:
-  POP RDI
-  MOVRAX,NULL
-  LEAVE
-  RET1 16
-_FAST_FIND_Z::
-  PUSH RBP
-  MOV RBP,RSP
-  PUSH RDI
-  MOV AL,0
-  MOV RCX,U64 SF_ARG2[RBP]
-  MOV RDI,U64 SF_ARG1[RBP]
-  REPNE SCASB 
-  CMP RCX,0
-  JLE @@fail
-  MOV RAX,RDI
-  POP RDI
-  LEAVE
-  RET1 16
-@@fail:
-  POP RDI
-  MOVRAX,NULL
-  LEAVE
-  RET1 16
-};
-_extern _FAST_FIND_NZ U8 *FastFindNonZero(U8 *data,I64 cnt);
-_extern _FAST_FIND_Z U8 *FastFindZero(U8 *data,I64 cnt);
 
 U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture) {
-  if(!sector->linedef_cnt) return;
   CDC *dummy;
   I64 line_cnt=0;
   CD2 p,p2,*starts=MAlloc(sizeof(CD2)*sector->linedef_cnt),*ends=MAlloc(sizeof(CD2)*sector->linedef_cnt);
-  I64 idx,w,idx2,h,len,minx,maxx,rx,ry,maxy,miny;
+  I64 idx,w,idx2,h,len;
   U8 *row_ptr,*orp;
-  F64 angle,x;
-  maxx=0;
-  minx=GR_WIDTH;
-  maxy=0;
-  miny=GR_HEIGHT;
   for(idx=0;idx!=sector->linedef_cnt;idx++) {
     p.x=sector->linedefs[idx]->start->x;
     p.y=sector->linedefs[idx]->start->y;
     p2.x=sector->linedefs[idx]->end->x;
     p2.y=sector->linedefs[idx]->end->y;
     if(ClipLineToScrenCoords(cam,&p,&p2,at)) {
-      maxx=MaxI64(p.x,maxx);
-      minx=MinI64(p.x,minx);
-      maxy=MaxI64(p.y,maxy);
-      miny=MinI64(p.y,miny);
       starts[line_cnt].x=p.x;
       starts[line_cnt].y=p.y;
       ends[line_cnt].x=p2.x;
@@ -318,7 +321,7 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
   F64 h,h2;
   CDoomBSPSeg *seg;
   CDoomSidedef *sidedef;
-  CDoomSector *sector;
+  CDoomSector *sector,*sector2;
   Vector *wall_vect=CreateVector(2);
   CD2 cam_cord;
   I64 miss_cnt=0;
@@ -332,10 +335,10 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
         sidedef=seg->linedef->back;
     } else {
       cam_cord.x=cam->x-seg->start->x;
-      cam_cord.x=cam->y-seg->start->y;
+      cam_cord.y=cam->y-seg->start->y;
       SetVector(wall_vect,seg->end->x-seg->start->x,0);
       SetVector(wall_vect,seg->end->y-seg->start->y,1);
-      if(SideOfVector2D(wall_vect,&cam_cord)>0)
+      if(IsFrontSideOfVector2D(wall_vect,&cam_cord))
         sidedef=seg->linedef->front;
       else
         sidedef=seg->linedef->back;
@@ -395,7 +398,7 @@ U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
   Vector *vect=CreateVector(2);
   SetVector(vect,node->left_child->dx,0);
   SetVector(vect,node->left_child->dy,1);
-  if(SideOfVector2D(vect,&cam_cord)<0) {
+  if(!IsFrontSideOfVector2D(vect,&cam_cord)) {
     DestroyVector(vect);
     DrawBSP0(to_dc,cam,node->left_child);
     DrawBSP0(to_dc,cam,node->right_child);
@@ -404,27 +407,36 @@ U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
     DrawBSP0(to_dc,cam,node->right_child);
     DrawBSP0(to_dc,cam,node->left_child);
   }
-//  if(node->parent) DrawBSP0(to_dc,cam,node->parent);
+  if(node->parent) DrawBSP0(to_dc,cam,node->parent);
   node->visited=FALSE;
 }
 
 U0 DrawBSP(CDC *to_dc,CDoomCamera *cam,CDoomLevel *level) {
   CDoomSubsector *ss;
-//  CDoomBSPNode *node=DoomWhichBSPNode(cam->x,cam->y,level,&ss);
+  CDoomBSPNode *node=DoomWhichBSPNode(cam->x,cam->y,level,&ss);
   DrawBSP0(to_dc,cam,level->root_node);
 }
 
+I64 SectorFloorSort(CDoomSector *a,CDoomSector *b)  {
+  if(a->floor_height>b->floor_height)
+    return 1;
+  if(a->floor_height<b->floor_height)
+    return -1;
+  return 0;
+}
+
 U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
-  CDoomLinedef *ld,*head=&level->linedefs;
-  CD2 left,right,cam_cord,wall_coord;
-  CD2 start_floor,end_floor,start_ceil,end_ceil;
-  I64 start_seg,end_seg;
-  F64 floor,ceil,sx,sy,ex,ey,sh,eh,cx,cy,h,sect_y,sect_y2;
-  CDoomSector *sector;
-//TODO bsp
-  for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next) {
-    DrawTexturedFlat(to_dc,cam,sector,sector->floor_height,sector->floor_dc);
+  CDoomSector *sector,**sorted=MAlloc(8*QueCnt(&level->sectors));  
+  I64 idx=0;
+  for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next,idx++) {
+   sorted[idx]=sector;
   }
+//Sort by height then go backwards
+  QSortI64(sorted,idx,&SectorFloorSort);
+  while(--idx>=0) {
+    DrawTexturedFlat(to_dc,cam,sorted[idx],sorted[idx]->floor_height,sorted[idx]->floor_dc);
+  }
+  Free(sorted);
   DrawBSP(to_dc,cam,level);
 }
 
@@ -437,6 +449,7 @@ cam.y=sect->linedefs[0]->start->y-100;
 cam.fov=pi/4;
 cam.angle=pi;
 cam.h=0;
+DocClear;
 while(TRUE) {
 DCFill;
   DrawDoomWorld(&cam,l,gr.dc);

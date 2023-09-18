@@ -140,7 +140,7 @@ I64 HitCmp(F64 a,F64 b) {
 
 I64 FloorShader(CDC *to_dc,CDC *texture,F64 x,F64 y,F64 altitude,CDoomCamera *cam) {
   F64 angle=(x-GR_WIDTH/2)/GR_WIDTH*cam->fov/2+cam->angle;
-//Dont ask Nroot how this works,i typed in random stuff till it looked good
+//Dont ask Nroot how this works,i typed in random stuff till it looked good
   F64 dist=DIST_SCALE/(y-GR_HEIGHT/2)*(Abs(cam->h-altitude)/GR_HEIGHT);
   I64 floorx=Cos(angle)*dist,floory=Sin(angle)*dist;
   U16 *base,color;
@@ -157,7 +157,7 @@ I64 FloorShader(CDC *to_dc,CDC *texture,F64 x,F64 y,F64 altitude,CDoomCamera *ca
   base=&to_dc->body[ToI64(x)+ToI64(y)*to_dc->width_internal];
   *base=color;
   base(U8*)+=to_dc->width_internal;
-  color==texture->body[floorx+(1+floory)*texture->width](U16);
+  color=texture->body[floorx+(1+floory)*texture->width](U16);
   *base=color;
 
 }
@@ -267,6 +267,8 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
   F64 percent;
   I64 texture_x,texture_y;
   U16 *super_pixel,*dst;
+  I32 *db_z;
+  U8 *col;
   if(sx>ex) {
     SwapI64(&sx,&ex);
     SwapI64(&sy,&ey);
@@ -274,9 +276,9 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
     SwapI64(&sz,&ez);
     SwapI64(&start_seg,&end_seg);
   }
-  to_x=Min(ex,GR_WIDTH-WALL_VPIXEL_WIDTH);
+  to_x=MinI64(ex,GR_WIDTH-WALL_VPIXEL_WIDTH)&~1; //Align to 2 
   if(sy-sh>=GR_HEIGHT&&ey-eh>=GR_HEIGHT) return;
-  for(cx=Max(sx,0);cx<=to_x;cx+=WALL_VPIXEL_WIDTH) {
+  for(cx=MaxI64(sx,0)&~1;cx<=to_x;cx+=WALL_VPIXEL_WIDTH) { //&~1 aligns to 2
     percent=(cx-sx)/(ex-sx);
     h=percent*(eh-sh)+sh;
     texture_x=percent*(end_seg-start_seg)+start_seg;
@@ -286,16 +288,25 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
     at_y=percent*(ey-sy)+sy;
     cur_z=percent*(ez-sz)+sz;
     for(cy=0;cy<=h;cy+=WALL_HPIXEL_HEIGHT) {
-        if(0<=at_y-h+cy<GR_HEIGHT-WALL_HPIXEL_HEIGHT) {
+      if(0<=at_y-h+cy<GR_HEIGHT-WALL_HPIXEL_HEIGHT) {
+//I willl only check 2 buf for 1 pixel,assume other pixels are same as we render in 2x2 super pixels
+        db_z=&to_dc->depth_buf[ToI64(cx)+ToI64(at_y-h+cy)*to_dc->width_internal];
+        if(*db_z>cur_z) {
 	  texture_y=Lerp(cy/h,0,texture->height/2);
 	  texture_y=(2*texture_y%texture->height)&~1;
 	  super_pixel=&texture->body[texture_x+texture_y*texture->width_internal];
 	  dst=&to_dc->body[ToI64(cx)+ToI64(at_y-h+cy)*to_dc->width_internal];
-          *dst=*super_pixel;
+	  *dst=*super_pixel;
 	  super_pixel(U8*)+=texture->width_internal;
 	  dst(U8*)+=to_dc->width_internal;
 	  *dst=*super_pixel;
+          db_z[0]=cur_z;
+          db_z[1]=cur_z;
+	  db_z+=to_dc->width_internal;
+          db_z[0]=cur_z;
+          db_z[1]=cur_z;
         }
+      }
     }
   }
 }
@@ -426,7 +437,8 @@ U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
 U0 DrawBSP(CDC *to_dc,CDoomCamera *cam,CDoomLevel *level) {
   CDoomSubsector *ss;
   CDoomBSPNode *node=DoomWhichBSPNode(cam->x,cam->y,level,&ss);
-  DrawBSP0(to_dc,cam,level->root_node);
+  if(node)
+   DrawBSP0(to_dc,cam,node);
 }
 
 I64 SectorFloorSort(CDoomSector *a,CDoomSector *b)  {
@@ -449,6 +461,10 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     DrawTexturedFlat(to_dc,cam,sorted[idx],sorted[idx]->floor_height,sorted[idx]->floor_dc);
   }
   Free(sorted);
+  if(!to_dc->depth_buf)
+    DCDepthBufAlloc(to_dc);
+  else
+    DCDepthBufRst(to_dc);
   DrawBSP(to_dc,cam,level);
 }
 
@@ -464,7 +480,7 @@ cam.h=0;
 DocClear;
 while(TRUE) {
 DCFill;
- DrawLevelOverview(l,gr.dc,1/8.,TRUE,cam.x,cam.y);
+// DrawLevelOverview(l,gr.dc,1/8.,TRUE,cam.x,cam.y);
   cam.h=ms.pos.z*16;
   DrawDoomWorld(&cam,l,gr.dc);
   if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {

@@ -11,25 +11,37 @@ U32 class CRGB {
   U8 r,g,b,a;
 };
 
-CDC *PaletteizeImage(I64 w,I64 h,CRGB *data) {
-  CDC *ret=DCNew(w,h);
-  CBGR48 palette48[16];
+static U8 *doom_palette_dithered=NULL;
+
+U8 *DitherPalette(CRGB *data) {
+  U8 *ret=MAlloc(16*16);
+  CBGR48 palette48[16*16];
   I64 x,y,canidate,best_color;
   F64 best_dist,dist;
-  CRGB normal[16],cur_pixel;
+  CRGB normal[16*16],cur_pixel;
   GrPaletteGet(palette48);
   for(x=0;x!=16;x++) {
     normal[x].r=ToF64(palette48[x].r)/0xfff*0xff;
     normal[x].g=ToF64(palette48[x].g)/0xfff*0xff;
     normal[x].b=ToF64(palette48[x].b)/0xfff*0xff;
+    normal[x*16].r=normal[x].r;
+    normal[x*16].g=normal[x].g;
+    normal[x*16].b=normal[x].b;
   }
-  for(x=0;x!=w;x++) {
-    for(y=0;y!=h;y++) {
-      cur_pixel=data[x+y*w];
+  for(y=1;y!=16;y++) {
+    for(x=1;x!=16;x++) {
+      normal[x+y*16].r=ToF64(normal[x].r+normal[y].r)/2;
+      normal[x+y*16].g=ToF64(normal[x].g+normal[y].g)/2;
+      normal[x+y*16].b=ToF64(normal[x].b+normal[y].b)/2;
+    }
+  }
+  for(x=0;x!=16;x++) {
+    for(y=0;y!=16;y++) {
+      cur_pixel=data[x+y*16];
       best_color=0;
       best_dist=1e100;
       if(!cur_pixel.a)  {
-        for(canidate=0;canidate!=16;canidate++) {
+        for(canidate=0;canidate!=16*16;canidate++) {
 	  dist=Sqrt(Sqr(normal[canidate].r-cur_pixel.r)+
 	        Sqr(normal[canidate].g-cur_pixel.g)+
 	        Sqr(normal[canidate].b-cur_pixel.b));
@@ -38,10 +50,30 @@ CDC *PaletteizeImage(I64 w,I64 h,CRGB *data) {
 	    best_color=canidate;
 	  }
         }
-        ret->color=best_color;
+        ret[x+y*16]=best_color;
       } else
-        ret->color=TRANSPARENT;
-      GrPlot0(ret,x,y);
+        ret[x+y*16]=TRANSPARENT;
+    }
+  }
+  ret[TRANSPARENT]=TRANSPARENT;
+  return ret;
+}
+
+CDC *PaletteizeImage(I64 w,I64 h,U8 *dith_data) {
+  CDC *ret=DCNew(w*2,h*2);
+  DCFill(ret,TRANSPARENT);
+  I64 x,y;
+  for(y=0;y!=h;y++) {
+    for(x=0;x!=w;x++) {
+      if(*dith_data!=TRANSPARENT) {
+        ret->color=*dith_data&0xf;
+        GrPlot(ret,x*2,y*2);
+        GrPlot(ret,x*2+1,y*2+1);
+        ret->color=*dith_data>>4;
+        GrPlot(ret,x*2+1,y*2);
+        GrPlot(ret,x*2,y*2+1);
+      }
+      dith_data++;
     }
   }
   return ret;
@@ -58,13 +90,13 @@ class CDoomImageCol {
 };
 
 //https://doomwiki.org/wiki/Picture_format
-CDC *ReadDoomImage(U8 *wad_base,CDoomImage *header,CRGB *colors_pal) {
+CDC *ReadDoomImage(CDoomImage *header) {
   I64 w=header->w,h=header->h,rowstart,i,j,px_cnt;
   U8 *ptr;
-  CRGB *pdata=CAlloc(w*h*sizeof(CRGB));
+  U8 *pdata=CAlloc(w*h);
   for(i=0;i!=w;i++)
     for(j=0;j!=h;j++)
-      pdata[j*w+i].a=0xff;
+      pdata[j*w+i]=TRANSPARENT;
   for(i=0;i!=w;i++) {
     ptr=header(U8*)+header->col_offs[i];
     rowstart=0;
@@ -75,7 +107,7 @@ CDC *ReadDoomImage(U8 *wad_base,CDoomImage *header,CRGB *colors_pal) {
       if(!px_cnt) throw('Poop');
       ptr++;
       for(j=0;j!=px_cnt;j++) {
-        pdata[(j+rowstart)*w+i]=colors_pal[*ptr++];
+        pdata[(j+rowstart)*w+i]=doom_palette_dithered[*ptr++];
       }
       ptr++;
     }
@@ -88,14 +120,14 @@ CDC *ReadDoomImage(U8 *wad_base,CDoomImage *header,CRGB *colors_pal) {
 }
 
 CDC *ReadDoomFlat(U8 *flat,CRGB *pal) {
-  CRGB *flat3=CAlloc(4*64*64);
-  I64 idx=64*64;
+  I64 len;
   CDC *ret;
-  while(--idx>=0)
-    flat3[idx]=pal[flat[idx]];
-  ret=PaletteizeImage(64,64,flat3);
-  Free(flat3);
-  return ret;
+  U8 *dith=CAlloc(64*64);
+  for(len=64*64-1;len>=0;len--)
+    dith[len]=doom_palette_dithered[flat[len]];
+  ret=PaletteizeImage(64,64,dith);
+  Free(dith);
+  return ret;
 }
 CRGB *LoadPLAYPALFromLump(U8 *lump) {
   CRGB *ret=CAlloc(sizeof(CRGB)*256);
@@ -105,5 +137,7 @@ CRGB *LoadPLAYPALFromLump(U8 *lump) {
     ret[cnt].g=*lump++;
     ret[cnt].b=*lump++;
   }
+  Free(doom_palette_dithered);
+  doom_palette_dithered=DitherPalette(ret);
   return ret;
 }

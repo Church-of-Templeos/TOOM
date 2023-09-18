@@ -54,8 +54,6 @@ _FAST_FIND_TRANSPARENT::
 _extern _FAST_FIND_NOT_TRANSPARENT U8 *FastFindNotTransparent(U8 *data,I64 cnt);
 _extern _FAST_FIND_TRANSPARENT U8 *FastFindTransparent(U8 *data,I64 cnt);
 
-
-
 /*
  * Listen up,here's the deal
  * A view plane is FLAT,not a point,so when we look at an angle,we 
@@ -102,14 +100,16 @@ U0 TransformPointToCamera(CDoomCamera *cam,CD2 *p) {
 Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0) {
   CD2 s,e,at,*ptr;
   I64 cnt;
+  Bool ground_y=FALSE;
   F64 angle;
   TransformPointToCamera(cam,p);
   TransformPointToCamera(cam,p2);
-  if(p->x<2&&p2->x<2) return FALSE;
-  s.x=2,s.y=I16_MIN;
-  e.x=2,e.y=I16_MAX;
+  if(p->x<0.&&p2->x<0.) return FALSE;
+  s.x=0.,s.y=I16_MIN;
+  e.x=0.,e.y=I16_MAX;
   if(PlaneIntersect(&at,&s,&e,p,p2)) {
-    if(p->y>=0) {
+    ground_y=TRUE;
+    if(p->x>=0.) {
       p2->x=at.x;
       p2->y=at.y;
     } else {
@@ -122,8 +122,10 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0) {
     else ptr=p2;
     angle=Arg(ptr->x,ptr->y);
     at.x=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2-1);
-    at.y=cam->h+GR_HEIGHT/2+DIST_SCALE/Sqrt(ptr->x*ptr->x+ptr->y*ptr->y);
-    at.y-=DIST_SCALE/Sqrt(ptr->x*ptr->x+ptr->y*ptr->y)/GR_HEIGHT*level;
+    if(ground_y)
+      at.y=GR_HEIGHT;
+    else
+      at.y=GR_HEIGHT/2+DIST_SCALE/(1+Sqrt(ptr->x*ptr->x+ptr->y*ptr->y))/GR_HEIGHT/Cos(angle)*(cam->h-level);
     ptr->x=at.x;
     ptr->y=at.y;
   }
@@ -138,22 +140,24 @@ I64 HitCmp(F64 a,F64 b) {
 
 I64 FloorShader(CDC *to_dc,CDC *texture,F64 x,F64 y,F64 altitude,CDoomCamera *cam) {
   F64 angle=(x-GR_WIDTH/2)/GR_WIDTH*cam->fov/2+cam->angle;
-  F64 dist=DIST_SCALE/(y-GR_HEIGHT/2-cam->h);
+//Dont ask Nroot how this works,i typed in random stuff till it looked good
+  F64 dist=DIST_SCALE/(y-GR_HEIGHT/2)*(Abs(cam->h-altitude)/GR_HEIGHT);
   I64 floorx=Cos(angle)*dist,floory=Sin(angle)*dist;
   U16 *base,color;
   if(y>to_dc->height-2)
     y=to_dc->height-2;
   if(x>to_dc->width-2)
     x=to_dc->width-2;
-  floorx%=texture->width_internal-2;
-  floory%=texture->width_internal-2;
+ //I use dithering(which makes up 2x2 "pixels"),chop off first bit to align to 2
+  floorx=(2*floorx%texture->width)&~1;
+  floory=(2*floory%texture->height)&~1;
   if(floorx<0) floorx=-floorx;
   if(floory<0) floory=-floory;
-  base=&texture->body[floorx+floory*texture->width_internal];
-  color=*base;
+  color=texture->body[floorx+floory*texture->width](U16);
   base=&to_dc->body[ToI64(x)+ToI64(y)*to_dc->width_internal];
   *base=color;
   base(U8*)+=to_dc->width_internal;
+  color==texture->body[floorx+(1+floory)*texture->width](U16);
   *base=color;
 
 }
@@ -167,6 +171,7 @@ U0 FillPolygon(CDC *to_dc,I64 cnt,CD2 *starts,CD2 *ends,CDC *texture,F64 altitud
   F64 mingx,maxgx,mingy,maxgy;
   F64 x,y,from_x,to_x;
   CD2 at,s,e;
+  U8 *row,*col;
   Bool odd;
   for(idx=0;idx!=cnt;idx++) {
     minx=Min(starts[idx].x,minx);
@@ -179,9 +184,9 @@ U0 FillPolygon(CDC *to_dc,I64 cnt,CD2 *starts,CD2 *ends,CDC *texture,F64 altitud
     maxy=Max(ends[idx].y,maxy);
   }
   mingy=Max(0,miny);
-  maxgy=Min(GR_HEIGHT,maxy);
+  maxgy=Min(GR_HEIGHT-2,maxy);
   mingx=Max(0,minx);
-  maxgx=Min(GR_WIDTH,maxx);
+  maxgx=Min(GR_WIDTH-2,maxx);
   for(y=mingy;y<=maxgy;y+=FLOOR_HPIXEL_HEIGHT)  {
     s.x=minx-2;
     e.x=maxx+2;
@@ -205,10 +210,17 @@ skip:;
         if(hits[idx+1]<mingx||hits[idx]>maxgx)
 	  ;
         else {
+	  row=&to_dc->body[ToI64(y)*to_dc->width_internal];
 	  from_x=Max(hits[idx],mingx);
 	  to_x=Min(hits[idx+1],maxgx);
 	  for(x=from_x;x<=to_x;x+=FLOOR_VPIXEL_WIDTH) {
-	    FloorShader(to_dc,texture,x,y,altitude,cam);
+	    col=row+ToI64(x);
+            if(*col!=TRANSPARENT) {
+	      col=FastFindTransparent(col,GR_WIDTH-ToI64(x));
+	      if(!col) break;
+              x=col-row-FLOOR_VPIXEL_WIDTH;
+            } else 
+	      FloorShader(to_dc,texture,x,y,altitude,cam);
 	  }
         }
       }
@@ -217,8 +229,8 @@ skip:;
     if(hit_cnt&1) {
       for(idx=hit_cnt-2;idx>=(hit_cnt-1)/2;idx--) {
         for(x=Max(hits[idx],0);x<=Min(hits[idx+1],GR_WIDTH-1);x+=FLOOR_VPIXEL_WIDTH)
-	  FloorShader(to_dc,texture,x,y,altitude,cam);
-      } 
+	    FloorShader(to_dc,texture,x,y,altitude,cam);
+      } 
     }
   }
   Free(hits);
@@ -254,6 +266,7 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
   F64 cx,h,cy,at_y,cur_z,to_x,to_h;
   F64 percent;
   I64 texture_x,texture_y;
+  U16 *super_pixel,*dst;
   if(sx>ex) {
     SwapI64(&sx,&ex);
     SwapI64(&sy,&ey);
@@ -267,22 +280,21 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
     percent=(cx-sx)/(ex-sx);
     h=percent*(eh-sh)+sh;
     texture_x=percent*(end_seg-start_seg)+start_seg;
-    texture_x%=texture->width;
     if(texture_x<0) texture_x=-texture_x;
+//Heres' the deal,I dither in 2x2 "super-pixels",so chop off first bit to get aligned to 2
+    texture_x=(2*texture_x%texture->width)&~1; //*2 for "super-pixel"
     at_y=percent*(ey-sy)+sy;
     cur_z=percent*(ez-sz)+sz;
     for(cy=0;cy<=h;cy+=WALL_HPIXEL_HEIGHT) {
-        if(0<=at_y-h<GR_HEIGHT-WALL_HPIXEL_HEIGHT) {
-	  texture_y=Lerp(cy/h,0,texture->height);
-	  to_dc->color=GrPeek0(
-	        texture,
-	        texture_x,
-	        texture_y
-	        );
-	  GrPlot(to_dc,cx,at_y-h+cy);
-	  GrPlot(to_dc,cx+1,at_y-h+cy);
-	  GrPlot(to_dc,cx,at_y-h+cy+1);
-	  GrPlot(to_dc,cx+1,at_y-h+cy+1);
+        if(0<=at_y-h+cy<GR_HEIGHT-WALL_HPIXEL_HEIGHT) {
+	  texture_y=Lerp(cy/h,0,texture->height/2);
+	  texture_y=(2*texture_y%texture->height)&~1;
+	  super_pixel=&texture->body[texture_x+texture_y*texture->width_internal];
+	  dst=&to_dc->body[ToI64(cx)+ToI64(at_y-h+cy)*to_dc->width_internal];
+          *dst=*super_pixel;
+	  super_pixel(U8*)+=texture->width_internal;
+	  dst(U8*)+=to_dc->width_internal;
+	  *dst=*super_pixel;
         }
     }
   }
@@ -447,11 +459,13 @@ CDoomSector *sect=l->sectors.last;
 cam.x=sect->linedefs[0]->start->x-100;
 cam.y=sect->linedefs[0]->start->y-100;
 cam.fov=pi/4;
-cam.angle=pi;
+cam.angle=-pi;
 cam.h=0;
 DocClear;
 while(TRUE) {
 DCFill;
+ DrawLevelOverview(l,gr.dc,1/8.,TRUE,cam.x,cam.y);
+  cam.h=ms.pos.z*16;
   DrawDoomWorld(&cam,l,gr.dc);
   if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {
     cam.x+=GRID_SZ*Cos(cam.angle);

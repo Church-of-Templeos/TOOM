@@ -475,7 +475,7 @@ U0 DrawBSPNode(CDC *dc,I64 x,I64 y,CDoomBSPNode *node,F64 scale) {
         (node->x+node->dx)*scale+x,(node->y+node->dy)*scale+y,0);
 }
 
-U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,U8 show_bsp=TRUE) {
+U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,U8 show_bsp=TRUE,F64 dude_x,F64 dude_y) {
   DCFill;
   F64 fov=45*pi/180;
   CD2 left,right;
@@ -513,6 +513,9 @@ U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,U8 show_bsp=TRU
       }
     }
   }
+  dc->color=PURPLE;
+  dc->thick=2;
+  GrPlot3(dc,dude_x*scale+x,dude_y*scale+y,0);
 }
 
 class CWadPnames {
@@ -545,7 +548,7 @@ CDoomGr *LoadWadGr(CWad *wad) {
 found_sstart:
   wad_dir++; //Move past S_START
   if(StrCmp8(wad_dir->lump_name,"S_END")) {
-    gr=ReadDoomImage(wad,wad->body+wad_dir->ptr,ret->palette);
+    gr=ReadDoomImage(wad->body+wad_dir->ptr);
     lump_name[8]=0;
     MemCpy(lump_name,wad_dir->lump_name,8);
     FramePtrAdd(lump_name,gr);
@@ -594,7 +597,7 @@ found_pstart:
     if(wad_dir->lump_size) {
       lump_name[8]=0;
       MemCpy(lump_name,wad_dir->lump_name,8);
-      gr=ReadDoomImage(wad,wad->body+wad_dir->ptr,ret->palette);
+      gr=ReadDoomImage(wad->body+wad_dir->ptr);
 #ifdef DEBUG
 //      GrBlot(,0,0,gr);
 //      Sleep(10);
@@ -860,7 +863,7 @@ CWad *wad=LoadWad("DOOM.WAD");
 //DumpWad(wad);
 CDoomGr *dgr=LoadWadGr(wad);
 CDoomLevel *l=LoadWadLevel(wad,"E1M1");;
-/*
+/*
 DCFill;
 if(l)
   while(TRUE) {

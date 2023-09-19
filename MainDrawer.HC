@@ -11,12 +11,14 @@ class CDoomCamera {
 #define WALL_HPIXEL_HEIGHT 2
 #define FLOOR_HPIXEL_HEIGHT 2
 
+#define HIDDEN_BYTE 0xfe
+
 asm {
-_FAST_FIND_NOT_TRANSPARENT::
+_FAST_FIND_NOT_HIDDEN::
   PUSH RBP
   MOV RBP,RSP
   PUSH RDI
-  MOV AX,TRANSPARENT
+  MOV AX,HIDDEN_BYTE
   MOV RCX,U64 SF_ARG2[RBP]
   MOV RDI,U64 SF_ARG1[RBP]
   REPE SCASB 
@@ -31,11 +33,11 @@ _FAST_FIND_NOT_TRANSPARENT::
   MOVRAX,NULL
   LEAVE
   RET1 16
-_FAST_FIND_TRANSPARENT::
+_FAST_FIND_HIDDEN::
   PUSH RBP
   MOV RBP,RSP
   PUSH RDI
-  MOV AX,TRANSPARENT
+  MOV AX,HIDDEN_BYTE
   MOV RCX,U64 SF_ARG2[RBP]
   MOV RDI,U64 SF_ARG1[RBP]
   REPNE SCASB 
@@ -50,9 +52,62 @@ _FAST_FIND_TRANSPARENT::
   MOVRAX,NULL
   LEAVE
   RET1 16
+
+_FAST_FIND_NOT_HIDDEN_R::
+  PUSH RBP
+  MOV RBP,RSP
+  PUSH RDI
+  PUSHF
+  MOV AX,HIDDEN_BYTE
+  MOV RCX,U64 SF_ARG2[RBP]
+  MOV RDI,U64 SF_ARG1[RBP]
+  LEA RDI,-1[RDI+RCX]
+  STD
+  REPE SCASB 
+  CMP RCX,0
+  JLE @@fail
+  LEA RAX,1[RDI]
+  POPF
+  POP RDI
+  LEAVE
+  RET1 16
+@@fail:
+  POPF
+  POP RDI
+  MOVRAX,NULL
+  LEAVE
+  RET1 16
+_FAST_FIND_HIDDEN_R::
+  PUSH RBP
+  MOV RBP,RSP
+  PUSH RDI
+  PUSHF
+  MOV AX,HIDDEN_BYTE
+  MOV RCX,U64 SF_ARG2[RBP]
+  MOV RDI,U64 SF_ARG1[RBP]
+  LEA RDI,-1[RDI+RCX]
+  STD
+  REPNE SCASB 
+  CMP RCX,0
+  JLE @@fail
+  LEA RAX,1[RDI]
+  POPF
+  POP RDI
+  LEAVE
+  RET1 16
+@@fail:
+  POPF
+  POP RDI
+  MOVRAX,NULL
+  LEAVE
+  RET1 16
+
+
 };
-_extern _FAST_FIND_NOT_TRANSPARENT U8 *FastFindNotTransparent(U8 *data,I64 cnt);
-_extern _FAST_FIND_TRANSPARENT U8 *FastFindTransparent(U8 *data,I64 cnt);
+_extern _FAST_FIND_NOT_HIDDEN U8 *FastFindNotHidden(U8 *data,I64 cnt);
+_extern _FAST_FIND_HIDDEN U8 *FastFindHidden(U8 *data,I64 cnt);
+_extern _FAST_FIND_NOT_HIDDEN_R U8 *FastFindNotHiddenR(U8 *data,I64 cnt);
+_extern _FAST_FIND_HIDDEN_R U8 *FastFindHiddenR(U8 *data,I64 cnt);
 
 /*
  * Listen up,here's the deal
@@ -138,10 +193,10 @@ I64 HitCmp(F64 a,F64 b) {
   return 0;
 }
 
-I64 FloorShader(CDC *to_dc,CDC *texture,F64 x,F64 y,F64 altitude,CDoomCamera *cam) {
-  F64 angle=(x-GR_WIDTH/2)/GR_WIDTH*cam->fov/2+cam->angle;
+I64 FloorShader(CDC *to_dc,CDC *texture,I64 x,I64 y,F64 altitude,CDoomCamera *cam) {
+  F64 angle=(ToF64(x)-GR_WIDTH/2)/GR_WIDTH*cam->fov/2+cam->angle;
 //Dont ask Nroot how this works,i typed in random stuff till it looked good
-  F64 dist=DIST_SCALE/(y-GR_HEIGHT/2)*(Abs(cam->h-altitude)/GR_HEIGHT);
+  F64 dist=DIST_SCALE/(ToF64(y)-GR_HEIGHT/2)*(Abs(cam->h-altitude)/GR_HEIGHT);
   I64 floorx=Cos(angle)*dist,floory=Sin(angle)*dist;
   U16 *base,color;
   if(y>to_dc->height-2)
@@ -154,7 +209,7 @@ I64 FloorShader(CDC *to_dc,CDC *texture,F64 x,F64 y,F64 altitude,CDoomCamera *ca
   if(floorx<0) floorx=-floorx;
   if(floory<0) floory=-floory;
   color=texture->body[floorx+floory*texture->width](U16);
-  base=&to_dc->body[ToI64(x)+ToI64(y)*to_dc->width_internal];
+  base=&to_dc->body[x+y*to_dc->width_internal];
   *base=color;
   base(U8*)+=to_dc->width_internal;
   color=texture->body[floorx+(1+floory)*texture->width](U16);
@@ -162,81 +217,101 @@ I64 FloorShader(CDC *to_dc,CDC *texture,F64 x,F64 y,F64 altitude,CDoomCamera *ca
 
 }
 
-
 U0 FillPolygon(CDC *to_dc,I64 cnt,CD2 *starts,CD2 *ends,CDC *texture,F64 altitude,CDoomCamera *cam) {
-  I64 idx,hit_cnt;
-  F64 *hits=CAlloc(8*cnt);
+  I64 idx;
   F64 minx=GR_WIDTH,maxx=0;
   F64 miny=GR_HEIGHT,maxy=0;
-  F64 mingx,maxgx,mingy,maxgy;
-  F64 x,y,from_x,to_x;
-  CD2 at,s,e;
-  U8 *row,*col;
-  Bool odd;
-  for(idx=0;idx!=cnt;idx++) {
-    minx=Min(starts[idx].x,minx);
-    miny=Min(starts[idx].y,miny);
-    maxx=Max(starts[idx].x,maxx);
-    maxy=Max(starts[idx].y,maxy);
-    minx=Min(ends[idx].x,minx);
-    miny=Min(ends[idx].y,miny);
-    maxx=Max(ends[idx].x,maxx);
-    maxy=Max(ends[idx].y,maxy);
+  I64 mingx,maxgx,mingy,maxgy;
+  F64 x,y,from_x,to_x,x2,y2;
+  CDC *dummy;
+  I64 iy,ix,iy2,ix2;
+  F64 top_left,top_right;
+  F64 bottom_left,bottom_right;
+  Bool hit_top=FALSE,hit_bottom=FALSE,hit_left=FALSE,hit_right=FALSE;
+  for(idx=0; idx!=cnt; idx++) {
+    minx=Min(x=starts[idx].x,minx);
+    miny=Min(y=starts[idx].y,miny);
+    maxx=Max(x,maxx);
+    maxy=Max(y,maxy);
+    minx=Min(x2=ends[idx].x,minx);
+    miny=Min(y2=ends[idx].y,miny);
+    maxx=Max(x2,maxx);
+    maxy=Max(y2,maxy);
   }
-  mingy=Max(0,miny);
-  maxgy=Min(GR_HEIGHT-2,maxy);
-  mingx=Max(0,minx);
-  maxgx=Min(GR_WIDTH-2,maxx);
-  for(y=mingy;y<=maxgy;y+=FLOOR_HPIXEL_HEIGHT)  {
-    s.x=minx-2;
-    e.x=maxx+2;
-    s.y=y;
-    e.y=y;
-    hit_cnt=0;
-    for(idx=0;idx!=cnt;idx++) {
-      if(PlaneIntersect(&at,&s,&e,starts+idx,ends+idx)) {
-        if(hit_cnt)
-	  if(ToI64(hits[hit_cnt-1])==ToI64(at.x))
-	    goto skip;
-        hits[hit_cnt++]=ToI64(at.x);
-skip:;
+  mingy=Max(0,miny-4);
+  maxgy=Min(GR_HEIGHT-2,maxy+4);
+  mingx=Max(0,minx-4);
+  maxgx=Min(GR_WIDTH-2,maxx+4);
+  if(0<=mingx<maxgx<GR_WIDTH)
+    if(0<=mingy<maxgy<GR_HEIGHT) {
+      dummy=DCNew(maxgx-mingx+10,maxgy-mingy+10);
+      DCFill(dummy,RED);
+      dummy->color=BLUE;
+      dummy->thick=2;
+      top_left=maxgx;
+      top_right=mingx;
+      bottom_left=maxgx;
+      bottom_right=mingx;
+      for(idx=0; idx!=cnt; idx++) {
+	x=starts[idx].x;
+	y=starts[idx].y;
+	x2=ends[idx].x;
+	y2=ends[idx].y;
+	x=Clamp(x,mingx,maxgx);
+	x2=Clamp(x2,mingx,maxgx);
+	y=Clamp(y,mingy,maxgy);
+	y2=Clamp(y2,mingy,maxgy);
+        GrLine3(dummy,x+5-mingx,y+5-mingy,0,x2+5-mingx,y2+5-mingy,0);
+	if(ToI64(y)==mingy||ToI64(y2)==mingy) {
+	  hit_top=TRUE;
+	  if(ToI64(y)==mingy)
+ 	    top_left=Min(top_left,x);
+	  if(ToI64(y2)==mingy)
+ 	    top_left=Min(top_left,x2);
+	  if(ToI64(y)==mingy)
+ 	    top_right=Max(top_right,x);
+	  if(ToI64(y2)==mingy)
+ 	    top_right=Max(top_right,x2);
+	}
+	if(ToI64(y)==maxgy||ToI64(y2)==maxgy) {
+	  hit_bottom=TRUE;
+	  if(ToI64(y)==mingy)
+ 	    bottom_left=Min(bottom_left,x);
+	  if(ToI64(y2)==mingy)
+ 	    bottom_left=Min(bottom_left,x2);
+	  if(ToI64(y)==mingy)
+ 	    bottom_right=Max(bottom_right,x);
+	  if(ToI64(y2)==mingy)
+ 	    bottom_right=Max(bottom_right,x2);
+	}
+/*	if(ToI64(y)==mingy||ToI64(y2)==mingy) {
+	  hit_left=TRUE;
+	  if(ToI64(x)==mingx)
+ 	    top=Min(left,y);
+	  if(ToI64(x2)==mingx)
+ 	    top=Min(left,y2);
+	  if(ToI64(x)==mingx)
+ 	    bottom=Max(right,y);
+	  if(ToI64(x2)==mingx)
+ 	    bottom=Max(right,y2);
+	}
+	if(ToI64(y)==maxgy||ToI64(y2)==maxgy) {
+	  hit_right=TRUE;
+	}*/
       }
+      if(hit_bottom)
+	GrLine3(dummy,bottom_left+5-mingx,maxgy+5-mingy,0,bottom_right+5-mingx,maxgy+5-mingy,0);
+      if(hit_top)
+	GrLine3(dummy,top_left+5-mingx,5,0,top_right+5-mingx,5,0);
+      dummy->color=TRANSPARENT;
+      GrFloodFill(dummy,maxgx-mingx+9,maxgy-mingy+9);
+      for(ix=5;ix<maxgx-mingx+5;ix+=2)
+        for(iy=5;iy<maxgy-mingy+5;iy+=2)
+	  if(GrPeek(dummy,ix,iy)!=TRANSPARENT)
+	    FloorShader(to_dc,texture,ix+mingx-5,iy+mingy-5,altitude,cam);
+      DCDel(dummy);
     }
-    QSortI64(hits,hit_cnt,&HitCmp);
-    odd=FALSE;
-    for(idx=0;idx<hit_cnt-1;idx++) {
-      odd=!odd;
-      if(odd)  {
-        if(hits[idx+1]<mingx||hits[idx]>maxgx)
-	  ;
-        else {
-	  row=&to_dc->body[ToI64(y)*to_dc->width_internal];
-	  from_x=Max(hits[idx],mingx);
-	  to_x=Min(hits[idx+1],maxgx);
-	  for(x=from_x;x<=to_x;x+=FLOOR_VPIXEL_WIDTH) {
-	    col=row+ToI64(x);
-            if(*col!=TRANSPARENT) {
-	      col=FastFindTransparent(col,GR_WIDTH-ToI64(x));
-	      if(!col) break;
-              x=col-row-FLOOR_VPIXEL_WIDTH;
-            } else 
-	      FloorShader(to_dc,texture,x,y,altitude,cam);
-	  }
-        }
-      }
-    }
-//If we have an odd number of hits,color for both sides
-    if(hit_cnt&1) {
-      for(idx=hit_cnt-2;idx>=(hit_cnt-1)/2;idx--) {
-        for(x=Max(hits[idx],0);x<=Min(hits[idx+1],GR_WIDTH-1);x+=FLOOR_VPIXEL_WIDTH)
-	    FloorShader(to_dc,texture,x,y,altitude,cam);
-      } 
-    }
-  }
-  Free(hits);
 }
-
-
 U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture) {
   CDC *dummy;
   I64 line_cnt=0;
@@ -351,21 +426,24 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
   F64 floor,ceil;
   for(seg_idx=0;seg_idx!=ss->cnt;seg_idx++) {
     seg=&ss->first[seg_idx];
+//Use linedef as we want to see what side of the WALL we are on(not seg)
+    cam_cord.x=cam->x-seg->linedef->start->x;
+    cam_cord.y=cam->y-seg->linedef->start->y;
+    SetVector(wall_vect,seg->linedef->end->x-seg->linedef->start->x,0);
+    SetVector(wall_vect,seg->linedef->end->y-seg->linedef->start->y,1);
     if(seg->linedef->front^^seg->linedef->back) {
       if(seg->linedef->front)
         sidedef=seg->linedef->front;
-       else
-        sidedef=seg->linedef->back;
-    } else {
-      cam_cord.x=cam->x-seg->start->x;
-      cam_cord.y=cam->y-seg->start->y;
-      SetVector(wall_vect,seg->end->x-seg->start->x,0);
-      SetVector(wall_vect,seg->end->y-seg->start->y,1);
-      if(IsFrontSideOfVector2D(wall_vect,&cam_cord))
+      else
+        sidedef=seg->linedef->back;	
+    } else{
+//Backface culling
+      if(wall_vect->data[0]*cam_cord.y-wall_vect->data[1]*cam_cord.x<0.)
         sidedef=seg->linedef->front;
       else
         sidedef=seg->linedef->back;
     }
+    if(!sidedef) goto skip;
     sector=sidedef->sector;
     for(wall=0;wall!=3;wall++) {
       if(wall==0&&(texture=sidedef->lower_texture)) {
@@ -402,8 +480,8 @@ draw_wall:
         ceil=sector->ceil_height;
         goto draw_wall;
       }
-skip:;
     }
+skip:;
   }
 }
 
@@ -443,22 +521,21 @@ U0 DrawBSP(CDC *to_dc,CDoomCamera *cam,CDoomLevel *level) {
 
 I64 SectorFloorSort(CDoomSector *a,CDoomSector *b)  {
   if(a->floor_height>b->floor_height)
-    return 1;
-  if(a->floor_height<b->floor_height)
     return -1;
+  if(a->floor_height<b->floor_height)
+    return 1;
   return 0;
 }
 
 U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   CDoomSector *sector,**sorted=MAlloc(8*QueCnt(&level->sectors));  
-  I64 idx=0;
+  I64 idx=0,idx2;
   for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next,idx++) {
    sorted[idx]=sector;
   }
-//Sort by height then go backwards
   QSortI64(sorted,idx,&SectorFloorSort);
-  while(--idx>=0) {
-    DrawTexturedFlat(to_dc,cam,sorted[idx],sorted[idx]->floor_height,sorted[idx]->floor_dc);
+  for(idx2=0;idx2!=idx;idx2++) {
+    DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->floor_height,sorted[idx2]->floor_dc);
   }
   Free(sorted);
   if(!to_dc->depth_buf)

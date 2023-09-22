@@ -209,7 +209,11 @@ class CDoomSector:CQue {
   I64 special_type;
   I64 linedef_cnt;
   CDoomLinedef **linedefs;
-//TODO make up polygon(s) lines
+//Private
+//I will render the floors then I will cast them to the screen
+//I tried everything else but I just cant figure out how to draw the floors
+  F64 shape_start_x,shape_start_y;
+  CDC *shape_dc;
 };
 
 
@@ -475,7 +479,7 @@ U0 DrawBSPNode(CDC *dc,I64 x,I64 y,CDoomBSPNode *node,F64 scale) {
         (node->x+node->dx)*scale+x,(node->y+node->dy)*scale+y,0);
 }
 
-U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,U8 show_bsp=TRUE,F64 dude_x,F64 dude_y) {
+U0 DrawLevelOverview(CDoomLevel *level,CDC *dc=gr.dc,F64 scale=1,U8 show_bsp=TRUE,F64 dude_x,F64 dude_y) {
   DCFill;
   F64 fov=45*pi/180;
   CD2 left,right;
@@ -612,6 +616,72 @@ found_pstart:
   return ret;
 }
 
+U0 GenerateSectorShape(CDoomSector *s) {
+  I64 max_x=I16_MIN,max_y=I16_MIN;
+  I64 min_x=I16_MAX,min_y=I16_MAX;
+  I64 x,y;
+  I64 cnt,side,ix,iy,upper_y;
+  Bool odd;
+  for(cnt=0;cnt!=s->linedef_cnt;cnt++) {
+    for(side=0;side!=2;side++) {
+      if(side) {
+        x=s->linedefs[cnt]->start->x;
+        y=s->linedefs[cnt]->start->y;
+      } else {
+        x=s->linedefs[cnt]->end->x;
+        y=s->linedefs[cnt]->end->y;
+      }
+      max_x=MaxI64(max_x,x);
+      max_y=MaxI64(max_y,y);
+      min_x=MinI64(min_x,x);
+      min_y=MinI64(min_y,y);
+    }
+  }
+  s->shape_dc=DCNew(max_x-min_x+1,max_y-min_y+1);
+  s->shape_dc->thick=1;
+  s->shape_dc->color=YELLOW;
+  for(cnt=0;cnt!=s->linedef_cnt;cnt++) {
+    GrLine3(s->shape_dc,
+	s->linedefs[cnt]->start->x-min_x,
+	s->linedefs[cnt]->start->y-min_y,
+	0,
+	s->linedefs[cnt]->end->x-min_x,
+	s->linedefs[cnt]->end->y-min_y,
+	0);
+  }
+  for(ix=0;ix!=s->shape_dc->width;ix++) {
+    odd=TRUE;
+    for(iy=0;iy!=s->shape_dc->height;iy++) {
+      if(GrPeek0(s->shape_dc,ix,iy)) {
+        odd=!odd;
+	cnt=0;
+        while(GrPeek0(s->shape_dc,ix,iy)) {
+	  cnt++;
+	  iy++;
+	  if(iy>=s->shape_dc->height) {
+fill_upper:
+//If we did not find another wall,fill up empty space with something
+	    while(--iy>=0) {
+ 	      if(GrPeek0(s->shape_dc,ix,iy))
+		break;
+              GrPlot0(s->shape_dc,ix,iy);
+	   }
+	    goto next_col;
+	  }
+	}
+      }
+      if(!odd) {
+        GrPlot0(s->shape_dc,ix,iy);
+      }
+    }
+    if(odd)
+	goto fill_upper;
+next_col:;
+  }
+  s->shape_start_x=min_x;
+  s->shape_start_y=min_y;
+}
+
 CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   I64 idx,cnt;
   U8 name[9];
@@ -620,7 +690,7 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   CWadThing *wthing;
   CWadVertex *vertex;
   CWadDirectory *wad_dir;
-  CWadBSPNode *wnode;
+  CWadBSPNode *wnode;
   CDoomBSPNode *dnode,**dnode_list;
   CWadLinedef *wlinedef;
   CDoomLinedef *dlinedef,**dlinedef_list;
@@ -830,6 +900,10 @@ found:
 	);
     }
   }
+//SECTORS(4) Generate sectors shapes
+  cnt=wad_dir[7].lump_size/sizeof(CWadSector);
+  for(idx=0;idx!=cnt;idx++)
+    GenerateSectorShape(dsect_list[idx]);
   Free(sslist);
   Free(dside_list);
   Free(dsect_list);

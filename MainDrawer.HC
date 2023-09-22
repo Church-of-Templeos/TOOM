@@ -152,24 +152,44 @@ U0 TransformPointToCamera(CDoomCamera *cam,CD2 *p) {
   p->y=dist*Sin(angle);
 }
 
-Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0) {
-  CD2 s,e,at,*ptr;
+Bool ScreenCordsToPlaneCoords(CDoomCamera *cam,CD2 *p,F64 level) {
+  F64 angle=(p->x-GR_WIDTH/2)/(GR_WIDTH/2-1)*(cam->fov/2),dist;
+  if(Abs(cam->h-level)<.1)
+    dist=0;
+  else
+    dist=DIST_SCALE/((p->y-GR_HEIGHT/2)/(cam->h-level)*Cos(angle)*GR_HEIGHT)-1;
+  p->x=Cos(angle+cam->angle)*dist+cam->x;
+  p->y=Sin(angle+cam->angle)*dist+cam->y;
+  if(dist<0.) return FALSE;
+  if(-cam->fov/2.<angle<cam->fov/2.)
+    return TRUE;
+  return FALSE;
+}
+
+
+Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0,F64 *p_clip_seg=NULL,F64 *p2_clip_seg=NULL) {
+  CD2 s,e,at,*ptr,debug;
   I64 cnt;
   Bool ground_y=FALSE;
-  F64 angle;
+  F64 angle,dist;
   TransformPointToCamera(cam,p);
   TransformPointToCamera(cam,p2);
   if(p->x<0.&&p2->x<0.) return FALSE;
   s.x=0.,s.y=I16_MIN;
   e.x=0.,e.y=I16_MAX;
+  if(p_clip_seg) *p_clip_seg=0;
+  if(p2_clip_seg) *p2_clip_seg=dist;
   if(PlaneIntersect(&at,&s,&e,p,p2)) {
     ground_y=TRUE;
+    dist=Sqrt(Sqr(p2->x-p->x)+Sqr(p2->y-p->y));
     if(p->x>=0.) {
       p2->x=at.x;
       p2->y=at.y;
+      if(p2_clip_seg) *p2_clip_seg=dist-Sqrt(Sqr(p2->x-p->x)+Sqr(p2->y-p->y));
     } else {
       p->x=at.x;
       p->y=at.y;
+      if(p_clip_seg) *p_clip_seg=Sqrt(Sqr(p2->x-p->x)+Sqr(p2->y-p->y));
     }
   }
   for(cnt=0;cnt!=2;cnt++) {
@@ -186,6 +206,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0) {
   }
   return TRUE;
 }
+
 
 I64 HitCmp(F64 a,F64 b) {
   if(a>b) return 1;
@@ -217,123 +238,120 @@ I64 FloorShader(CDC *to_dc,CDC *texture,I64 x,I64 y,F64 altitude,CDoomCamera *ca
 
 }
 
-U0 FillPolygon(CDC *to_dc,I64 cnt,CD2 *starts,CD2 *ends,CDC *texture,F64 altitude,CDoomCamera *cam) {
-  I64 idx;
-  F64 minx=GR_WIDTH,maxx=0;
-  F64 miny=GR_HEIGHT,maxy=0;
-  I64 mingx,maxgx,mingy,maxgy;
-  F64 x,y,from_x,to_x,x2,y2;
-  CDC *dummy;
-  I64 iy,ix,iy2,ix2;
-  F64 top_left,top_right;
-  F64 bottom_left,bottom_right;
-  Bool hit_top=FALSE,hit_bottom=FALSE,hit_left=FALSE,hit_right=FALSE;
-  for(idx=0; idx!=cnt; idx++) {
-    minx=Min(x=starts[idx].x,minx);
-    miny=Min(y=starts[idx].y,miny);
-    maxx=Max(x,maxx);
-    maxy=Max(y,maxy);
-    minx=Min(x2=ends[idx].x,minx);
-    miny=Min(y2=ends[idx].y,miny);
-    maxx=Max(x2,maxx);
-    maxy=Max(y2,maxy);
-  }
-  mingy=Max(0,miny-4);
-  maxgy=Min(GR_HEIGHT-2,maxy+4);
-  mingx=Max(0,minx-4);
-  maxgx=Min(GR_WIDTH-2,maxx+4);
-  if(0<=mingx<maxgx<GR_WIDTH)
-    if(0<=mingy<maxgy<GR_HEIGHT) {
-      dummy=DCNew(maxgx-mingx+10,maxgy-mingy+10);
-      DCFill(dummy,RED);
-      dummy->color=BLUE;
-      dummy->thick=2;
-      top_left=maxgx;
-      top_right=mingx;
-      bottom_left=maxgx;
-      bottom_right=mingx;
-      for(idx=0; idx!=cnt; idx++) {
-	x=starts[idx].x;
-	y=starts[idx].y;
-	x2=ends[idx].x;
-	y2=ends[idx].y;
-	x=Clamp(x,mingx,maxgx);
-	x2=Clamp(x2,mingx,maxgx);
-	y=Clamp(y,mingy,maxgy);
-	y2=Clamp(y2,mingy,maxgy);
-        GrLine3(dummy,x+5-mingx,y+5-mingy,0,x2+5-mingx,y2+5-mingy,0);
-	if(ToI64(y)==mingy||ToI64(y2)==mingy) {
-	  hit_top=TRUE;
-	  if(ToI64(y)==mingy)
- 	    top_left=Min(top_left,x);
-	  if(ToI64(y2)==mingy)
- 	    top_left=Min(top_left,x2);
-	  if(ToI64(y)==mingy)
- 	    top_right=Max(top_right,x);
-	  if(ToI64(y2)==mingy)
- 	    top_right=Max(top_right,x2);
-	}
-	if(ToI64(y)==maxgy||ToI64(y2)==maxgy) {
-	  hit_bottom=TRUE;
-	  if(ToI64(y)==mingy)
- 	    bottom_left=Min(bottom_left,x);
-	  if(ToI64(y2)==mingy)
- 	    bottom_left=Min(bottom_left,x2);
-	  if(ToI64(y)==mingy)
- 	    bottom_right=Max(bottom_right,x);
-	  if(ToI64(y2)==mingy)
- 	    bottom_right=Max(bottom_right,x2);
-	}
-/*	if(ToI64(y)==mingy||ToI64(y2)==mingy) {
-	  hit_left=TRUE;
-	  if(ToI64(x)==mingx)
- 	    top=Min(left,y);
-	  if(ToI64(x2)==mingx)
- 	    top=Min(left,y2);
-	  if(ToI64(x)==mingx)
- 	    bottom=Max(right,y);
-	  if(ToI64(x2)==mingx)
- 	    bottom=Max(right,y2);
-	}
-	if(ToI64(y)==maxgy||ToI64(y2)==maxgy) {
-	  hit_right=TRUE;
-	}*/
+
+CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
+  CDoomSector *head=&level->sectors,*s=head->next;
+  while(s!=head) {
+    if(0<=x-s->shape_start_x<=s->shape_dc->width)
+      if(0<=y-s->shape_start_y<=s->shape_dc->height) {
+        if(GrPeek0(s->shape_dc,x-s->shape_start_x,y-s->shape_start_y))
+	  return s;
       }
-      if(hit_bottom)
-	GrLine3(dummy,bottom_left+5-mingx,maxgy+5-mingy,0,bottom_right+5-mingx,maxgy+5-mingy,0);
-      if(hit_top)
-	GrLine3(dummy,top_left+5-mingx,5,0,top_right+5-mingx,5,0);
-      dummy->color=TRANSPARENT;
-      GrFloodFill(dummy,maxgx-mingx+9,maxgy-mingy+9);
-      for(ix=5;ix<maxgx-mingx+5;ix+=2)
-        for(iy=5;iy<maxgy-mingy+5;iy+=2)
-	  if(GrPeek(dummy,ix,iy)!=TRANSPARENT)
-	    FloorShader(to_dc,texture,ix+mingx-5,iy+mingy-5,altitude,cam);
-      DCDel(dummy);
-    }
+    s=s->next;
+  }
+  return NULL;
 }
+
 U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture) {
-  CDC *dummy;
-  I64 line_cnt=0;
-  CD2 p,p2,*starts=MAlloc(sizeof(CD2)*sector->linedef_cnt),*ends=MAlloc(sizeof(CD2)*sector->linedef_cnt);
-  I64 idx,w,idx2,h,len;
-  U8 *row_ptr,*orp;
-  for(idx=0;idx!=sector->linedef_cnt;idx++) {
-    p.x=sector->linedefs[idx]->start->x;
-    p.y=sector->linedefs[idx]->start->y;
-    p2.x=sector->linedefs[idx]->end->x;
-    p2.y=sector->linedefs[idx]->end->y;
-    if(ClipLineToScrenCoords(cam,&p,&p2,at)) {
-      starts[line_cnt].x=p.x;
-      starts[line_cnt].y=p.y;
-      ends[line_cnt].x=p2.x;
-      ends[line_cnt].y=p2.y;
-      line_cnt++;
+  I64 x,y;
+  I64 w=sector->shape_dc->width,h=sector->shape_dc->height;
+  I64 lastx=-1,lasty=-1;
+  F64 maxx=I16_MIN,maxy=I16_MIN;
+  F64 minx=I16_MAX,miny=I16_MAX;
+  CD2 point,point2,point3,point4;
+  point.x=sector->shape_start_x;
+  point.y=sector->shape_start_y;
+
+  point2.x=sector->shape_start_x+w;
+  point2.y=sector->shape_start_y;
+
+  point3.x=sector->shape_start_x;
+  point3.y=sector->shape_start_y+h;
+
+  point4.x=sector->shape_start_x+w;
+  point4.y=sector->shape_start_y+h;
+  if(ClipLineToScrenCoords(cam,&point3,&point4,at)) {
+    maxx=Max(maxx,point3.x);
+    maxy=Max(maxy,point3.y);
+    maxx=Max(maxx,point4.x);
+    maxy=Max(maxy,point4.y);
+
+    minx=Min(minx,point3.x);
+    miny=Min(miny,point3.y);
+    minx=Min(minx,point4.x);
+    miny=Min(miny,point4.y);
+  }
+  if(ClipLineToScrenCoords(cam,&point,&point2,at)) {
+    maxx=Max(maxx,point2.x);
+    maxy=Max(maxy,point2.y);
+    maxx=Max(maxx,point.x);
+    maxy=Max(maxy,point.y);
+
+    minx=Min(minx,point2.x);
+    miny=Min(miny,point2.y);
+    minx=Min(minx,point.x);
+    miny=Min(miny,point.y);
+  }
+
+  point.x=sector->shape_start_x;
+  point.y=sector->shape_start_y;
+
+  point2.x=sector->shape_start_x+w;
+  point2.y=sector->shape_start_y;
+
+  point3.x=sector->shape_start_x;
+  point3.y=sector->shape_start_y+h;
+
+  point4.x=sector->shape_start_x+w;
+  point4.y=sector->shape_start_y+h;
+
+
+  if(ClipLineToScrenCoords(cam,&point2,&point4,at)) {
+    maxx=Max(maxx,point2.x);
+    maxy=Max(maxy,point2.y);
+    maxx=Max(maxx,point4.x);
+    maxy=Max(maxy,point4.y);
+
+    minx=Min(minx,point2.x);
+    miny=Min(miny,point2.y);
+    minx=Min(minx,point4.x);
+    miny=Min(miny,point4.y);
+  }
+  if(ClipLineToScrenCoords(cam,&point,&point3,at)) {
+    maxx=Max(maxx,point3.x);
+    maxy=Max(maxy,point3.y);
+    maxx=Max(maxx,point.x);
+    maxy=Max(maxy,point.y);
+
+    minx=Min(minx,point3.x);
+    miny=Min(miny,point3.y);
+    minx=Min(minx,point.x);
+    miny=Min(miny,point.y);
+  }
+
+
+  if(maxx<minx) {
+    return;
+  }
+  minx=Max(0,minx);
+  miny=Max(0,miny);
+  maxx=Min(GR_WIDTH,maxx);
+  maxy=Min(GR_HEIGHT,maxy);
+  for(x=minx;x<maxx;x+=2) {
+    for(y=miny;y<maxy;y+=2) {
+      point.x=x,point.y=y;
+      if(ScreenCordsToPlaneCoords(cam,&point,at)) {
+        point.x-=sector->shape_start_x;
+        point.y-=sector->shape_start_y;
+        if(0<=point.x<w)
+	  if(0<=point.y<h){
+	    if(GrPeek0(sector->shape_dc,point.x,point.y)) {   
+	      FloorShader(to_dc,texture,x,y,at,cam);
+	    }
+	  }
+      }
     }
   }
-  FillPolygon(to_dc,line_cnt,starts,ends,texture,at,cam);
-  Free(starts),Free(ends);
-fin:;
 } 
 
 U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
@@ -438,7 +456,7 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
         sidedef=seg->linedef->back;	
     } else{
 //Backface culling
-      if(wall_vect->data[0]*cam_cord.y-wall_vect->data[1]*cam_cord.x<0.)
+      if(wall_vect->data[0]*cam_cord.y-wall_vect->data[1]*cam_cord.x<0.)
         sidedef=seg->linedef->front;
       else
         sidedef=seg->linedef->back;
@@ -521,9 +539,9 @@ U0 DrawBSP(CDC *to_dc,CDoomCamera *cam,CDoomLevel *level) {
 
 I64 SectorFloorSort(CDoomSector *a,CDoomSector *b)  {
   if(a->floor_height>b->floor_height)
-    return -1;
-  if(a->floor_height<b->floor_height)
     return 1;
+  if(a->floor_height<b->floor_height)
+    return -1;
   return 0;
 }
 
@@ -549,15 +567,15 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
 CDoomCamera cam;
 CDoomSector *sect=l->sectors.last;
 "%x,$ER$%x\n",sect->linedef_cnt,sect->linedefs[0];
-cam.x=sect->linedefs[0]->start->x-100;
-cam.y=sect->linedefs[0]->start->y-100;
+cam.x=sect->linedefs[0]->start->x-00;
+cam.y=sect->linedefs[0]->start->y-0;
 cam.fov=pi/4;
-cam.angle=-pi;
+//cam.angle=-pi;
 cam.h=0;
 DocClear;
 while(TRUE) {
 DCFill;
-// DrawLevelOverview(l,gr.dc,1/8.,TRUE,cam.x,cam.y);
+ DrawLevelOverview(l,gr.dc,1/8.,TRUE,cam.x,cam.y);
   cam.h=ms.pos.z*16;
   DrawDoomWorld(&cam,l,gr.dc);
   if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {

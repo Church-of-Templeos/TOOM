@@ -178,7 +178,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0,F64 *p_cl
   CD2 s,e,at,*ptr,debug;
   I64 cnt;
   Bool ground_y=FALSE;
-  F64 angle,dist;
+  F64 angle,dist=Sqrt(Sqr(p2->x-p->x)+Sqr(p2->y-p->y));
   TransformPointToCamera(cam,p);
   TransformPointToCamera(cam,p2);
   if(p->x<0.&&p2->x<0.) return FALSE;
@@ -187,8 +187,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0,F64 *p_cl
   if(p_clip_seg) *p_clip_seg=0;
   if(p2_clip_seg) *p2_clip_seg=dist;
   if(PlaneIntersect(&at,&s,&e,p,p2)) {
-    dist=Sqrt(Sqr(p2->x-p->x)+Sqr(p2->y-p->y));
-    if(p->x>=0.) {
+    if(p->x>=0.) {
       p2->x=at.x;
       p2->y=at.y;
       if(p2_clip_seg) *p2_clip_seg=dist-Sqrt(Sqr(p2->x-p->x)+Sqr(p2->y-p->y));
@@ -255,10 +254,11 @@ CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
   return NULL;
 }
 
-U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture) {
+U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
   I64 x,y;
   I64 w=sector->shape_dc->width,h=sector->shape_dc->height;
   I64 lastx=-1,lasty=-1;
+  I32 *db_z,dist;
   F64 maxx=I16_MIN,maxy=I16_MIN;
   F64 minx=I16_MAX,miny=I16_MAX;
   CD2 point,point2,point3,point4;
@@ -333,26 +333,34 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
   }
 
 
-  if(maxx<minx) {
+  if(maxx<minx)
     return;
-  }
   minx=Max(0,minx);
   miny=Max(0,miny);
-  maxx=Min(GR_WIDTH,maxx);
-  maxy=Min(GR_HEIGHT,maxy);
+  maxx=Min(GR_WIDTH-2,maxx);
+  maxy=Min(GR_HEIGHT-2,maxy);
   for(x=minx;x<maxx;x+=2) {
     for(y=miny;y<maxy;y+=2) {
       point.x=x,point.y=y;
       if(ScreenCordsToPlaneCoords(cam,&point,at)) {
+        dist=Sqrt(Sqr(point.x-cam->x)+Sqr(point.y-cam->y));
         point.x-=sector->shape_start_x;
         point.y-=sector->shape_start_y;
         if(0<=point.x<w)
 	  if(0<=point.y<h){
-	    if(GrPeek0(sector->shape_dc,point.x,point.y)) {   
-	      FloorShader(to_dc,texture,x,y,at,cam);
-	    }
+	    db_z=&to_dc->depth_buf[x+y*to_dc->width_internal];
+	    if(*db_z>dist)
+	      if(GrPeek0(sector->shape_dc,point.x,point.y)) {   
+	        db_z[0]=dist;
+	        db_z[1]=dist;
+	        db_z+=to_dc->width_internal;
+	        db_z[0]=dist;
+	        db_z[1]=dist;
+	        FloorShader(to_dc,texture,x,y,at,cam);
+	      }
 	  }
       }
+next:;
     }
   }
 } 
@@ -366,6 +374,7 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
   U16 *super_pixel,*dst;
   I32 *db_z;
   U8 *col;
+  I64 hi;
   Bool written=FALSE;
   if(sx>ex) {
     SwapI64(&sx,&ex);
@@ -385,16 +394,21 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
     texture_x=(2*texture_x%texture->width)&~1; //*2 for "super-pixel"
     at_y=percent*(ey-sy)+sy-h;
     cur_z=percent*(ez-sz)+sz;
+    hi=ClampI64(h,0,GR_HEIGHT*5);
 //"Clip" the visible area between drawn ceiling/floor
     if(cam->ceil_depths[ToI64(cx)/2]<cur_z) {  
       from=Max(0,cam->ceil_heights[ToI64(cx)/2]-at_y);
     } else
       from=0;
     if(cam->floor_depths[ToI64(cx)/2]<cur_z) {  
-      to=Min(h,cam->floor_heights[ToI64(cx)/2]-at_y);
+      to=Min(hi,cam->floor_heights[ToI64(cx)/2]-at_y);
     } else
-      to=h;
+      to=hi;
     written=FALSE;
+    if(at_y>=GR_HEIGHT)
+      goto skip;
+    if(at_y+to<0)
+      goto skip;
     for(cy=from;cy<=to;cy+=WALL_HPIXEL_HEIGHT) {
       if(0<=at_y+cy<GR_HEIGHT-WALL_HPIXEL_HEIGHT) {
 //I willl only check 2 buf for 1 pixel,assume other pixels are same as we render in 2x2 super pixels
@@ -569,26 +583,15 @@ U0 DrawBSP(CDC *to_dc,CDoomCamera *cam,CDoomLevel *level) {
 
 I64 SectorFloorSort(CDoomSector *a,CDoomSector *b)  {
   if(a->floor_height>b->floor_height)
-    return 1;
-  if(a->floor_height<b->floor_height)
     return -1;
+  if(a->floor_height<b->floor_height)
+    return 1;
   return 0;
 }
 
 U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   CDoomSector *sector,**sorted=MAlloc(8*QueCnt(&level->sectors));  
   I64 idx=0,idx2;
-  for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next,idx++) {
-   sorted[idx]=sector;
-  }
-  QSortI64(sorted,idx,&SectorFloorSort);
-  for(idx2=0;idx2!=idx;idx2++) {
-    if(sorted[idx2]->floor_dc)
-      DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->floor_height,sorted[idx2]->floor_dc);
-    if(sorted[idx2]->ceil_dc)
-      DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->ceil_height,sorted[idx2]->ceil_dc);
-  }
-  Free(sorted);
   for(idx=0;idx!=GR_WIDTH/2;idx++) {
     cam->floor_heights[idx]=GR_HEIGHT;
     cam->ceil_heights[idx]=0;
@@ -599,7 +602,19 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     DCDepthBufAlloc(to_dc);
   else
     DCDepthBufRst(to_dc);
-  DrawBSP(to_dc,cam,level);
+  DrawBSP(to_dc,cam,level);
+  idx=0;
+  for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next,idx++) {
+   sorted[idx]=sector;
+  }
+  QSortI64(sorted,idx,&SectorFloorSort);
+  for(idx2=0;idx2!=idx;idx2++) {
+    if(sorted[idx2]->floor_dc)
+      DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->floor_height,sorted[idx2]->floor_dc,TRUE);
+    if(sorted[idx2]->ceil_dc)
+      DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->ceil_height,sorted[idx2]->ceil_dc,FALSE);
+  }
+  Free(sorted);
 }
 
 
@@ -630,6 +645,10 @@ DCFill;
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)) {
      cam.angle+=pi/16;
+  }
+  if(Bt(kbd.down_bitmap,Char2ScanCode('\n')&0xff)) {
+     DCFill;
+    break;
   }
   Refresh;
 }

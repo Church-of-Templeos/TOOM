@@ -264,16 +264,16 @@ U0 LoadWadTEXTUREs(CWadTEXTURE1 *header,CDoomGr *gr) {
   CDC *result,*patch;
   CWadTexture *map_texture;
   for(texture=0;texture!=header->num_textures;texture++) {
-    map_texture=header(U8*)+header->texture_offsets[texture];
-    result=DCNew(map_texture->w,map_texture->h);
+    map_texture=header(U8*)+header->texture_offsets[texture];
+    result=DCNew(map_texture->w*2,map_texture->h*2);
     DCFill(result,TRANSPARENT);
     name[8]=0;
     MemCpy(name,map_texture->name,8);
     for(i=0;i!=map_texture->patch_cnt;i++) {
       if(patch=PNameIndexToDC(map_texture->patches[i].patch_index,gr))
       GrBlot(result,
-	map_texture->patches[i].origin_x,
-	map_texture->patches[i].origin_y,
+	map_texture->patches[i].origin_x*2,
+	map_texture->patches[i].origin_y*2,
 	patch);
     } 
     FramePtrAdd(name,result);
@@ -690,7 +690,7 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   CWadThing *wthing;
   CWadVertex *vertex;
   CWadDirectory *wad_dir;
-  CWadBSPNode *wnode;
+  CWadBSPNode *wnode;
   CDoomBSPNode *dnode,**dnode_list;
   CWadLinedef *wlinedef;
   CDoomLinedef *dlinedef,**dlinedef_list;

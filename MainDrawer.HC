@@ -2,6 +2,13 @@
 class CDoomCamera {
   F64 x,y,h;
   F64 angle,fov;
+//Private
+//These include the wall heights too
+  F64 floor_heights[GR_WIDTH/2]; //used for choosing which things not to draw
+  F64 ceil_heights[GR_WIDTH/2]; //used for choosing which things not to draw
+  F64 floor_depths[GR_WIDTH/2];
+  F64 ceil_depths[GR_WIDTH/2];
+
 };
 #define GRID_SZ  128
 #define DIST_SCALE (GR_HEIGHT*GRID_SZ*3)
@@ -154,7 +161,7 @@ U0 TransformPointToCamera(CDoomCamera *cam,CD2 *p) {
 
 Bool ScreenCordsToPlaneCoords(CDoomCamera *cam,CD2 *p,F64 level) {
   F64 angle=(p->x-GR_WIDTH/2)/(GR_WIDTH/2-1)*(cam->fov/2),dist;
-  if(Abs(cam->h-level)<.1)
+  if(Abs(cam->h-level)<.05)
     dist=0;
   else
     dist=DIST_SCALE/((p->y-GR_HEIGHT/2)/(cam->h-level)*Cos(angle)*GR_HEIGHT)-1;
@@ -180,7 +187,6 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0,F64 *p_cl
   if(p_clip_seg) *p_clip_seg=0;
   if(p2_clip_seg) *p2_clip_seg=dist;
   if(PlaneIntersect(&at,&s,&e,p,p2)) {
-    ground_y=TRUE;
     dist=Sqrt(Sqr(p2->x-p->x)+Sqr(p2->y-p->y));
     if(p->x>=0.) {
       p2->x=at.x;
@@ -197,10 +203,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0,F64 *p_cl
     else ptr=p2;
     angle=Arg(ptr->x,ptr->y);
     at.x=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2-1);
-    if(ground_y)
-      at.y=GR_HEIGHT;
-    else
-      at.y=GR_HEIGHT/2+DIST_SCALE/(1+Sqrt(ptr->x*ptr->x+ptr->y*ptr->y))/GR_HEIGHT/Cos(angle)*(cam->h-level);
+    at.y=GR_HEIGHT/2+DIST_SCALE/(1+Sqrt(ptr->x*ptr->x+ptr->y*ptr->y))/GR_HEIGHT/Cos(angle)*(cam->h-level);
     ptr->x=at.x;
     ptr->y=at.y;
   }
@@ -307,7 +310,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
 
 
   if(ClipLineToScrenCoords(cam,&point2,&point4,at)) {
-    maxx=Max(maxx,point2.x);
+    maxx=Max(maxx,point2.x);
     maxy=Max(maxy,point2.y);
     maxx=Max(maxx,point4.x);
     maxy=Max(maxy,point4.y);
@@ -355,13 +358,15 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
 } 
 
 U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
-	I64 start_seg,I64 end_seg,CDC *texture,F64 sz,F64 ez) {
-  F64 cx,h,cy,at_y,cur_z,to_x,to_h;
+	I64 start_seg,I64 end_seg,CDC *texture,F64 sz,F64 ez,CDoomCamera *cam,
+	Bool floor=FALSE,Bool ceil=FALSE) {
+  F64 cx,h,cy,at_y,cur_z,to_x,to_h,from,to;
   F64 percent;
   I64 texture_x,texture_y;
   U16 *super_pixel,*dst;
   I32 *db_z;
   U8 *col;
+  Bool written=FALSE;
   if(sx>ex) {
     SwapI64(&sx,&ex);
     SwapI64(&sy,&ey);
@@ -378,27 +383,49 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
     if(texture_x<0) texture_x=-texture_x;
 //Heres' the deal,I dither in 2x2 "super-pixels",so chop off first bit to get aligned to 2
     texture_x=(2*texture_x%texture->width)&~1; //*2 for "super-pixel"
-    at_y=percent*(ey-sy)+sy;
+    at_y=percent*(ey-sy)+sy-h;
     cur_z=percent*(ez-sz)+sz;
-    for(cy=0;cy<=h;cy+=WALL_HPIXEL_HEIGHT) {
-      if(0<=at_y-h+cy<GR_HEIGHT-WALL_HPIXEL_HEIGHT) {
+//"Clip" the visible area between drawn ceiling/floor
+    if(cam->ceil_depths[ToI64(cx)/2]<cur_z) {  
+      from=Max(0,cam->ceil_heights[ToI64(cx)/2]-at_y);
+    } else
+      from=0;
+    if(cam->floor_depths[ToI64(cx)/2]<cur_z) {  
+      to=Min(h,cam->floor_heights[ToI64(cx)/2]-at_y);
+    } else
+      to=h;
+    written=FALSE;
+    for(cy=from;cy<=to;cy+=WALL_HPIXEL_HEIGHT) {
+      if(0<=at_y+cy<GR_HEIGHT-WALL_HPIXEL_HEIGHT) {
 //I willl only check 2 buf for 1 pixel,assume other pixels are same as we render in 2x2 super pixels
-        db_z=&to_dc->depth_buf[ToI64(cx)+ToI64(at_y-h+cy)*to_dc->width_internal];
+        db_z=&to_dc->depth_buf[ToI64(cx)+ToI64(at_y+cy)*to_dc->width_internal];
         if(*db_z>cur_z) {
 	  texture_y=Lerp(cy/h,0,texture->height/2);
 	  texture_y=(2*texture_y%texture->height)&~1;
 	  super_pixel=&texture->body[texture_x+texture_y*texture->width_internal];
-	  dst=&to_dc->body[ToI64(cx)+ToI64(at_y-h+cy)*to_dc->width_internal];
+	  dst=&to_dc->body[ToI64(cx)+ToI64(at_y+cy)*to_dc->width_internal];
 	  *dst=*super_pixel;
 	  super_pixel(U8*)+=texture->width_internal;
 	  dst(U8*)+=to_dc->width_internal;
 	  *dst=*super_pixel;
-          db_z[0]=cur_z;
-          db_z[1]=cur_z;
+	  written=TRUE;
+	  db_z[0]=cur_z;
+	  db_z[1]=cur_z;
 	  db_z+=to_dc->width_internal;
-          db_z[0]=cur_z;
-          db_z[1]=cur_z;
+	  db_z[0]=cur_z;
+	  db_z[1]=cur_z;
         }
+      }
+    }
+skip:;
+    if(written) {
+      if(floor&&cam->floor_depths[ToI64(cx)/2]>cur_z) {
+        cam->floor_heights[ToI64(cx)/2]=at_y+from;
+        cam->floor_depths[ToI64(cx)/2]=cur_z;
+      } 
+      if(ceil&&cam->ceil_depths[ToI64(cx)/2]>cur_z) {
+        cam->ceil_heights[ToI64(cx)/2]=to+at_y;
+        cam->ceil_depths[ToI64(cx)/2]=cur_z;
       }
     }
   }
@@ -486,7 +513,10 @@ draw_wall:
 	  TextureMapWall(to_dc,start_floor.x,start_floor.y,h,end_floor.x,end_floor.y,h2,
 	        start_seg,end_seg,texture,
 	        Sqrt(Sqr(seg->start->x-cam->x)+Sqr(seg->start->y-cam->y)),
-	        Sqrt(Sqr(seg->end->x-cam->x)+Sqr(seg->end->y-cam->y))
+	        Sqrt(Sqr(seg->end->x-cam->x)+Sqr(seg->end->y-cam->y)),
+		cam,
+		wall==2||wall==0, //floor
+		wall==2||wall==1, //ceil
 	  );
         }
       } else if(wall==1&&(texture=sidedef->upper_texture)) {
@@ -553,14 +583,23 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   }
   QSortI64(sorted,idx,&SectorFloorSort);
   for(idx2=0;idx2!=idx;idx2++) {
-    DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->floor_height,sorted[idx2]->floor_dc);
+    if(sorted[idx2]->floor_dc)
+      DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->floor_height,sorted[idx2]->floor_dc);
+    if(sorted[idx2]->ceil_dc)
+      DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->ceil_height,sorted[idx2]->ceil_dc);
   }
   Free(sorted);
+  for(idx=0;idx!=GR_WIDTH/2;idx++) {
+    cam->floor_heights[idx]=GR_HEIGHT;
+    cam->ceil_heights[idx]=0;
+    cam->floor_depths[idx]=I16_MAX;
+    cam->ceil_depths[idx]=I16_MAX;
+  }
   if(!to_dc->depth_buf)
     DCDepthBufAlloc(to_dc);
   else
     DCDepthBufRst(to_dc);
-  DrawBSP(to_dc,cam,level);
+  DrawBSP(to_dc,cam,level);
 }
 
 

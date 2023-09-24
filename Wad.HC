@@ -264,7 +264,7 @@ U0 LoadWadTEXTUREs(CWadTEXTURE1 *header,CDoomGr *gr) {
   CDC *result,*patch;
   CWadTexture *map_texture;
   for(texture=0;texture!=header->num_textures;texture++) {
-    map_texture=header(U8*)+header->texture_offsets[texture];
+    map_texture=header(U8*)+header->texture_offsets[texture];
     result=DCNew(map_texture->w*2,map_texture->h*2);
     DCFill(result,TRANSPARENT);
     name[8]=0;
@@ -610,17 +610,44 @@ found_pstart:
     }
     goto found_pstart;
   }
-  LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE1",wad),ret);
+  wad_dir=wad->body+wad->directory_ptr;
+  wad_dir+=W_CheckNumForName("STBAR",wad); 
+  GrBlot(,0,0,ReadDoomImage(wad->body+wad_dir->ptr));
+  LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE1",wad),ret);
   if(W_GetLumpPtrFromName("TEXTURE2",wad)>=0)
     LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE2",wad),ret);
   return ret;
+}
+
+Bool InBound(F64 a,F64 l,F64 h) {
+  if(l<h)
+    return l-.1<=a<=h+.1;
+  return h-.1<=a<=l+.1;
+}
+
+F64 PassesThroughLineAtY(I64 x,CD2 *a,CD2 *b) {
+  F64 slope;
+  F64 res;
+  if(a->x==b->x) {
+    if(x==ToI64(a->x))
+      return Max(a->y,b->y);
+    return -1;
+  }
+  slope=(b->y-a->y)/(b->x-a->x);
+  res=slope*(x-a->x)+a->y;
+  if(InBound(x,a->x,b->x)&&InBound(res,a->y,b->y))
+      return res;
+  return -1;
 }
 
 U0 GenerateSectorShape(CDoomSector *s) {
   I64 max_x=I16_MIN,max_y=I16_MIN;
   I64 min_x=I16_MAX,min_y=I16_MAX;
   I64 x,y;
-  I64 cnt,side,ix,iy,upper_y;
+  I64 maxy,new_maxy,tmp;
+  I64 cnt,side,ix,iy,choose_idx;
+  CDoomLinedef **array=CAlloc(s->linedef_cnt*8);
+  CD2 p1,p2;
   Bool odd;
   for(cnt=0;cnt!=s->linedef_cnt;cnt++) {
     for(side=0;side!=2;side++) {
@@ -637,49 +664,59 @@ U0 GenerateSectorShape(CDoomSector *s) {
       min_y=MinI64(min_y,y);
     }
   }
-  s->shape_dc=DCNew(max_x-min_x+1,max_y-min_y+1);
-  s->shape_dc->thick=1;
+  s->shape_dc=DCNew((max_x-min_x+2)/2,(max_y-min_y+2)/2);
+  DCFill(s->shape_dc,0);
   s->shape_dc->color=YELLOW;
-  for(cnt=0;cnt!=s->linedef_cnt;cnt++) {
-    GrLine3(s->shape_dc,
-	s->linedefs[cnt]->start->x-min_x,
-	s->linedefs[cnt]->start->y-min_y,
-	0,
-	s->linedefs[cnt]->end->x-min_x,
-	s->linedefs[cnt]->end->y-min_y,
-	0);
-  }
-  for(ix=0;ix!=s->shape_dc->width;ix++) {
-    odd=TRUE;
-    for(iy=0;iy!=s->shape_dc->height;iy++) {
-      if(GrPeek0(s->shape_dc,ix,iy)) {
-        odd=!odd;
-	cnt=0;
-        while(GrPeek0(s->shape_dc,ix,iy)) {
-	  cnt++;
-	  iy++;
-	  if(iy>=s->shape_dc->height) {
-fill_upper:
-//If we did not find another wall,fill up empty space with something
-	    while(--iy>=0) {
- 	      if(GrPeek0(s->shape_dc,ix,iy))
-		break;
-              GrPlot0(s->shape_dc,ix,iy);
-	   }
-	    goto next_col;
+  for(x=0;x<max_x-min_x+1;x+=2) {
+    maxy=-1;
+    odd=FALSE;
+    for(ix=0;ix!=s->linedef_cnt;ix++)
+      array[ix]=s->linedefs[ix];
+loop:
+    choose_idx=-1;
+    new_maxy=s->shape_dc->height*2;
+    for(cnt=0;cnt!=s->linedef_cnt;cnt++) {
+      if(array[cnt]) {
+        p1.x=s->linedefs[cnt]->start->x-min_x;
+        p1.y=s->linedefs[cnt]->start->y-min_y;
+        p2.x=s->linedefs[cnt]->end->x-min_x;
+        p2.y=s->linedefs[cnt]->end->y-min_y;
+        tmp=PassesThroughLineAtY(x,&p1,&p2);
+        if(tmp!=-1) {
+	  if(tmp>maxy&&tmp<new_maxy) {
+	    choose_idx=cnt;
+	    new_maxy=tmp;
 	  }
-	}
-      }
-      if(!odd) {
-        GrPlot0(s->shape_dc,ix,iy);
+        }
       }
     }
-    if(odd)
-	goto fill_upper;
-next_col:;
+    odd=!odd;
+    if(choose_idx!=-1) {
+      if(!odd) GrVLine(s->shape_dc,x/2,maxy/2,new_maxy/2);
+      array[choose_idx]=NULL;
+      maxy=new_maxy;
+      goto loop;
+    }
+    if(!odd) GrVLine(s->shape_dc,x/2,maxy/2,s->shape_dc->height);
   }
+//Artifact reduction,any 1 pixel that is lone in a row,remove it
+  for(y=0;y!=s->shape_dc->height;y++)
+    for(x=1;x<s->shape_dc->width-1;x++) {
+       if(GrPeek0(s->shape_dc,x,y)) {
+         if(!GrPeek0(s->shape_dc,x-1,y)&&!GrPeek0(s->shape_dc,x+1,y)) {
+	   s->shape_dc->color=BLACK;
+	   GrPlot0(s->shape_dc,x,y);
+	 }
+       } else {
+         if(GrPeek0(s->shape_dc,x-1,y)&&GrPeek0(s->shape_dc,x+1,y)) {
+	   s->shape_dc->color=YELLOW;
+	   GrPlot0(s->shape_dc,x,y);
+         }
+       }
+    }
   s->shape_start_x=min_x;
   s->shape_start_y=min_y;
+  Free(array);
 }
 
 CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {

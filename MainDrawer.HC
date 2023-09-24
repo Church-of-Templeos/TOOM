@@ -12,7 +12,7 @@ class CDoomCamera {
   CDC *floor_dc; //This is black or white,this is used for reducing floor overdraw
 };
 #define GRID_SZ  128
-#define DIST_SCALE (GR_HEIGHT*GRID_SZ*3)
+#define DIST_SCALE (GR_HEIGHT*GRID_SZ*2.5)
 
 #define FLOOR_VPIXEL_WIDTH 2
 #define WALL_VPIXEL_WIDTH 2
@@ -165,7 +165,7 @@ Bool ScreenCordsToPlaneCoords(CDoomCamera *cam,CD2 *p,F64 level) {
   if(Abs(cam->h-level)<.05)
     dist=0;
   else
-    dist=DIST_SCALE/((p->y-GR_HEIGHT/2)/(cam->h-level)*Cos(angle)*GR_HEIGHT)-1;
+    dist=DIST_SCALE/((p->y-GR_HEIGHT/2)/(cam->h-level)*Clamp(Cos(angle),.8,1.)*GR_HEIGHT/2.5)-1;
   p->x=Cos(angle+cam->angle)*dist+cam->x;
   p->y=Sin(angle+cam->angle)*dist+cam->y;
   if(dist<0.) return FALSE;
@@ -175,27 +175,22 @@ Bool ScreenCordsToPlaneCoords(CDoomCamera *cam,CD2 *p,F64 level) {
 }
 
 
-Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0,F64 *p_clip_seg=NULL,F64 *p2_clip_seg=NULL) {
+Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.) {
   CD2 s,e,at,*ptr,debug;
-  I64 cnt;
-  Bool ground_y=FALSE;
-  F64 angle,dist=Sqrt(Sqr(p2->x-p->x)+Sqr(p2->y-p->y));
+  I64 cnt,fail_cnt;
+  F64 angle;
   TransformPointToCamera(cam,p);
   TransformPointToCamera(cam,p2);
-  if(p->x<0.&&p2->x<0.) return FALSE;
-  s.x=0.,s.y=I16_MIN;
-  e.x=0.,e.y=I16_MAX;
-  if(p_clip_seg) *p_clip_seg=0;
-  if(p2_clip_seg) *p2_clip_seg=dist;
+  if(p->x<1&&p2->x<1) return FALSE;
+  s.x=1,e.x=1;
+  s.y=I16_MIN,e.y=I16_MAX;  
   if(PlaneIntersect(&at,&s,&e,p,p2)) {
-    if(p->x>=0.) {
+    if(p->x>=1) {
       p2->x=at.x;
       p2->y=at.y;
-      if(p2_clip_seg) *p2_clip_seg=dist-Sqrt(Sqr(p2->x-p->x)+Sqr(p2->y-p->y));
     } else {
       p->x=at.x;
       p->y=at.y;
-      if(p_clip_seg) *p_clip_seg=Sqrt(Sqr(p2->x-p->x)+Sqr(p2->y-p->y));
     }
   }
   for(cnt=0;cnt!=2;cnt++) {
@@ -203,7 +198,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0,F64 *p_cl
     else ptr=p2;
     angle=Arg(ptr->x,ptr->y);
     at.x=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2-1);
-    at.y=GR_HEIGHT/2+DIST_SCALE/(1+Sqrt(ptr->x*ptr->x+ptr->y*ptr->y))/GR_HEIGHT/Cos(angle)*(cam->h-level);
+    at.y=GR_HEIGHT/2+DIST_SCALE/(1.+Sqrt(ptr->x*ptr->x+ptr->y*ptr->y))/GR_HEIGHT*2.5/Clamp(Cos(angle),.8,1.)*(cam->h-level);
     ptr->x=at.x;
     ptr->y=at.y;
   }
@@ -221,9 +216,9 @@ I64 HitCmp(F64 a,F64 b) {
 CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
   CDoomSector *head=&level->sectors,*s=head->next;
   while(s!=head) {
-    if(0<=x-s->shape_start_x<=s->shape_dc->width)
-      if(0<=y-s->shape_start_y<=s->shape_dc->height) {
-        if(GrPeek0(s->shape_dc,x-s->shape_start_x,y-s->shape_start_y))
+    if(0<=x-s->shape_start_x<=s->shape_dc->width*2)
+      if(0<=y-s->shape_start_y<=s->shape_dc->height*2) {
+        if(GrPeek0(s->shape_dc,(x-s->shape_start_x)/2,(y-s->shape_start_y)/2))
 	  return s;
       }
     s=s->next;
@@ -233,7 +228,7 @@ CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
 
 U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
   I64 x,y;
-  I64 w=sector->shape_dc->width,h=sector->shape_dc->height;
+  I64 w=sector->shape_dc->width*2,h=sector->shape_dc->height*2;
   I64 floorx,floory;
   I32 *db_z,dist;
   U16 *dst,color;
@@ -329,7 +324,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
 	    if(0<=point.y<h){
 	      db_z=&to_dc->depth_buf[x+y*to_dc->width_internal];
 	      if(*db_z>dist)
-	        if(GrPeek0(sector->shape_dc,point.x,point.y)) {   
+	        if(GrPeek0(sector->shape_dc,point.x/2,point.y/2)) {
 		  cam->floor_dc->color=WHITE;
 		  GrPlot0(cam->floor_dc,x/2,y/2);
 		  db_z[0]=dist;
@@ -602,6 +597,7 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   idx=0;
   for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next,idx++)
     sorted[idx]=sector;
+//SectorFloorSort is highest floor first
   QSortI64(sorted,idx,&SectorFloorSort);
   for(idx2=0;idx2!=idx;idx2++) {
     if(sorted[idx2]->floor_dc)
@@ -616,8 +612,8 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
 CDoomCamera cam;
 CDoomSector *sect=l->sectors.last;
 "%x,$ER$%x\n",sect->linedef_cnt,sect->linedefs[0];
-cam.x=sect->linedefs[0]->start->x-00;
-cam.y=sect->linedefs[0]->start->y-0;
+cam.x=sect->linedefs[0]->start->x;
+cam.y=sect->linedefs[0]->start->y;
 cam.fov=pi/4;
 //cam.angle=-pi;
 cam.h=0;
@@ -646,4 +642,4 @@ DCFill;
     break;
   }
   Refresh;
-}
+}

@@ -127,7 +127,7 @@ CDC *ReadDoomFlat(U8 *flat,CRGB *pal) {
     dith[len]=doom_palette_dithered[flat[len]];
   ret=PaletteizeImage(64,64,dith);
   Free(dith);
-  return ret;
+  return ret;
 }
 CRGB *LoadPLAYPALFromLump(U8 *lump) {
   CRGB *ret=CAlloc(sizeof(CRGB)*256);
@@ -141,3 +141,4 @@ CRGB *LoadPLAYPALFromLump(U8 *lump) {
   doom_palette_dithered=DitherPalette(ret);
   return ret;
 }
+

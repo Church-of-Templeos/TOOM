@@ -95,18 +95,8 @@ class CWadSubsector {
   I16 first;
 }; 
 
+
 
-class CWad {
-  U8 body[0];
-  U8 ident[4];
-  U32 lump_cnt;
-  U32 directory_ptr;
-}; 
-
-
-CWad *LoadWad(U8 *filename) {
-  return FileRead(filename);
-}
 
 class CDoomThing:CQue {
   F64 x,y,angle;
@@ -264,7 +254,7 @@ U0 LoadWadTEXTUREs(CWadTEXTURE1 *header,CDoomGr *gr) {
   CDC *result,*patch;
   CWadTexture *map_texture;
   for(texture=0;texture!=header->num_textures;texture++) {
-    map_texture=header(U8*)+header->texture_offsets[texture];
+    map_texture=header(U8*)+header->texture_offsets[texture];
     result=DCNew(map_texture->w*2,map_texture->h*2);
     DCFill(result,TRANSPARENT);
     name[8]=0;
@@ -933,7 +923,6 @@ U0 DumpWad(CWad *wad) {
   
 }
 
-CWad *wad=LoadWad("DOOM.WAD");
 //DumpWad(wad);
 CDoomGr *dgr=LoadWadGr(wad);
 CDoomLevel *l=LoadWadLevel(wad,"E1M1");;

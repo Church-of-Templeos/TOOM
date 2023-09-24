@@ -1,4 +1,5 @@
 #include "Wad.HC";
+#include "FastTrig.HC"
 class CDoomCamera {
   F64 x,y,h;
   F64 angle,fov;
@@ -154,10 +155,10 @@ I64 YSort(CD2 *a,CD2 *b) {
 
 U0 TransformPointToCamera(CDoomCamera *cam,CD2 *p) {
   F64 x,y;
-  F64 angle=Arg(x=p->x-cam->x,y=p->y-cam->y)-cam->angle;
+  F64 angle=FArg(x=p->x-cam->x,y=p->y-cam->y)-cam->angle;
   F64 dist=Sqrt(x*x+y*y);
-  p->x=dist*Cos(angle);
-  p->y=dist*Sin(angle);
+  p->x=dist*FCos(angle);
+  p->y=dist*FSin(angle);
 }
 
 Bool ScreenCordsToPlaneCoords(CDoomCamera *cam,CD2 *p,F64 level) {
@@ -165,9 +166,9 @@ Bool ScreenCordsToPlaneCoords(CDoomCamera *cam,CD2 *p,F64 level) {
   if(Abs(cam->h-level)<.05)
     dist=0;
   else
-    dist=DIST_SCALE/((p->y-GR_HEIGHT/2)/(cam->h-level)*Clamp(Cos(angle),.8,1.)*GR_HEIGHT/2.5)-1;
-  p->x=Cos(angle+cam->angle)*dist+cam->x;
-  p->y=Sin(angle+cam->angle)*dist+cam->y;
+    dist=DIST_SCALE/((p->y-GR_HEIGHT/2)/(cam->h-level)*Clamp(FCos(angle),.8,1.)*GR_HEIGHT/2.5)-1;
+  p->x=FCos(angle+cam->angle)*dist+cam->x;
+  p->y=FSin(angle+cam->angle)*dist+cam->y;
   if(dist<0.) return FALSE;
   if(-cam->fov/2.<angle<cam->fov/2.)
     return TRUE;
@@ -196,9 +197,9 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.) {
   for(cnt=0;cnt!=2;cnt++) {
     if(!cnt) ptr=p;
     else ptr=p2;
-    angle=Arg(ptr->x,ptr->y);
+    angle=FArg(ptr->x,ptr->y);
     at.x=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2-1);
-    at.y=GR_HEIGHT/2+DIST_SCALE/(1.+Sqrt(ptr->x*ptr->x+ptr->y*ptr->y))/GR_HEIGHT*2.5/Clamp(Cos(angle),.8,1.)*(cam->h-level);
+    at.y=GR_HEIGHT/2+DIST_SCALE/(1.+Sqrt(ptr->x*ptr->x+ptr->y*ptr->y))/GR_HEIGHT*2.5/Clamp(FCos(angle),.8,1.)*(cam->h-level);
     ptr->x=at.x;
     ptr->y=at.y;
   }
@@ -398,7 +399,9 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
     if(at_y+to<0)
       goto skip;
     for(cy=from;cy<=to;cy+=WALL_HPIXEL_HEIGHT) {
-      if(0<=at_y+cy<GR_HEIGHT-WALL_HPIXEL_HEIGHT) {
+      if(at_y+cy>GR_HEIGHT-WALL_HPIXEL_HEIGHT) {
+	break;
+      } else if(at_y+cy>=0) {
 //I willl only check 2 buf for 1 pixel,assume other pixels are same as we render in 2x2 super pixels
         db_z=&to_dc->depth_buf[ToI64(cx)+ToI64(at_y+cy)*to_dc->width_internal];
         if(*db_z>cur_z) {
@@ -417,6 +420,8 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
 	  db_z[0]=cur_z;
 	  db_z[1]=cur_z;
         }
+      } else {
+        cy+=0-(at_y+cy)-WALL_HPIXEL_HEIGHT;
       }
     }
 skip:;
@@ -624,12 +629,12 @@ DCFill;
   cam.h=ms.pos.z*16;
   DrawDoomWorld(&cam,l,gr.dc);
   if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {
-    cam.x+=GRID_SZ*Cos(cam.angle);
-    cam.y+=GRID_SZ*Sin(cam.angle);
+    cam.x+=GRID_SZ*FCos(cam.angle);
+    cam.y+=GRID_SZ*FSin(cam.angle);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)) {
-    cam.x-=GRID_SZ*Cos(cam.angle);
-    cam.y-=GRID_SZ*Sin(cam.angle);
+    cam.x-=GRID_SZ*FCos(cam.angle);
+    cam.y-=GRID_SZ*FSin(cam.angle);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
      cam.angle-=pi/16;

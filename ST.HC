@@ -117,7 +117,7 @@ class BinaryIcon
 
     // pointer to current icon status
     Bool *val;
-
+
     // pointer to boolean
     //  stating whether to update icon
     Bool *on;  
@@ -154,7 +154,7 @@ static STNum		w_ammo[4];
 static STNum		w_maxammo[4]; 
 // holds key-type for each key box on bar
 static I64 		keyboxes[3]; 
-
+static CDC*		ST;
 
 static Bool st_stopped = TRUE;
 
@@ -381,7 +381,7 @@ U0 ST_createWidgets()
 
 
 
-U0GrChar(CDC*dc=gr.dc,U8 ch,I64 x,I64 y,I64 scale)
+U0GrChar(CDC*dc,U8 ch,I64 x,I64 y,I64 scale)
 {
   I64 i,j,k=0;
   for(i=0;i<FONT_HEIGHT;i++){
@@ -393,20 +393,52 @@ U0GrChar(CDC*dc=gr.dc,U8 ch,I64 x,I64 y,I64 scale)
   }
 }
 
-U0 DrawPatch(CDC *to_dc,CDC*texture, I64 sx,I64 sy,I64 ex,I64 ey) 
+U0 DrawPatch(CDC *to_dc, I64 sx,I64 sy,I64 ex,I64 ey, CDoomImage r) 
 {
   F64 cx,cy;
-  I64 texture_x,texture_y; 
-  for(cx=sx;cx<=ex;cx++) 
+  I64 i=0,j=0;
+  I64 texture_w = r.w,texture_h = r.h; 
+  I64 texture_l = r.left,texture_r = r.top;
+  for(cy=sy;cy<=ey;cy++,i++) 
   {
-    for(cy=sy;cy<=ey;cy++) 
+    CDoomImageCol *curr = &r.col_offs[i];
+    if(curr->rowstart==255)
     {
-      //if(0<=at_y-h<GR_HEIGHT) 
-      //{
-      //  texture_y=Lerp(cy/h,0,texture->height);
-        to_dc->color=BLACK;//GrPeek0(texture,cx,cy);
-        GrPlot3(to_dc,cx,cy,0);
-      //}
+     if(i==texture_w)
+     {
+       i=0;
+     }
+     
+    }
+
+    for(cx=sx;cx<=ex;cx++,j++) 
+    {
+      if(j==curr->px_cnt)
+      {
+       j=0; 
+      }
+      to_dc->color=curr->data[j];
+     // to_dc->color=GrPeek0(texture,point.x,point.y)
+     // GrPlot3(to_dc,cx,cy,0);
+      
+    }
+  }
+}
+
+U0 CopyPatch(CDC *to_dc,CDC*texture, I64 sx, I64 sy, I64 ex, I64 ey)
+{
+  F64 cx,cy;
+  I64 i=0,j=0;
+  
+  for(cy=sy;cy<=ey;cy++) 
+  {
+
+    for(cx=sx;cx<=ex;cx++,j++) 
+    {
+     // to_dc->color=GrPeek0(texture,point.x,point.y)
+     // GrPlot3(to_dc,cx,cy,0);
+     // GrBlot(to_dc,0,0,texture);
+      
     }
   }
 }
@@ -419,13 +451,15 @@ U0 ST_refreshBackground(CDC*dc)
     {
         //wad_dir=wad->body+wad->directory_ptr;
         //wad_dir+=W_CheckNumForName("F_START",wad);
-        //CDoomGr *ret=CAlloc(sizeof(CDoomGr));
-        CDoomImage *ret =CAlloc(sizeof(CDoomImage));
-        ret=FramePtr("STBAR");
-        //ret->palette=LoadPLAYPALFromLump(W_GetLumpPtrFromName("PLAYPAL",wad));
-        CDC*texture = ReadDoomImage(wad,ret,dgr->palette);
 
-        DrawPatch(dc,texture,0,0,SCREENWIDTH,SCREENHEIGHT);
+        CDoomImage *ret = CAlloc(sizeof(CDoomImage));
+        //ret = FramePtr("STBAR");        
+        //CDC*texture = ReadDoomImage(ret);
+        //GrChar(dc,ret->w,25,25,10);        
+        GrBlot(gr.dc,0,0,ST); //Read the image
+
+        //DrawPatch(dc,texture,0,0,SCREENWIDTH,SCREENHEIGHT,ret);
+        //GrBlot(dc,500,100,texture);
 
         /*
         I16 x;
@@ -473,10 +507,21 @@ U0 ST_refresh(CDC*dc)
   ST_refreshBackground(dc);
 }
 
+U0 ST_ReadOnce(CDC*dc)
+{
+   if(st_firsttime ==FALSE)
+   {
+     st_firsttime = TRUE;
+     CWadDirectory *wad_dir=wad->body+wad->directory_ptr;  //Wads have a base pointer where the "directories" are stored
+     wad_dir+=W_CheckNumForName("STBAR",wad);  //Get the index and add it to the pointer
+     ST = ReadDoomImage(wad->body+wad_dir->ptr);   
+   }
+}
 
-U0 ST_Start (CDC*dc)
+U0 ST_Start(CDC*dc)
 {
     st_statusbaron=TRUE;
+    ST_ReadOnce(dc);
     ST_refresh(dc);
     //ST_createWidgets();
     //ST_refresh();

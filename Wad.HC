@@ -5,7 +5,7 @@
 #include "DoomGr.HC";
 #include "Numbers/Vector.HC";
 //https://doomwiki.org/wiki/WAD
-class CWadDirectory {
+class CWadDirectory {
   U32 ptr;
   U32 lump_size;
   U8 lump_name[8];
@@ -96,17 +96,7 @@ class CWadSubsector {
 }; 
 
 
-class CWad {
-  U8 body[0];
-  U8 ident[4];
-  U32 lump_cnt;
-  U32 directory_ptr;
-}; 
 
-
-CWad *LoadWad(U8 *filename) {
-  return FileRead(filename);
-}
 
 class CDoomThing:CQue {
   F64 x,y,angle;
@@ -970,7 +960,6 @@ U0 DumpWad(CWad *wad) {
   
 }
 
-CWad *wad=LoadWad("DOOM.WAD");
 //DumpWad(wad);
 CDoomGr *dgr=LoadWadGr(wad);
 CDoomLevel *l=LoadWadLevel(wad,"E1M1");;

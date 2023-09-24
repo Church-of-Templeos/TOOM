@@ -5,7 +5,7 @@
 #include "DoomGr.HC";
 #include "Numbers/Vector.HC";
 //https://doomwiki.org/wiki/WAD
-class CWadDirectory {
+class CWadDirectory {
   U32 ptr;
   U32 lump_size;
   U8 lump_name[8];
@@ -95,7 +95,7 @@ class CWadSubsector {
   I16 first;
 }; 
 
-
+
 
 
 class CDoomThing:CQue {

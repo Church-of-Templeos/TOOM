@@ -11,7 +11,7 @@ CWad *LoadWad(U8 *filename) {
   return FileRead(filename);
 }
 
-static CWad *wad=LoadWad("DOOM.WAD");
+static CWad *wad=LoadWad("DOOM.WAD");
 
 #include "Wad.HC";
 #include "ST.HC";
@@ -383,7 +383,7 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
   U16 *super_pixel,*dst;
   I32 *db_z;
   U8 *col;
-  I64 hi;
+  I64 hi;
   Bool written=FALSE;
   if(sx>ex) {
     SwapI64(&sx,&ex);
@@ -643,6 +643,7 @@ DCFill;
  DrawLevelOverview(l,gr.dc,1/8.,TRUE,cam.x,cam.y);
   cam.h=ms.pos.z*16;
   DrawDoomWorld(&cam,l,gr.dc);
+  ST_Start(gr.dc);
   if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {
     cam.x+=GRID_SZ*Cos(cam.angle);
     cam.y+=GRID_SZ*Sin(cam.angle);

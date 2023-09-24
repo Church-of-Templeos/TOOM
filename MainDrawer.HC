@@ -1,4 +1,20 @@
+
+class CWad {
+  U8 body[0];
+  U8 ident[4];
+  U32 lump_cnt;
+  U32 directory_ptr;
+}; 
+
+
+CWad *LoadWad(U8 *filename) {
+  return FileRead(filename);
+}
+
+static CWad *wad=LoadWad("DOOM.WAD");
+
 #include "Wad.HC";
+#include "ST.HC";
 class CDoomCamera {
   F64 x,y,h;
   F64 angle,fov;
@@ -646,4 +662,4 @@ DCFill;
     break;
   }
   Refresh;
-}
+}

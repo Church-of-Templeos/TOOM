@@ -13,21 +13,6 @@ CWad *LoadWad(U8 *filename) {
 
 static CWad *wad=LoadWad("DOOM.WAD");
 
-
-class CWad {
-  U8 body[0];
-  U8 ident[4];
-  U32 lump_cnt;
-  U32 directory_ptr;
-}; 
-
-
-CWad *LoadWad(U8 *filename) {
-  return FileRead(filename);
-}
-
-static CWad *wad=LoadWad("DOOM.WAD");
-
 #include "Wad.HC";
 #include "ST.HC";
 #include "FastTrig.HC"
@@ -659,23 +644,31 @@ DCFill;
  DrawLevelOverview(l,gr.dc,1/8.,TRUE,cam.x,cam.y);
   cam.h=ms.pos.z*16;
   DrawDoomWorld(&cam,l,gr.dc);
-  ST_Start(gr.dc);
+  ST_Start(gr.dc);
   if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {
     cam.x+=GRID_SZ*FCos(cam.angle);
     cam.y+=GRID_SZ*FSin(cam.angle);
+    ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)) {
     cam.x-=GRID_SZ*FCos(cam.angle);
     cam.y-=GRID_SZ*FSin(cam.angle);
+    ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
      cam.angle-=pi/16;
+     ST_Key(2);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)) {
      cam.angle+=pi/16;
+     ST_Key(1);
+  }
+  if(!Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)&&!Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
+     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('\n')&0xff)) {
      DCFill;
+     ST_Exit();
     break;
   }
   Refresh;

@@ -622,11 +622,75 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   QSortI64(sorted,idx,&SectorFloorSort);
   for(idx2=0;idx2!=idx;idx2++) {
     if(sorted[idx2]->floor_dc)
-      DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->floor_height,sorted[idx2]->floor_dc,TRUE);
+      DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->floor_height,sorted[idx2]->floor_dc,TRUE);
     if(sorted[idx2]->ceil_dc)
       DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->ceil_height,sorted[idx2]->ceil_dc,FALSE);
   }
   Free(sorted);
+}
+
+
+
+U0 SongTask(I64)
+{//Song by Terry A. Davis
+  Fs->task_end_cb=&SndTaskEndCB;
+  MusicSettingsRst;
+  Play("ttt");
+  while (TRUE) {
+    I64 i =3;
+    while(i!=0)
+    {
+     Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
+     Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#");   
+     i--;
+    }
+    Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
+    Play("1AA2A1AA2G1AAtt3BA2F#3BDCB2F#3BCDEDCB2F#..");
+
+    Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
+    Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#");   
+    Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
+    Play("1AA2A1AA2G1AAtt3ECACECEAECECEA..");
+   
+    Play("1DD2D1DD2C1DDA#1DDG#DDAA#");
+    Play("1DD2D1DD2C1DDA#1DDG#G#G#G#");
+    Play("1DD2D1DD2C1DDA#1DDG#DDAA#");
+    Play("1DD2D1DD2C1DDtt4AGFAFDFADAFAFAFAFD.."); 
+  
+
+    Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
+    Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#D#");    
+    Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
+    Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#D#");
+
+    Play("1F#F#2F#1F#F#2E1F#F#2D1F#F#2C1F#F#2C#D");
+    Play("1EE2E1EE2D1EE2C1D#D1A#A#A#A#");
+  
+    Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
+    Play("1AA2A1AA2G1AA2tt3AC2EC3A2E3CACA2EC3ACEA..");
+
+    Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
+    Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#D#");    
+    Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
+
+    Play("1AA2A1AA2G1AAtt2G#FEB3B2G#ED3DB2G#E3EDB2G#..");
+    Play("1AA2C1AA2B1AAG#AAGAAG2A");
+    Play("1AA2C1AA2B1AAEAAF#F#F#F#");
+  
+    Play("1F#F#3C1F#F#3B1F#F#3A1F#F#2F#1F#F#2F#A");
+    Play("1EE3B1EE3A1EE2G#1D#D2EEEE");
+
+    Play("1AA2C1AA2B1AAG#AAGAAG2A");
+    Play("1AA2C1AA2B1AAtt3DB2G#EDB1G#E3E3DB2G#EDB..");
+    Play("1G#2A");
+    
+    
+   
+    
+       
+       
+      
+  }
 }
 
 
@@ -639,10 +703,13 @@ cam.fov=pi/4;
 //cam.angle=-pi;
 cam.h=0;
 DocClear;
+Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
+  
 while(TRUE) {
 DCFill;
- DrawLevelOverview(l,gr.dc,1/8.,TRUE,cam.x,cam.y);
+  DrawLevelOverview(l,gr.dc,1/8.,TRUE,cam.x,cam.y);
   cam.h=ms.pos.z*16;
+  
   DrawDoomWorld(&cam,l,gr.dc);
   ST_Start(gr.dc);
   if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {
@@ -663,7 +730,7 @@ DCFill;
      cam.angle+=pi/16;
      ST_Key(1);
   }
-  if(!Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)&&!Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
+  if(!Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)&&!Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
      ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('\n')&0xff)) {

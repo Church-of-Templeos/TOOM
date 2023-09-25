@@ -1,9 +1,10 @@
 #ifndef DOOM_WAD
-#define DOOM_WAD
+#define DOOM_WAD" Whats Poppin"
 #define DEBUG 1
 
 #include "DoomGr.HC";
 #include "Numbers/Vector.HC";
+#include "Things.HC";
 //https://doomwiki.org/wiki/WAD
 class CWadDirectory {
   U32 ptr;
@@ -18,7 +19,9 @@ class CWadThing {
 #define  WAD_THINGF_SKILL45 4
 #define  WAD_THINGF_WAIT 8 //Monster will be waiting
 #define  WAD_THINGF_MULTIPLAYER 0x10 //For multiplayer maps 
-  I16 x,y,angle,thing_type,flags;
+  I16 x,y,angle;
+  U16 thing_type,flags;
+  CDC *graphics;
 };
 
 //https://doomwiki.org/wiki/Linedef
@@ -99,8 +102,9 @@ class CWadSubsector {
 
 
 class CDoomThing:CQue {
-  F64 x,y,angle;
-  I16 thing_type,flags;
+  F64 x,y,angle,height;
+  I16 thing_type,flags,pad[2];
+  CDoomThingTemplate *template;
 };
 extern class CDoomSector;
 
@@ -204,7 +208,7 @@ class CDoomSector:CQue {
 //I tried everything else but I just cant figure out how to draw the floors
   F64 shape_start_x,shape_start_y;
   CDC *shape_dc;
-  Bool drawn,pad[7];
+  Bool drawn,pad[7];
 };
 
 
@@ -760,6 +764,7 @@ found:
     dthing->angle=wthing->angle/ToF64(I16_MAX)*2*pi;
     dthing->thing_type=wthing->thing_type;
     dthing->flags=wthing->flags;
+    dthing->template=doom_thing_types[wthing->thing_type];
     QueIns(dthing,level->things.last);
     wthing++;
   }

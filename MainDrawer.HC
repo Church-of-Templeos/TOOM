@@ -1,4 +1,5 @@
-
+#ifndef DOOM_MAIN
+#define DOOM_MAIN "Doom" 
 class CWad {
   U8 body[0];
   U8 ident[4];
@@ -223,10 +224,10 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.) {
   return TRUE;
 }
 
-U0 PlotSpriteIn3DSpace(CDC *to_dc,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level) {
+U0 PlotSpriteIn3DSpace(CDC *to_dc,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,Bool reflect=FALSE) {
   CD2 copy,copy2;
-  F64 dist,new_height,new_width;
-  I64 x,y,tox,fromx,toy,fromy,ix,iy;
+  F64 new_height,new_width;
+  I64 x,y,tox,fromx,toy,fromy,ix,iy,dist;
   U16 *from,*dst;
   I32 *db_z;
   copy.x=p->x,copy.y=p->y;
@@ -234,33 +235,36 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level)
   if(!ClipLineToScrenCoords(cam,&copy,&copy2,level))
     return;
   dist=Sqrt(Sqr(p->x-cam->x)+Sqr(p->y-cam->y));
-  new_height=(copy.y-GR_HEIGHT/2)/(cam->h-level)*(cam->h-level+sprite->height)-(copy.y-GR_WIDTH/2); //See ClipLineToScrenCoords
+  new_height=DIST_SCALE/(1+dist)/GR_HEIGHT*2.5*sprite->height;
   new_width=new_height/sprite->height*sprite->width;
   fromx=copy.x-new_width/2;
-  tox=copy.x+new_width/2;
+  tox=ClampI64(copy.x+new_width/2,0,GR_WIDTH-2);;
   fromy=copy.y-new_height;
-  fromy=copy.y;
-  fromy=ClampI64(fromy,0,GR_HEIGHT-2);
-  fromx=ClampI64(fromx,0,GR_WIDTH-2);
-  toy=ClampI64(toy,0,GR_HEIGHT-2);
-  tox=ClampI64(tox,0,GR_WIDTH-2);
+  toy=ClampI64(copy.y,0,GR_HEIGHT-2);
   for(y=fromy;y<toy;y+=2) {
+    if(y<0) y=0;
+    if(y>toy) break;
     for(x=fromx;x<tox;x+=2) {
-      ix=Lerp((x-fromx)/new_width,0,sprite->width);
-      iy=Lerp((y-fromy)/new_height,0,sprite->height);
+      if(x<0) x=0;
+      if(x>tox) break;
+      if(!reflect)
+        ix=Lerp((x-fromx)/new_width,0,sprite->width-1);
+      else
+        ix=Lerp((x-fromx)/new_width,sprite->width-1,0);
+      iy=Lerp((y-fromy)/new_height,0,sprite->height-1);
       from=&sprite->body[(ix&~1)+(iy&~1)*sprite->width_internal];
       db_z=&to_dc->depth_buf[x+y*to_dc->width_internal];
       if(*db_z>dist) {
-        *db_z=dist;
         dst=&to_dc->body[x+y*to_dc->width_internal];
-        *dst=*from;
+        if(from->u8[0]!=TRANSPARENT)
+          *dst=*from,*db_z=dist;
         dst(U8*)+=to_dc->width_internal;
-        *dst=*from;
+        if(from->u8[0]!=TRANSPARENT)
+          *dst=*from,*db_z=dist;
       }
     }
   }
 }
-
 
 CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
   CDoomSector *head=&level->sectors,*s=head->next;
@@ -274,6 +278,25 @@ CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
   }
   return NULL;
 }
+
+U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
+  if(!thing->template) return; //???
+  I64 anim_frame=tS*4,frame_cnt;
+  F64 angle;
+  CDC *sprite;
+  CD2 p;
+  Bool reflect;
+  frame_cnt=StrLen(thing->template->animation);
+  if(StrOcc(thing->template->animation,'+'))
+    frame_cnt--; //Last one??? This is temporary so it doesnt mater now
+  anim_frame%=frame_cnt;
+  angle=FArg(cam->x-thing->x,cam->y-thing->y)+cam->angle+thing->angle;
+  sprite=GetThingFaceSprite(thing->template,angle,'A'+anim_frame,&reflect);
+  p.x=thing->x,p.y=thing->y;
+  if(sprite)
+    PlotSpriteIn3DSpace(to_dc,sprite,cam,&p,thing->height,reflect);
+}
+
 
 U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
   I64 x,y;
@@ -664,6 +687,7 @@ I64 SectorFloorSort(CDoomSector *a,CDoomSector *b)  {
 
 U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   CDoomSector *sector,**sorted;  
+  CDoomThing *thing;
   I64 idx=0,idx2;
   for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next)
     sector->drawn=FALSE;
@@ -697,7 +721,13 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     if(sorted[idx2]->ceil_dc)
       DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->ceil_height,sorted[idx2]->ceil_dc,FALSE);
   }
-  Free(sorted);
+  for(thing=level->things.next;thing!=&level->things;thing=thing->next) {
+    sector=GetSectorForCoord(level,thing->x,thing->y);
+    if(sector)
+      thing->height=sector->floor_height;
+    DrawAThing(to_dc,thing,cam);
+  }
+  Free(sorted);
 }
 
 
@@ -757,7 +787,6 @@ U0 SongTask(I64)
   }
 }
 
-
 CDoomCamera cam;
 CDoomSector *sect=l->sectors.last;
 "%x,$ER$%x\n",sect->linedef_cnt,sect->linedefs[0];
@@ -802,3 +831,4 @@ while(TRUE) {
   }
   Refresh;
 }
+#endif

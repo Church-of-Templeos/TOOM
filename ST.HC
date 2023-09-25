@@ -189,7 +189,7 @@ static I64 st_palette = 0;
 
 
 
-U0GrChar(CDC*dc,U8 ch,I64 x,I64 y,I64 scale)
+U0GrChar(CDC*dc,U8 ch,I64 x,I64 y,I64 scale)
 {
   I64 i,j,k=0;
   for(i=0;i<FONT_HEIGHT;i++){
@@ -376,7 +376,7 @@ U0 ST_Key(U16 val)
        toom_faces.inum=2;
        break;
 
-   }
+   }
 
 }
 

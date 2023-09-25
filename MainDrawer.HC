@@ -632,7 +632,7 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
 
 
 U0 SongTask(I64)
-{//Song by Terry A. Davis
+{//Song by Robert Prince
   Fs->task_end_cb=&SndTaskEndCB;
   MusicSettingsRst;
   Play("ttt");

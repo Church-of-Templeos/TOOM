@@ -5,7 +5,7 @@
 #include "DoomGr.HC";
 #include "Numbers/Vector.HC";
 //https://doomwiki.org/wiki/WAD
-class CWadDirectory {
+class CWadDirectory {
   U32 ptr;
   U32 lump_size;
   U8 lump_name[8];
@@ -204,6 +204,7 @@ class CDoomSector:CQue {
 //I tried everything else but I just cant figure out how to draw the floors
   F64 shape_start_x,shape_start_y;
   CDC *shape_dc;
+  Bool drawn,pad[7];
 };
 
 
@@ -603,7 +604,7 @@ found_pstart:
   wad_dir=wad->body+wad->directory_ptr;
   wad_dir+=W_CheckNumForName("STBAR",wad); 
   GrBlot(,0,0,ReadDoomImage(wad->body+wad_dir->ptr));
-  LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE1",wad),ret);
+  LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE1",wad),ret);
   if(W_GetLumpPtrFromName("TEXTURE2",wad)>=0)
     LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE2",wad),ret);
   return ret;
@@ -960,7 +961,7 @@ U0 DumpWad(CWad *wad) {
   
 }
 
-//DumpWad(wad);
+//
 CDoomGr *dgr=LoadWadGr(wad);
 CDoomLevel *l=LoadWadLevel(wad,"E1M1");;
 /*

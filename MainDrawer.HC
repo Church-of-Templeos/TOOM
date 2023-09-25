@@ -27,6 +27,7 @@ class CDoomCamera {
   F64 ceil_depths[GR_WIDTH/2];
 //Cordnates are diveded by 2
   CDC *floor_dc; //This is black or white,this is used for reducing floor overdraw
+  CFifoI64 *visible_sectors;
 };
 #define GRID_SZ  128
 #define DIST_SCALE (GR_HEIGHT*GRID_SZ*2.5)
@@ -222,11 +223,42 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.) {
   return TRUE;
 }
 
-
-I64 HitCmp(F64 a,F64 b) {
-  if(a>b) return 1;
-  if(a<b) return -1;
-  return 0;
+U0 PlotSpriteIn3DSpace(CDC *to_dc,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level) {
+  CD2 copy,copy2;
+  F64 dist,new_height,new_width;
+  I64 x,y,tox,fromx,toy,fromy,ix,iy;
+  U16 *from,*dst;
+  I32 *db_z;
+  copy.x=p->x,copy.y=p->y;
+  copy2.x=p->x,copy2.y=p->y;
+  if(!ClipLineToScrenCoords(cam,&copy,&copy2,level))
+    return;
+  dist=Sqrt(Sqr(p->x-cam->x)+Sqr(p->y-cam->y));
+  new_height=(copy.y-GR_HEIGHT/2)/(cam->h-level)*(cam->h-level+sprite->height)-(copy.y-GR_WIDTH/2); //See ClipLineToScrenCoords
+  new_width=new_height/sprite->height*sprite->width;
+  fromx=copy.x-new_width/2;
+  tox=copy.x+new_width/2;
+  fromy=copy.y-new_height;
+  fromy=copy.y;
+  fromy=ClampI64(fromy,0,GR_HEIGHT-2);
+  fromx=ClampI64(fromx,0,GR_WIDTH-2);
+  toy=ClampI64(toy,0,GR_HEIGHT-2);
+  tox=ClampI64(tox,0,GR_WIDTH-2);
+  for(y=fromy;y<toy;y+=2) {
+    for(x=fromx;x<tox;x+=2) {
+      ix=Lerp((x-fromx)/new_width,0,sprite->width);
+      iy=Lerp((y-fromy)/new_height,0,sprite->height);
+      from=&sprite->body[(ix&~1)+(iy&~1)*sprite->width_internal];
+      db_z=&to_dc->depth_buf[x+y*to_dc->width_internal];
+      if(*db_z>dist) {
+        *db_z=dist;
+        dst=&to_dc->body[x+y*to_dc->width_internal];
+        *dst=*from;
+        dst(U8*)+=to_dc->width_internal;
+        *dst=*from;
+      }
+    }
+  }
 }
 
 
@@ -370,9 +402,9 @@ next:;
   }
 } 
 
-U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
+Bool TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
 	I64 start_seg,I64 end_seg,CDC *texture,F64 sz,F64 ez,CDoomCamera *cam,
-	Bool floor=FALSE,Bool ceil=FALSE) {
+	Bool floor=FALSE,Bool ceil=FALSE,Bool no_draw=FALSE) {
   F64 cx,h,cy,at_y,cur_z,to_x,to_h,from,to;
   F64 percent;
   I64 texture_x,texture_y;
@@ -380,7 +412,7 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
   I32 *db_z;
   U8 *col;
   I64 hi;
-  Bool written=FALSE;
+  Bool written=FALSE,changed=FALSE;
   if(sx>ex) {
     SwapI64(&sx,&ex);
     SwapI64(&sy,&ey);
@@ -416,32 +448,38 @@ U0 TextureMapWall(CDC *to_dc,F64 sx,F64 sy,F64 sh,F64 ex,F64 ey,F64 eh,
       goto skip;
     for(cy=from;cy<=to;cy+=WALL_HPIXEL_HEIGHT) {
       if(at_y+cy>GR_HEIGHT-WALL_HPIXEL_HEIGHT) {
-	break;
+        break;
       } else if(at_y+cy>=0) {
 //I willl only check 2 buf for 1 pixel,assume other pixels are same as we render in 2x2 super pixels
         db_z=&to_dc->depth_buf[ToI64(cx)+ToI64(at_y+cy)*to_dc->width_internal];
         if(*db_z>cur_z) {
-	  texture_y=Lerp(cy/h,0,texture->height/2);
-	  texture_y=(2*texture_y%texture->height)&~1;
-	  super_pixel=&texture->body[texture_x+texture_y*texture->width_internal];
-	  dst=&to_dc->body[ToI64(cx)+ToI64(at_y+cy)*to_dc->width_internal];
-	  *dst=*super_pixel;
-	  super_pixel(U8*)+=texture->width_internal;
-	  dst(U8*)+=to_dc->width_internal;
-	  *dst=*super_pixel;
 	  written=TRUE;
-	  db_z[0]=cur_z;
-	  db_z[1]=cur_z;
-	  db_z+=to_dc->width_internal;
-	  db_z[0]=cur_z;
-	  db_z[1]=cur_z;
+	  changed=TRUE;
+	  if(!no_draw) {
+	    texture_y=Lerp(cy/h,0,texture->height/2);
+	    texture_y=(2*texture_y%texture->height)&~1;
+	    super_pixel=&texture->body[texture_x+texture_y*texture->width_internal];
+	    dst=&to_dc->body[ToI64(cx)+ToI64(at_y+cy)*to_dc->width_internal];
+	    *dst=*super_pixel;
+	    super_pixel(U8*)+=texture->width_internal;
+	    dst(U8*)+=to_dc->width_internal;
+	    *dst=*super_pixel;
+	    db_z[0]=cur_z;
+	    db_z[1]=cur_z;
+	    db_z+=to_dc->width_internal;
+	    db_z[0]=cur_z;
+	    db_z[1]=cur_z;
+	  } else {
+	    changed=TRUE;
+	    return changed; 
+	  }
         }
       } else {
         cy+=0-(at_y+cy)-WALL_HPIXEL_HEIGHT;
       }
     }
 skip:;
-    if(written) {
+    if(written&&!no_draw) {
       if(floor&&cam->floor_depths[ToI64(cx)/2]>cur_z) {
         cam->floor_heights[ToI64(cx)/2]=at_y+from;
         cam->floor_depths[ToI64(cx)/2]=cur_z;
@@ -452,6 +490,7 @@ skip:;
       }
     }
   }
+  return changed;
 }
 
 F64 FloorRaise(CDoomLinedef *l,CDoomSector *sector) {
@@ -485,8 +524,9 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
   I64 seg_idx,wall,start_seg,end_seg;
   CDC *texture;
   F64 h,h2;
+  Bool no_draw;
   CDoomBSPSeg *seg;
-  CDoomSidedef *sidedef;
+  CDoomSidedef *sidedef,*opposite;
   CDoomSector *sector,*sector2;
   Vector *wall_vect=CreateVector(2);
   CD2 cam_cord;
@@ -499,6 +539,7 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
     cam_cord.y=cam->y-seg->linedef->start->y;
     SetVector(wall_vect,seg->linedef->end->x-seg->linedef->start->x,0);
     SetVector(wall_vect,seg->linedef->end->y-seg->linedef->start->y,1);
+    opposite=NULL;
     if(seg->linedef->front^^seg->linedef->back) {
       if(seg->linedef->front)
         sidedef=seg->linedef->front;
@@ -507,11 +548,24 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
     } else{
 //Backface culling
       if(wall_vect->data[0]*cam_cord.y-wall_vect->data[1]*cam_cord.x<0.)
-        sidedef=seg->linedef->front;
+        sidedef=seg->linedef->front,opposite=seg->linedef->back;
       else
-        sidedef=seg->linedef->back;
+        sidedef=seg->linedef->back,opposite=seg->linedef->front;
     }
-    if(!sidedef) goto skip;
+    no_draw=FALSE;
+    if(!sidedef) {
+//If the backside is invisible,the floor may still be visible
+      sector=opposite->sector;
+      sidedef=opposite;
+      floor=sector->floor_height;
+      ceil=sector->ceil_height;
+      no_draw=TRUE;
+      wall=2;
+      if(!sector->drawn)
+        goto draw_wall;
+      else
+        goto skip;
+    }
     sector=sidedef->sector;
     for(wall=0;wall!=3;wall++) {
       if(wall==0&&(texture=sidedef->lower_texture)) {
@@ -533,14 +587,24 @@ draw_wall:
         h=Abs(start_floor.y-start_ceil.y);
         h2=Abs(end_ceil.y-end_floor.y);
         if(ToI64(h)&&ToI64(h2)) {
-	  TextureMapWall(to_dc,start_floor.x,start_floor.y,h,end_floor.x,end_floor.y,h2,
+	  if(TextureMapWall(to_dc,start_floor.x,start_floor.y,h,end_floor.x,end_floor.y,h2,
 	        start_seg,end_seg,texture,
 	        Sqrt(Sqr(seg->start->x-cam->x)+Sqr(seg->start->y-cam->y)),
 	        Sqrt(Sqr(seg->end->x-cam->x)+Sqr(seg->end->y-cam->y)),
-		cam,
-		wall==2||wall==0, //floor
-		wall==2||wall==1, //ceil
-	  );
+	        cam,
+	        wall==2||wall==0, //floor
+	        wall==2||wall==1, //ceil
+	        no_draw //If the wall is backfull culled,then dont draw it,TextureMapWall will register the visible floor/ceiling though
+	        )) {
+	    if(!sector->drawn) {
+	      sector->drawn=TRUE;
+	      FifoI64Ins(cam->visible_sectors,sector);
+	    }
+	    if(opposite&&opposite->sector&&!opposite->sector->drawn) {
+	      opposite->sector->drawn=TRUE;
+	      FifoI64Ins(cam->visible_sectors,opposite->sector);
+	    }
+	  }
         }
       } else if(wall==1&&(texture=sidedef->upper_texture)) {
         floor=Min(sector->ceil_height,CeilDepress(seg->linedef,sector));
@@ -599,8 +663,10 @@ I64 SectorFloorSort(CDoomSector *a,CDoomSector *b)  {
 }
 
 U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
-  CDoomSector *sector,**sorted=MAlloc(8*QueCnt(&level->sectors));  
+  CDoomSector *sector,**sorted;  
   I64 idx=0,idx2;
+  for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next)
+    sector->drawn=FALSE;
   for(idx=0;idx!=GR_WIDTH/2;idx++) {
     cam->floor_heights[idx]=GR_HEIGHT;
     cam->ceil_heights[idx]=0;
@@ -610,23 +676,28 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   if(!cam->floor_dc)
     cam->floor_dc=DCNew(GR_WIDTH/2,GR_HEIGHT/2);
   DCFill(cam->floor_dc,0);
+  if(!cam->visible_sectors)
+    cam->visible_sectors=FifoI64New(512);
+
+  FifoI64Flush(cam->visible_sectors);
   if(!to_dc->depth_buf)
     DCDepthBufAlloc(to_dc);
   else
     DCDepthBufRst(to_dc);
   DrawBSP(to_dc,cam,level);
   idx=0;
-  for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next,idx++)
-    sorted[idx]=sector;
+  sorted=MAlloc(8*FifoI64Cnt(cam->visible_sectors));
+  while(FifoI64Rem(cam->visible_sectors,&sector))
+    sorted[idx++]=sector;
 //SectorFloorSort is highest floor first
   QSortI64(sorted,idx,&SectorFloorSort);
   for(idx2=0;idx2!=idx;idx2++) {
     if(sorted[idx2]->floor_dc)
-      DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->floor_height,sorted[idx2]->floor_dc,TRUE);
+      DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->floor_height,sorted[idx2]->floor_dc,TRUE);
     if(sorted[idx2]->ceil_dc)
       DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->ceil_height,sorted[idx2]->ceil_dc,FALSE);
   }
-  Free(sorted);
+  Free(sorted);
 }
 
 
@@ -683,13 +754,6 @@ U0 SongTask(I64)
     Play("1AA2C1AA2B1AAG#AAGAAG2A");
     Play("1AA2C1AA2B1AAtt3DB2G#EDB1G#E3E3DB2G#EDB..");
     Play("1G#2A");
-    
-    
-   
-    
-       
-       
-      
   }
 }
 
@@ -706,10 +770,8 @@ DocClear;
 Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
   
 while(TRUE) {
-DCFill;
-  DrawLevelOverview(l,gr.dc,1/8.,TRUE,cam.x,cam.y);
+  DCFill;
   cam.h=ms.pos.z*16;
-  
   DrawDoomWorld(&cam,l,gr.dc);
   ST_Start(gr.dc);
   if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {

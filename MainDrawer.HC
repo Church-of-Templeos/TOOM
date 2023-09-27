@@ -31,7 +31,8 @@ class CDoomCamera {
   CFifoI64 *visible_sectors;
 };
 #define GRID_SZ  128
-#define DIST_SCALE (GR_HEIGHT*GRID_SZ*2.5)
+#define Y_SCALE 5
+#define DIST_SCALE (GR_HEIGHT*GRID_SZ)
 
 #define FLOOR_VPIXEL_WIDTH 2
 #define WALL_VPIXEL_WIDTH 2
@@ -184,7 +185,7 @@ Bool ScreenCordsToPlaneCoords(CDoomCamera *cam,CD2 *p,F64 level) {
   if(Abs(cam->h-level)<.05)
     dist=0;
   else
-    dist=DIST_SCALE/((p->y-GR_HEIGHT/2)/(cam->h-level)*Clamp(FCos(angle),.8,1.)*GR_HEIGHT/2.5)-1;
+    dist=DIST_SCALE/((p->y-GR_HEIGHT/2)/(cam->h-level)*Clamp(FCos(angle),.8,1.)*GR_HEIGHT/Y_SCALE)-1;
   p->x=FCos(angle+cam->angle)*dist+cam->x;
   p->y=FSin(angle+cam->angle)*dist+cam->y;
   if(dist<0.) return FALSE;
@@ -217,7 +218,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.) {
     else ptr=p2;
     angle=FArg(ptr->x,ptr->y);
     at.x=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2-1);
-    at.y=GR_HEIGHT/2+DIST_SCALE/(1.+Sqrt(ptr->x*ptr->x+ptr->y*ptr->y))/GR_HEIGHT*2.5/Clamp(FCos(angle),.8,1.)*(cam->h-level);
+    at.y=GR_HEIGHT/2+DIST_SCALE/(1.+Sqrt(ptr->x*ptr->x+ptr->y*ptr->y))/GR_HEIGHT*Y_SCALE/Clamp(FCos(angle),.8,1.)*(cam->h-level);
     ptr->x=at.x;
     ptr->y=at.y;
   }
@@ -235,7 +236,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,
   if(!ClipLineToScrenCoords(cam,&copy,&copy2,level))
     return;
   dist=Sqrt(Sqr(p->x-cam->x)+Sqr(p->y-cam->y));
-  new_height=DIST_SCALE/(1+dist)/GR_HEIGHT*2.5*sprite->height;
+  new_height=DIST_SCALE/(1+ToF64(dist))/GR_HEIGHT*Y_SCALE*sprite->height;
   new_width=new_height/sprite->height*sprite->width;
   fromx=copy.x-new_width/2;
   tox=ClampI64(copy.x+new_width/2,0,GR_WIDTH-2);;
@@ -247,7 +248,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,
     for(x=fromx;x<tox;x+=2) {
       if(x<0) x=0;
       if(x>tox) break;
-      if(!reflect)
+       if(!reflect)
         ix=Lerp((x-fromx)/new_width,0,sprite->width-1);
       else
         ix=Lerp((x-fromx)/new_width,sprite->width-1,0);
@@ -258,6 +259,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,
         dst=&to_dc->body[x+y*to_dc->width_internal];
         if(from->u8[0]!=TRANSPARENT)
           *dst=*from,*db_z=dist;
+        from(U8*)+=sprite->width_internal;
         dst(U8*)+=to_dc->width_internal;
         if(from->u8[0]!=TRANSPARENT)
           *dst=*from,*db_z=dist;
@@ -294,7 +296,7 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   sprite=GetThingFaceSprite(thing->template,angle,'A'+anim_frame,&reflect);
   p.x=thing->x,p.y=thing->y;
   if(sprite)
-    PlotSpriteIn3DSpace(to_dc,sprite,cam,&p,thing->height,reflect);
+    PlotSpriteIn3DSpace(to_dc,sprite,cam,&p,thing->height,reflect);
 }
 
 
@@ -305,7 +307,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
   I32 *db_z,dist;
   U16 *dst,color;
   F64 maxx=I16_MIN,maxy=I16_MIN;
-  F64 minx=I16_MAX,miny=I16_MAX;
+  F64 minx=I16_MAX,miny=I16_MAX,angle;
   CD2 point,point2,point3,point4;
   point.x=sector->shape_start_x;
   point.y=sector->shape_start_y;
@@ -385,6 +387,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
   maxx=Min(GR_WIDTH-2,maxx);
   maxy=Min(GR_HEIGHT-2,maxy);
   for(x=minx;x<maxx;x+=2) {
+    angle=(ToF64(x)-GR_WIDTH/2)/(GR_WIDTH/2)*cam->fov/2;
     for(y=miny;y<maxy;y+=2) {
       if(!GrPeek0(cam->floor_dc,x/2,y/2)) {
         point.x=x,point.y=y;
@@ -392,8 +395,8 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
 	  dist=Sqrt(Sqr(point.x-cam->x)+Sqr(point.y-cam->y));
 	  point.x-=sector->shape_start_x;
 	  point.y-=sector->shape_start_y;
-	  if(0<=point.x<w)
-	    if(0<=point.y<h){
+	  if(0.<=point.x<w)
+	    if(0.<=point.y<h){
 	      db_z=&to_dc->depth_buf[x+y*to_dc->width_internal];
 	      if(*db_z>dist)
 	        if(GrPeek0(sector->shape_dc,point.x/2,point.y/2)) {
@@ -787,6 +790,8 @@ U0 SongTask(I64)
   }
 }
 
+#include"Collision";
+
 CDoomCamera cam;
 CDoomSector *sect=l->sectors.last;
 "%x,$ER$%x\n",sect->linedef_cnt,sect->linedefs[0];
@@ -800,17 +805,16 @@ Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
   
 while(TRUE) {
   DCFill;
-  cam.h=ms.pos.z*16;
+  if(GetSectorForCoord(l,cam.x,cam.y))
+    cam.h=GetSectorForCoord(l,cam.x,cam.y)->floor_height+48;
   DrawDoomWorld(&cam,l,gr.dc);
   ST_Start(gr.dc);
   if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {
-    cam.x+=GRID_SZ*FCos(cam.angle);
-    cam.y+=GRID_SZ*FSin(cam.angle);
+    MoveInLevel(l,&cam.x,cam.angle,GRID_SZ/4,128,cam.h-48);
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)) {
-    cam.x-=GRID_SZ*FCos(cam.angle);
-    cam.y-=GRID_SZ*FSin(cam.angle);
+    MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,128,cam.h-48);
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {

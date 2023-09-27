@@ -102,7 +102,7 @@ class CWadSubsector {
 
 
 class CDoomThing:CQue {
-  F64 x,y,angle,height;
+  F64 x,y,angle,height;
   I16 thing_type,flags,pad[2];
   CDoomThingTemplate *template;
 };
@@ -223,6 +223,10 @@ class CDoomLevel {
   I64 vertice_cnt;
   CD2 *vertices;
   CQue linedefs;
+ I64 block_map_x_off,block_map_y_off;
+  I64 block_map_cols,block_map_rows;
+  I64 *block_map_offsets;
+  CDoomSector **block_map_data;
 };
 
 class CWadTexturePatch {
@@ -714,8 +718,14 @@ loop:
   Free(array);
 }
 
+class CWadBlockMapHeader {
+  I16 x_off,y_off;
+  I16 num_cols,num_rows;
+};
+
 CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
-  I64 idx,cnt;
+  I64 idx,cnt,x,y,min,max;
+  U16 *offs;
   U8 name[9];
   CDoomLevel *level=CAlloc(sizeof CDoomLevel);
   CDoomThing *dthing;
@@ -734,6 +744,7 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   CDoomSector **dsect_list,*dsect;
   CWadSidedef *wside;
   CDoomSidedef *dside,**dside_list;
+  CWadBlockMapHeader *wbmh;
   QueInit(&level->sidedefs);
   QueInit(&level->sectors);
   QueInit(&level->things);
@@ -937,6 +948,33 @@ found:
   cnt=wad_dir[7].lump_size/sizeof(CWadSector);
   for(idx=0;idx!=cnt;idx++)
     GenerateSectorShape(dsect_list[idx]);
+//BLOCKMAP
+  wbmh=wad_dir[9].ptr+wad(U8*);
+  if(StrCmp8("BLOCKMAP",wad_dir[9].lump_name)) throw('Wad');
+  cnt=wbmh->num_cols*wbmh->num_rows;
+  offs=wbmh+1;
+  level->block_map_y_off=wbmh->y_off;
+  level->block_map_x_off=wbmh->x_off;
+  level->block_map_offsets=MAlloc(8*cnt);
+  level->block_map_cols=wbmh->num_cols;
+  level->block_map_rows=wbmh->num_rows;
+  for(x=0;x!=wbmh->num_cols;x++) {
+    for(y=0;y!=wbmh->num_rows;y++) {
+//These pooparoos are relatvie the the BLOCKMAP header,so get rid of the header/offsets poop
+      idx=(offs[x+y*wbmh->num_cols]*2-sizeof(CWadBlockMapHeader)-2*cnt)/2;
+      level->block_map_offsets[x+y*wbmh->num_cols]=idx;
+    }
+  }
+  offs+=cnt;
+  cnt=(wad_dir[9].lump_size-sizeof(CWadBlockMapHeader)-cnt*sizeof(I16))/sizeof(I16);
+  level->block_map_data=MAlloc(8*cnt);
+  while(--cnt>=0) {
+PrintI("zero?>",offs[cnt]);
+    if(offs[cnt]==0xFFFF)
+      level->block_map_data[cnt]=NULL;
+    else
+      level->block_map_data[cnt]=dlinedef_list[offs[cnt]];
+  }
   Free(sslist);
   Free(dside_list);
   Free(dsect_list);

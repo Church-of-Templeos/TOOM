@@ -1,7 +1,7 @@
 Bool InRange(F64 low,F64 x,F64 high) {
   if(low<high)
-    return low<=x<=high;
-  return high<=x<=low;
+    return low-.1<=x<=high+.1;
+  return high-.1<=x<=low+.1;
 }
 
 Bool PlaneIntersect(CD2 *dst,CD2 *a,CD2 *b,CD2 *a2,CD2 *b2) {  

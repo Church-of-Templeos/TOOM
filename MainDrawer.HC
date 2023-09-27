@@ -15,6 +15,7 @@ CWad *LoadWad(U8 *filename) {
 static CWad *wad=LoadWad("DOOM.WAD");
 
 #include "Wad.HC";
+//#include "Weapons.HC";
 #include "ST.HC";
 #include "FastTrig.HC"
 class CDoomCamera {
@@ -204,7 +205,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.) {
   if(p->x<1&&p2->x<1) return FALSE;
   s.x=1,e.x=1;
   s.y=I16_MIN,e.y=I16_MAX;  
-  if(PlaneIntersect(&at,&s,&e,p,p2)) {
+  if(PlaneIntersect(&at,&s,&e,p,p2)) {
     if(p->x>=1) {
       p2->x=at.x;
       p2->y=at.y;
@@ -259,7 +260,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,
         dst=&to_dc->body[x+y*to_dc->width_internal];
         if(from->u8[0]!=TRANSPARENT)
           *dst=*from,*db_z=dist;
-        from(U8*)+=sprite->width_internal;
+        from(U8*)+=sprite->width_internal;
         dst(U8*)+=to_dc->width_internal;
         if(from->u8[0]!=TRANSPARENT)
           *dst=*from,*db_z=dist;
@@ -790,7 +791,19 @@ U0 SongTask(I64)
   }
 }
 
-#include"Collision";
+//temp variable
+I64 play_weap=0;
+
+U0 AnimateTask(I64)
+{
+  while(TRUE)
+  {   
+   AnimateFire(play_weap);
+   Sleep(60);  
+  }
+  
+}
+//#include"Collision";
 
 CDoomCamera cam;
 CDoomSector *sect=l->sectors.last;
@@ -802,6 +815,7 @@ cam.fov=pi/4;
 cam.h=0;
 DocClear;
 Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
+Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
   
 while(TRUE) {
   DCFill;
@@ -810,11 +824,11 @@ while(TRUE) {
   DrawDoomWorld(&cam,l,gr.dc);
   ST_Start(gr.dc);
   if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {
-    MoveInLevel(l,&cam.x,cam.angle,GRID_SZ/4,128,cam.h-48);
+    //MoveInLevel(l,&cam.x,cam.angle,GRID_SZ/4,128,cam.h-48);
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)) {
-    MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,128,cam.h-48);
+    //MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,128,cam.h-48);
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
@@ -827,6 +841,21 @@ while(TRUE) {
   }
   if(!Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)&&!Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
      ST_Key(0);
+  }
+  if(ms.lb) {
+     ST_Fire();
+  }
+  if(Bt(kbd.down_bitmap,Char2ScanCode('1'))) {
+     play_weap=0;
+     SwapWeapon(0);
+  }
+  if(Bt(kbd.down_bitmap,Char2ScanCode('2'))) {
+     play_weap=1;
+     SwapWeapon(1);
+  }
+  if(Bt(kbd.down_bitmap,Char2ScanCode('3'))) {
+     play_weap=2;
+     SwapWeapon(2);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('\n')&0xff)) {
      DCFill;

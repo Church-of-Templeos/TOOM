@@ -54,11 +54,11 @@ class STNum
     I64 oldnum;
     
     // pointer to current value
-    I64 *num;
+    I64 num;
 
     // pointer to boolean stating
     //  whether to update number
-    Bool *on;
+    Bool on;
 
     // list of patches for 0-9
     CDoomImage**	p;
@@ -87,11 +87,11 @@ class MultiIcon
     I64 oldinum;
 
     // pointer to current icon
-    I64 *inum;
+    I64 inum;
 
     // pointer to boolean stating
     //  whether to update icon
-    Bool *on;
+    Bool on;
 
     // list of icons
     CDC** p;
@@ -144,8 +144,6 @@ static BinaryIcon	w_armsbg;
 static MultiIcon	w_arms[6];
 // face status widget
 static MultiIcon	toom_faces; 
-// keycard widgets
-static MultiIcon	w_keyboxes[3];
 // armor widget
 static PercentWidget	w_armor;
 // ammo widgets
@@ -154,6 +152,41 @@ static STNum		w_ammo[4];
 static STNum		w_maxammo[4]; 
 // holds key-type for each key box on bar
 static I64 		keyboxes[3]; 
+// weapon anims
+static MultiIcon	weapons;
+
+//weapons
+static CDC*		PUNCH;
+static CDC*		PUNCHD;
+static CDC*		PUNCHU;
+static CDC*		PUNCH1;
+static CDC*		PUNCH2;
+static CDC*		PUNCH3;
+static CDC*		PUNCH4;
+static CDC*		PUNCH5;
+static CDC*		PISTOL;
+static CDC*		PISTOLD;
+static CDC*		PISTOLU;
+static CDC*		PISTOL1;
+static CDC*		PISTOL2;
+static CDC*		PISTOL3;
+static CDC*		PISTOL4;
+static CDC*		PISTOLF;
+static CDC*		SHOTGUN;
+static CDC*		SHOTGUND;
+static CDC*		SHOTGUNU;
+static CDC*		SHOTGUN1;
+static CDC*		SHOTGUN2;
+static CDC*		SHOTGUN3;
+static CDC*		SHOTGUN4;
+static CDC*		SHOTGUN5;
+static CDC*		SHOTGUN6;
+static CDC*		SHOTGUN7;
+static CDC*		SHOTGUN8;
+static CDC*		SHOTGUN9;
+static CDC*		SHOTGUNF1;
+static CDC*		SHOTGUNF2;
+
 
 //status bar and faces
 static CDC*		ST;
@@ -189,7 +222,7 @@ static I64 st_palette = 0;
 
 
 
-U0GrChar(CDC*dc,U8 ch,I64 x,I64 y,I64 scale)
+U0GrChar(CDC*dc,U8 ch,I64 x,I64 y,I64 scale)
 {
   I64 i,j,k=0;
   for(i=0;i<FONT_HEIGHT;i++){
@@ -257,54 +290,31 @@ U0 ST_refreshBackground(CDC*dc)
     CDoomImageCol *curr = NULL;
     if (st_statusbaron)
     {
-        //wad_dir=wad->body+wad->directory_ptr;
-        //wad_dir+=W_CheckNumForName("F_START",wad);
-
-        CDoomImage *ret = CAlloc(sizeof(CDoomImage));
-        //ret = FramePtr("STBAR");        
-        //CDC*texture = ReadDoomImage(ret);
-        //GrChar(dc,ret->w,25,25,10);        
-        GrBlot(gr.dc,0,SCREENHEIGHT-65,ST); //Read the image
-        GrBlot(gr.dc,SCREENWIDTH/2-25,SCREENHEIGHT-64,toom_faces.p[toom_faces.inum]);
-        //DrawPatch(dc,texture,0,0,SCREENWIDTH,SCREENHEIGHT,ret);
-        //GrBlot(dc,500,100,texture);
-
-        /*
-        I16 x;
-        I16 y = ret->top;
-        I16 w = ret->w;
-        I16 h = ret->h;
-        I64 desttop = SCREENHEIGHT+y*SCREENWIDTH+x;
-        I64 col = 0,count=0;
-        U8* source,dest;
-        for(x=ret->left;col<w;x++,col++,desttop++) 
+        if(weapons.data>0)
+        {//draw flash
+         GrBlot(gr.dc,weapons.x,weapons.y,
+                     weapons.p[weapons.data]);//weapons flash
+        
+        }
+        //todo fix x y for guns
+        if(weapons.inum>3)
         {
-          curr = ret+(U8*)ret->col_offs[col];
-          while(curr->rowstart!=255)
-          {
-           source = col(U8*)+3;
-           dest = desttop +curr->rowstart*SCREENWIDTH;
-           count= curr->px_cnt;
-           while(count>=0)
-           {
-             dc->color=GrPeek0(ret,count,col);
-	     GrPlot(dc,x,dest);
-             count--;
-             // *dest=*source++;
-             //dest+=SCREENWIDTH;
-           }
-           curr= curr(U8*)+curr->px_cnt+ 4 ;
-          }
-          //h=Lerp((x-ST_X)/(SCREENWIDTH-ST_X),sh,eh);
-          //texture_x=Lerp((x-ST_X)/(SCREENWIDTH-ST_X),start_seg,end_seg)%ret->width;
-          //at_y=Lerp((cx-sx)/(ex-sx),sy,ey); 
-        }*/
+	GrBlot(gr.dc,SCREENWIDTH/2.5,SCREENHEIGHT-186,
+                     weapons.p[weapons.inum]);//weapons
+        
+        }
+        else
+        {
+	GrBlot(gr.dc,SCREENWIDTH/4,SCREENHEIGHT-148,
+                     weapons.p[weapons.inum]);//fist
+        }
 
-	//CWadDirectory *wad_dir;
-        //wad_dir=wad->body+wad->directory_ptr;
-        //wad_dir+=W_CheckNumForName("STBAR",wad);
-	//gr = ReadDoomImage(wad,wad->body+wad_dir->ptr, ret->palette);
-
+        
+        
+        GrBlot(gr.dc,0,SCREENHEIGHT-65,ST); //Read the ST
+        GrBlot(gr.dc,SCREENWIDTH/2-25,SCREENHEIGHT-64,
+                      toom_faces.p[toom_faces.inum]);//faces
+        
 	//V_CopyRect(ST_X, 0, BG, ST_WIDTH, ST_HEIGHT, ST_X, ST_Y, FG);
     }
 
@@ -318,6 +328,7 @@ U0 ST_refresh(CDC*dc)
 U0 InitWidgets()
 {
     toom_faces.p = MAlloc(sizeof(CDC)*40);
+    weapons.p = MAlloc(sizeof(CDC)*30);
 
     // faces
     //STlib_initMultIcon(&w_faces,
@@ -336,10 +347,13 @@ U0 ST_ReadOnce(CDC*dc)
      //not efficent
      st_firsttime = TRUE;
      InitWidgets();
+
+     //STATUS BARS
      CWadDirectory *wad_dir=wad->body+wad->directory_ptr;  //Wads have a base pointer where the "directories" are stored
      wad_dir+=W_CheckNumForName("STBAR",wad);  //Get the index and add it to the pointer
      ST = ReadDoomImage(wad->body+wad_dir->ptr); 
-
+ 
+     //FACES
      wad_dir=wad->body+wad->directory_ptr;  //Wads have a base pointer where the "directories" are stored
      wad_dir+=W_CheckNumForName("STFST01T",wad);  //Get the index and add it to the pointer
      FACE00 = ReadDoomImage(wad->body+wad_dir->ptr); 
@@ -351,15 +365,323 @@ U0 ST_ReadOnce(CDC*dc)
      wad_dir=wad->body+wad->directory_ptr;  //Wads have a base pointer where the "directories" are stored
      wad_dir+=W_CheckNumForName("STFST02T",wad);  //Get the index and add it to the pointer
      FACE0L = ReadDoomImage(wad->body+wad_dir->ptr);   
-     
+
+
+     //WEAPONS
+     //PUNCH
+
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("PUNGA0",wad);  
+     PUNCH = ReadDoomImage(wad->body+wad_dir->ptr);   
+     //wad_dir=wad->body+wad->directory_ptr;  
+     //wad_dir+=W_CheckNumForName("S_PUNCHDOWN",wad); 
+     //PUNCHD = ReadDoomImage(wad->body+wad_dir->ptr);   
+     //wad_dir=wad->body+wad->directory_ptr;  
+     //wad_dir+=W_CheckNumForName("S_PUNCHUP",wad);  
+     //PUNCHU = ReadDoomImage(wad->body+wad_dir->ptr);   
+     wad_dir=wad->body+wad->directory_ptr; 
+     wad_dir+=W_CheckNumForName("PUNGB0",wad);  
+     PUNCH1 = ReadDoomImage(wad->body+wad_dir->ptr);   
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("PUNGC0",wad);  
+     PUNCH2 = ReadDoomImage(wad->body+wad_dir->ptr);   
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("PUNGD0",wad);  
+     PUNCH3 = ReadDoomImage(wad->body+wad_dir->ptr);   
+     //wad_dir=wad->body+wad->directory_ptr;  
+     //wad_dir+=W_CheckNumForName("S_PUNCH5",wad);  
+     //PUNCH4 = ReadDoomImage(wad->body+wad_dir->ptr);   
+     //wad_dir=wad->body+wad->directory_ptr;  
+     //wad_dir+=W_CheckNumForName("S_PUNCH",wad);  
+     //PUNCH5 = ReadDoomImage(wad->body+wad_dir->ptr);//8 sprites
+   
+     //PISTOL
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("PISGA0",wad);  
+     PISTOL = ReadDoomImage(wad->body+wad_dir->ptr);   
+     //wad_dir=wad->body+wad->directory_ptr;  
+     //wad_dir+=W_CheckNumForName("S_PISTOLDOWN",wad);  
+     //PISTOLD = ReadDoomImage(wad->body+wad_dir->ptr);   
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("PISGE0",wad);  
+     PISTOLU = ReadDoomImage(wad->body+wad_dir->ptr);   
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("PISGB0",wad);  
+     PISTOL1 = ReadDoomImage(wad->body+wad_dir->ptr);
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("PISGC0",wad);  
+     PISTOL2 = ReadDoomImage(wad->body+wad_dir->ptr);   
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("PISGD0",wad);  
+     PISTOL3 = ReadDoomImage(wad->body+wad_dir->ptr);   
+     //wad_dir=wad->body+wad->directory_ptr;  
+     //wad_dir+=W_CheckNumForName("PISGE0",wad);  
+     //PISTOL4 = ReadDoomImage(wad->body+wad_dir->ptr);   
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("PISFA0",wad);  
+     PISTOLF = ReadDoomImage(wad->body+wad_dir->ptr);   //8 sprites
+    
+     //SHOTGUN   
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("SHTGA0",wad);  
+     SHOTGUN = ReadDoomImage(wad->body+wad_dir->ptr);      
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("SHTGB0",wad);  
+     SHOTGUN1 = ReadDoomImage(wad->body+wad_dir->ptr);   
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("SHTGC0",wad);  
+     SHOTGUN2 = ReadDoomImage(wad->body+wad_dir->ptr);   
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("SHTGD0",wad);  
+     SHOTGUN3 = ReadDoomImage(wad->body+wad_dir->ptr);         
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("SHTFA0",wad);  
+     SHOTGUNF1 = ReadDoomImage(wad->body+wad_dir->ptr); 
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("SHTFB0",wad);  
+     SHOTGUNF2 = ReadDoomImage(wad->body+wad_dir->ptr); //14 sprites      
+
+
      toom_faces.p[0]=FACE00;
      toom_faces.p[1]=FACE0R;
      toom_faces.p[2]=FACE0L;
-     
+
+     weapons.on=FALSE;
+     weapons.inum=0;
+     weapons.oldinum=0;
+     weapons.x = 0;
+     weapons.y = 0;
+     weapons.data=0;
+    
+     weapons.p[0]=PUNCH;
+     weapons.p[1]=PUNCH1;
+     weapons.p[2]=PUNCH2;
+     weapons.p[3]=PUNCH3;
+
+     weapons.p[4]=PISTOL;
+     weapons.p[5]=PISTOL1;
+     weapons.p[6]=PISTOL2;
+     weapons.p[7]=PISTOL3;
+     weapons.p[8]=PISTOLU;
+     weapons.p[9]=PISTOLF;
+
+     weapons.p[10]=SHOTGUN;
+     weapons.p[11]=SHOTGUN1;
+     weapons.p[12]=SHOTGUN2;
+     weapons.p[13]=SHOTGUN3;
+     weapons.p[14]=SHOTGUNF1;
+     weapons.p[15]=SHOTGUNF2;
+     /*
+     weapons.p[16]=SHOTGUN;
+     weapons.p[17]=SHOTGUND;
+     weapons.p[18]=SHOTGUNU;
+     weapons.p[19]=SHOTGUN1;
+     weapons.p[20]=SHOTGUN2;
+     weapons.p[21]=SHOTGUN3;
+     weapons.p[22]=SHOTGUN4;
+     weapons.p[23]=SHOTGUN5;
+     weapons.p[24]=SHOTGUN6;
+     weapons.p[25]=SHOTGUN7;
+     weapons.p[26]=SHOTGUN8;
+     weapons.p[27]=SHOTGUN9;
+     weapons.p[28]=SHOTGUNF1;
+     weapons.p[29]=SHOTGUNF2;     
+*/
    }
 
   
   
+}
+
+U0 AnimateFire(I16 weapon)
+{
+   if(weapons.on)
+   {
+    switch(weapon)
+    {
+     case 0://punch
+        switch(weapons.oldinum)
+        {
+          case -1:
+           weapons.oldinum=0;
+           weapons.inum=1;
+           break;
+	  case 0:
+           weapons.oldinum=1;
+           weapons.inum=2;
+           break;
+	  case 1:
+           weapons.oldinum=2;
+           weapons.inum=3;
+           break;
+	  case 2:
+           weapons.oldinum=3;
+           weapons.inum=2;
+           break;
+	  case 3:
+           weapons.oldinum=4;
+           weapons.inum=1;
+           break;
+	  case 4:
+           weapons.oldinum=5;
+           weapons.inum=0;
+           break;
+	  case 5:
+           weapons.oldinum=0;
+           weapons.inum=0;
+           weapons.on=FALSE;
+           break;
+
+        }
+     break;
+     case 1://pistol
+       switch(weapons.oldinum)
+        {
+          case -1:
+           weapons.oldinum=0;
+           weapons.inum=4;
+           break;
+	  case 0:
+           weapons.oldinum=1;
+           weapons.inum=5;
+           break;
+	  case 1:
+           weapons.oldinum=2;
+           weapons.inum=7;
+           break;
+	  case 2:
+           weapons.oldinum=3;
+           weapons.inum=8;
+           break;
+	  case 3:
+           weapons.oldinum=4;
+           weapons.data=9;
+           Play("B#");
+           weapons.x=SCREENWIDTH/2;
+           weapons.y=SCREENHEIGHT/2;
+           weapons.inum=8;
+           break;
+	  case 4:
+           weapons.data=0;
+           weapons.oldinum=5;
+           weapons.inum=8;
+           break;
+	  case 5:
+           weapons.oldinum=6;
+           weapons.inum=7;
+           break;
+	  case 6:
+           weapons.oldinum=7;
+           weapons.inum=6;
+           break;
+          case 7:
+           weapons.oldinum=8;
+           weapons.inum=5;
+           break; 
+	  case 8:
+           weapons.oldinum=0;
+           weapons.inum=4;
+           weapons.on=FALSE;
+           break;
+
+        }
+ 
+     break;
+     case 2://shotgun
+       switch(weapons.oldinum)
+        {
+          case -1:
+           weapons.data=14;
+           weapons.x=SCREENWIDTH/2.2;
+           weapons.y=SCREENHEIGHT/1.8;
+           Play("1A#");
+           weapons.oldinum=0;
+           weapons.inum=10;
+           break;
+	  case 0:
+           weapons.data=15;
+           weapons.oldinum=1;
+           weapons.inum=10;
+           break;
+	  case 1:
+           weapons.data=14;
+           weapons.oldinum=2;
+           weapons.inum=10;
+           break;
+	  case 2:
+           weapons.data=0;
+           weapons.oldinum=3;
+           weapons.inum=10;
+           break;
+	  case 3:
+           weapons.oldinum=4;
+           weapons.inum=11;
+           break;
+	  case 4:
+           weapons.oldinum=5;
+           weapons.inum=12;
+           break;
+ 	  case 5:
+           weapons.oldinum=6;
+           weapons.inum=13;
+           break;
+	  case 6:
+           weapons.oldinum=7;
+           weapons.inum=12;
+           break;
+	  case 7:
+           weapons.oldinum=8;
+           weapons.inum=11;
+           break;	 
+	  case 8:
+           weapons.oldinum=0;
+           weapons.inum=10;
+           weapons.on=FALSE;
+           break;
+
+        }
+ 
+     break;
+    }
+   }
+}
+
+U0 SwapWeapon(I64 weapon)
+{
+  switch(weapon)
+  {
+   case 0:
+    weapons.inum=0;//hands
+    break;
+   case 1:
+    weapons.inum=8;//pistol
+    Sleep(20);
+    weapons.inum=5;
+    Sleep(20);   
+    weapons.inum=4;
+    Sleep(20);
+    break;
+   case 2:
+    weapons.inum=12;//shotgun
+    Sleep(20);
+    weapons.inum=11;//shotgun
+    Sleep(20);    
+    weapons.inum=10;//shotgun
+    Sleep(20);
+    
+    break;
+   break;
+  }
+}
+
+U0 ST_Fire()
+{
+   if(weapons.on==FALSE)
+   {
+     weapons.on=TRUE;
+     weapons.oldinum=-1;
+     
+   }
 }
 
 U0 ST_Key(U16 val)
@@ -393,6 +715,7 @@ U0 ST_Start(CDC*dc)
 U0 ST_Exit()
 {
   Free(toom_faces.p);
+  Free(weapons.p);
 }
 
 //ST_Start;

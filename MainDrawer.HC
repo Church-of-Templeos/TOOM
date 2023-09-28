@@ -28,7 +28,7 @@ class CDoomCamera {
   F64 floor_depths[GR_WIDTH/2];
   F64 ceil_depths[GR_WIDTH/2];
 //Cordnates are diveded by 2
-  CDC *floor_dc; //This is black or white,this is used for reducing floor overdraw
+  CDC *floor_dc; //This is black or white,this is used for reducing floor overdraw
   CFifoI64 *visible_sectors;
 };
 #define GRID_SZ  128
@@ -828,7 +828,7 @@ while(TRUE) {
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)) {
-    //MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,128,cam.h-48);
+    //MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,128,cam.h-48);
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {

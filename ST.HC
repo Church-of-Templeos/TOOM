@@ -291,27 +291,27 @@ U0 ST_refreshBackground(CDC*dc)
     if (st_statusbaron)
     {
         if(weapons.data>0)
-        {//draw flash
-         GrBlot(gr.dc,weapons.x,weapons.y,
-                     weapons.p[weapons.data]);//weapons flash
+        {//draw weapons flash
+         if(weapons.inum<10&&weapons.inum>3)//pistol
+         {
+         GrBlot(gr.dc,weapons.x+62,weapons.y-24,
+                     weapons.p[weapons.data]);
+         }
+         if(weapons.inum>=10&&weapons.inum<16)//shotgun
+         {
+         GrBlot(gr.dc,weapons.x+38,weapons.y-32,
+                     weapons.p[weapons.data]);
+         }
+        }
         
-        }
-        //todo fix x y for guns
-        if(weapons.inum>3)
-        {
-	GrBlot(gr.dc,SCREENWIDTH/2.5,SCREENHEIGHT-186,
-                     weapons.p[weapons.inum]);//weapons
+       
+	GrBlot(gr.dc,weapons.x,weapons.y,
+                     weapons.p[weapons.inum]);//weapon
         
-        }
-        else
-        {
-	GrBlot(gr.dc,SCREENWIDTH/4,SCREENHEIGHT-148,
-                     weapons.p[weapons.inum]);//fist
-        }
 
         
         
-        GrBlot(gr.dc,0,SCREENHEIGHT-65,ST); //Read the ST
+        GrBlot(gr.dc,0,SCREENHEIGHT-64,ST); //Read the ST
         GrBlot(gr.dc,SCREENWIDTH/2-25,SCREENHEIGHT-64,
                       toom_faces.p[toom_faces.inum]);//faces
         
@@ -449,8 +449,9 @@ U0 ST_ReadOnce(CDC*dc)
      weapons.on=FALSE;
      weapons.inum=0;
      weapons.oldinum=0;
-     weapons.x = 0;
-     weapons.y = 0;
+     weapons.x=SCREENWIDTH/3;
+     weapons.y=SCREENHEIGHT-146;$IV,1$$IV,0$
+    
      weapons.data=0;
     
      weapons.p[0]=PUNCH;
@@ -542,6 +543,7 @@ U0 AnimateFire(I16 weapon)
            weapons.inum=4;
            break;
 	  case 0:
+           weapons.x=SCREENWIDTH/3;
            weapons.oldinum=1;
            weapons.inum=5;
            break;
@@ -550,9 +552,10 @@ U0 AnimateFire(I16 weapon)
            weapons.inum=7;
            break;
 	  case 2:
+           
            weapons.oldinum=3;
-           weapons.x=SCREENWIDTH/2;
-           weapons.y=SCREENHEIGHT/2;
+           //weapons.x=SCREENWIDTH/2;
+           //weapons.y=SCREENHEIGHT/2;
            weapons.inum=8;
            break;
 	  case 3:
@@ -579,6 +582,7 @@ U0 AnimateFire(I16 weapon)
            weapons.inum=5;
            break; 
 	  case 8:
+           weapons.x=SCREENWIDTH/2.5;
            weapons.oldinum=0;
            weapons.inum=4;
            weapons.on=FALSE;
@@ -591,10 +595,9 @@ U0 AnimateFire(I16 weapon)
        switch(weapons.oldinum)
         {
           case -1:
-           weapons.data=14;
-           weapons.x=SCREENWIDTH/2.16;
-           weapons.y=SCREENHEIGHT/1.76;
-           Play("1A#");
+           //weapons.data=14;
+           //weapons.x=SCREENWIDTH/2.16;
+           weapons.y=SCREENHEIGHT-164;
            weapons.oldinum=0;
            weapons.inum=10;
            break;
@@ -602,13 +605,16 @@ U0 AnimateFire(I16 weapon)
            weapons.data=15;
            weapons.oldinum=1;
            weapons.inum=10;
+           Play("1A#");
            break;
 	  case 1:
            weapons.data=14;
            weapons.oldinum=2;
            weapons.inum=10;
+           //Play("1A");
            break;
-	  case 2:
+	  case 2: 
+           
            weapons.data=0;
            weapons.oldinum=3;
            weapons.inum=10;
@@ -616,24 +622,37 @@ U0 AnimateFire(I16 weapon)
 	  case 3:
            weapons.oldinum=4;
            weapons.inum=11;
+           weapons.x=SCREENWIDTH/4.5;
+           weapons.y=SCREENHEIGHT-306;
+           Sleep(40);
            break;
 	  case 4:
            weapons.oldinum=5;
            weapons.inum=12;
+           Play("1G#");
+	   Sleep(40);
            break;
  	  case 5:
-           weapons.oldinum=6;
+           weapons.oldinum=6; 
            weapons.inum=13;
+           Play("1G");
+           Sleep(40);
            break;
 	  case 6:
            weapons.oldinum=7;
            weapons.inum=12;
+	   Sleep(40);
            break;
 	  case 7:
+           weapons.x=SCREENWIDTH/2.5;
+           weapons.y=SCREENHEIGHT-186;
+           
            weapons.oldinum=8;
-           weapons.inum=11;
+	   weapons.inum=11;
+           Sleep(40);
            break;	 
 	  case 8:
+           
            weapons.oldinum=0;
            weapons.inum=10;
            weapons.on=FALSE;
@@ -651,12 +670,16 @@ U0 SwapWeapon(I64 weapon)
   switch(weapon)
   {
    case 0:
+    weapons.x=SCREENWIDTH/3;
+    weapons.y=SCREENHEIGHT-146;
     weapons.inum=0;//hands
     weapons.data=0;
     weapons.on=FALSE;
     break;
    case 1:
     //weapons.on=TRUE;
+    weapons.x=SCREENWIDTH/2.5;
+    weapons.y=SCREENHEIGHT-186;$IV,1$$IV,0$
     weapons.data=0;
     weapons.inum=8;//pistol
     Sleep(20);
@@ -668,6 +691,8 @@ U0 SwapWeapon(I64 weapon)
     break;
    case 2:
     //weapons.on=TRUE;
+    weapons.x=SCREENWIDTH/2.5;
+    weapons.y=SCREENHEIGHT-186;$IV,1$$IV,0$
     weapons.data=0;
     weapons.inum=12;//shotgun
     Sleep(20);

@@ -258,51 +258,6 @@ next:;
   }
 } 
 
-/*U0 RayCastFloor(CDC *to_dc,CDoomCamera *cam,CDC *texture,CDoomSector *s,F64 level) {
-  CD2 point,zero;
-  zero.x=0.,zero.y=0.;
-  F64 angle,margin,dist;
-  I64 ix,iy,tox,toy,dispx,dispy;
-  U16 *to,color;
-  I32 idist,*db_z;
-  tox=s->shape_start_x+s->shape_dc->width*2;
-  toy=s->shape_start_y+s->shape_dc->height*2;
-  cam->floor_dc->color=WHITE;
-  for(ix=s->shape_start_x;ix<tox;ix+=2)
-    for(iy=s->shape_start_y;iy<toy;iy+=2) {
-      if(GrPeek0(s->shape_dc,(ix-s->shape_start_x)/2,(iy-s->shape_start_y)/2)) {
-        point.x=ix,point.y=iy;
-        TransformPointToCamera(cam,&point);
-        angle=FArg(point.x,point.y);
-        dispx=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2-1);
-        if(0<=dispx<GR_WIDTH-2) {
-	  dist=Sqrt(Sqr(point.x)+Sqr(point.y));
-	  dispy=GR_HEIGHT/2+DIST_SCALE/(dist*FCos(angle))*(cam->h-level);
-	  if(0<=dispy<GR_HEIGHT) {
-	    if(!GrPeek0(cam->floor_dc,dispx/2,dispy/2)) {
-	      idist=dist;
-	      GrPlot0(cam->floor_dc,dispx/2,dispy/2);
-	      color=YELLOW|YELLOW<<8;
-	      to=&to_dc->body[dispx+dispy*to_dc->width_internal];
-	      db_z=&to_dc->depth_buf[dispx+dispy*to_dc->width_internal];
-	      if(*db_z>idist) {
-	        db_z[0]=idist;
-	        db_z[1]=idist;
-	        db_z+=to_dc->width_internal;
-	        db_z[0]=idist;
-	        db_z[1]=idist;
-	        *to=color;
-	        to(U8*)+=to_dc->width_internal;
-	        *to=color;
-	      }
-
-	    }
-	  }
-        }
-      }
-    }
-}*/
-
 U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,Bool floor=FALSE) {
   CD2 clone_st,clone_en,zero;
   clone_st.x=st->x,clone_st.y=st->y;
@@ -789,15 +744,15 @@ while(TRUE) {
   DrawDoomWorld(&cam,l,gr.dc);
   ST_Start(gr.dc);
   if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {
-    MoveInLevel(l,&cam.x,cam.angle,GRID_SZ/4,128,cam.h-48);
+    MoveInLevel(l,&cam.x,cam.angle,GRID_SZ/4,2,cam.h-48);
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)) {
-    MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,128,cam.h-48);
+    MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,2,cam.h-48);
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
-     cam.angle-=pi/16;
+     cam.angle-=pi/16;
      ST_Key(2);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)) {

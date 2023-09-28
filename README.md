@@ -5,10 +5,13 @@ A TempleOS source port of the DOOM engine
 
 # Install
 Run the following command to begin the game:
+
 #include "MainDrawer.HC";
 
 # Controls
 
 Arrow keys to move around
+
 1-6 to change guns
+
 Left mouse button to fire

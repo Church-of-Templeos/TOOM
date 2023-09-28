@@ -205,7 +205,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.) {
   if(p->x<1&&p2->x<1) return FALSE;
   s.x=1,e.x=1;
   s.y=I16_MIN,e.y=I16_MAX;  
-  if(PlaneIntersect(&at,&s,&e,p,p2)) {
+  if(PlaneIntersect(&at,&s,&e,p,p2)) {
     if(p->x>=1) {
       p2->x=at.x;
       p2->y=at.y;
@@ -828,7 +828,7 @@ while(TRUE) {
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)) {
-    //MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,128,cam.h-48);
+    //MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,128,cam.h-48);
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
@@ -847,15 +847,15 @@ while(TRUE) {
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('1'))) {
      play_weap=0;
-     SwapWeapon(0);
+     SwapWeapon(play_weap);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('2'))) {
      play_weap=1;
-     SwapWeapon(1);
+     SwapWeapon(play_weap);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('3'))) {
      play_weap=2;
-     SwapWeapon(2);
+     SwapWeapon(play_weap);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('\n')&0xff)) {
      DCFill;

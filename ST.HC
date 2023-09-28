@@ -551,14 +551,14 @@ U0 AnimateFire(I16 weapon)
            break;
 	  case 2:
            weapons.oldinum=3;
+           weapons.x=SCREENWIDTH/2;
+           weapons.y=SCREENHEIGHT/2;
            weapons.inum=8;
            break;
 	  case 3:
            weapons.oldinum=4;
            weapons.data=9;
-           Play("B#");
-           weapons.x=SCREENWIDTH/2;
-           weapons.y=SCREENHEIGHT/2;
+           Play("B#");
            weapons.inum=8;
            break;
 	  case 4:
@@ -592,8 +592,8 @@ U0 AnimateFire(I16 weapon)
         {
           case -1:
            weapons.data=14;
-           weapons.x=SCREENWIDTH/2.2;
-           weapons.y=SCREENHEIGHT/1.8;
+           weapons.x=SCREENWIDTH/2.16;
+           weapons.y=SCREENHEIGHT/1.76;
            Play("1A#");
            weapons.oldinum=0;
            weapons.inum=10;
@@ -652,22 +652,30 @@ U0 SwapWeapon(I64 weapon)
   {
    case 0:
     weapons.inum=0;//hands
+    weapons.data=0;
+    weapons.on=FALSE;
     break;
    case 1:
+    //weapons.on=TRUE;
+    weapons.data=0;
     weapons.inum=8;//pistol
     Sleep(20);
     weapons.inum=5;
     Sleep(20);   
     weapons.inum=4;
     Sleep(20);
+    weapons.on=FALSE;
     break;
    case 2:
+    //weapons.on=TRUE;
+    weapons.data=0;
     weapons.inum=12;//shotgun
     Sleep(20);
     weapons.inum=11;//shotgun
     Sleep(20);    
     weapons.inum=10;//shotgun
     Sleep(20);
+    weapons.on=FALSE;
     
     break;
    break;

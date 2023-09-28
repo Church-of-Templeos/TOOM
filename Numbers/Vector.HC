@@ -198,7 +198,7 @@ U0 DestroyVector(Vector *v)
 
 //
 // See P_DivlineSide in DOOM
-//
+//
 I64 SideOfVector2D(Vector *v,CD2 *point) {
   if(!v->data[0]) {
     if(point->x<=0)
@@ -216,7 +216,7 @@ I64 SideOfVector2D(Vector *v,CD2 *point) {
   return 1;
 }
 
-Bool IsFrontSideOfVector2D(Vector *v,CD2 *point) {
+Bool IsFrontSideOfVector2D(Vector *v,CD2 *point) {
   return SideOfVector2D(v,point)==0;
 }
 

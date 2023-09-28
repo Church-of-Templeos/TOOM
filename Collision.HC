@@ -101,8 +101,8 @@ Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur
   } else {
     result->x=move2.x;
     result->y=move2.y;
-  }
+  }
   DestroyVector(vector);
   return FALSE;
 }
-#endif
+#endif

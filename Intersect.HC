@@ -22,8 +22,8 @@ Check for intersection basically.
   if(!dst) dst=&dummy;
 //If the line points straight up,we can check to see if the other
   //line goes through the y position,if so,it is a hit
-  if((b->x==a->x)||(b2->x==a2->x)) {
-    if(a->x==b->x&&a2->x==b2->x) {
+  if((ToI64(b->x)==ToI64(a->x))||(ToI64(b2->x)==ToI64(a2->x))) {
+    if(ToI64(a->x)==ToI64(b->x)&&ToI64(a2->x)==ToI64(b2->x)) {
       if(a->x==a2->x) {
         dst->x=a->x;
         dst->y=a->y;
@@ -31,13 +31,13 @@ Check for intersection basically.
       } else
 	return FALSE;
     }
-    if(a->x==b->x) {
+    if(ToI64(a->x)==ToI64(b->x)) {
       dst->x=a->x;
       slope2=(b2->y-a2->y)/(b2->x-a2->x);
       dst->y=slope2*(dst->x-a2->x)+a2->y;
       goto fin;
     }
-    if(a2->x==b2->x) {
+    if(ToI64(a2->x)==ToI64(b2->x)) {
       dst->x=a2->x;
       slope1=(b->y-a->y)/(b->x-a->x);
       dst->y=slope1*(dst->x-a->x)+a->y;
@@ -58,4 +58,3 @@ fin:
         InRange(a->y,dst->y,b->y)&&
         InRange(a2->y,dst->y,b2->y);
 }
-

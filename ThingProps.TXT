@@ -23,7 +23,7 @@
 
 #Monsters
 68	44	2	64	64	BSPI	AB+	MO*	Arachnotron
-64	40	2	20	56	VILE	AB+	MO*	Arch-vile
+64	40	2	20	56	VILE	AB+	MO*	Arch-vile
 3003	BBB	S	24	64	BOSS	AB+	MO*	Baron of Hell
 3005	BBD	R	31	56	HEAD	A+	MO*^	Cacodemon
 72	48	2	16	72	KEEN	A+	MO*^	Commander Keen

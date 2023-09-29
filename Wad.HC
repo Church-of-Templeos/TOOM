@@ -21,8 +21,7 @@ class CWadThing {
 #define  WAD_THINGF_MULTIPLAYER 0x10 //For multiplayer maps 
   I16 x,y,angle;
   U16 thing_type,flags;
-  CDC *graphics;
-};
+};
 
 //https://doomwiki.org/wiki/Linedef
 class CWadLinedef {

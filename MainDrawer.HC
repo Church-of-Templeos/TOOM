@@ -374,7 +374,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,
   if(!ClipLineToScrenCoords(cam,&copy,&copy2,level))
     return;
   dist=Sqrt(Sqr(p->x-cam->x)+Sqr(p->y-cam->y));
-  new_height=DIST_SCALE/(1+ToF64(dist))/GR_HEIGHT*Y_SCALE*sprite->height;
+  new_height=DIST_SCALE/(1+ToF64(dist))*sprite->height;
   new_width=new_height/sprite->height*sprite->width;
   fromx=copy.x-new_width/2;
   tox=ClampI64(copy.x+new_width/2,0,GR_WIDTH-2);;
@@ -434,7 +434,7 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   sprite=GetThingFaceSprite(thing->template,angle,'A'+anim_frame,&reflect);
   p.x=thing->x,p.y=thing->y;
   if(sprite)
-    PlotSpriteIn3DSpace(to_dc,sprite,cam,&p,thing->height,reflect);
+    PlotSpriteIn3DSpace(to_dc,sprite,cam,&p,thing->height,reflect);
 }
 
 F64 FloorRaise(CDoomLinedef *l,CDoomSector *sector) {
@@ -748,7 +748,7 @@ while(TRUE) {
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)) {
-    MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,16,cam.h-48);
+    MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,16,cam.h-48);
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {

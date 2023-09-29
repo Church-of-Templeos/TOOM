@@ -969,7 +969,6 @@ found:
   cnt=(wad_dir[9].lump_size-sizeof(CWadBlockMapHeader)-cnt*sizeof(I16))/sizeof(I16);
   level->block_map_data=MAlloc(8*cnt);
   while(--cnt>=0) {
-PrintI("zero?>",offs[cnt]);
     if(offs[cnt]==0xFFFF)
       level->block_map_data[cnt]=NULL;
     else

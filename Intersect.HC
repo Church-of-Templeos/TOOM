@@ -31,7 +31,7 @@ Check for intersection basically.
       } else
 	return FALSE;
     }
-    if(ToI64(a->x)==ToI64(b->x)) {
+    if(ToI64(a->x)==ToI64(b->x)) {
       dst->x=a->x;
       slope2=(b2->y-a2->y)/(b2->x-a2->x);
       dst->y=slope2*(dst->x-a2->x)+a2->y;
@@ -50,6 +50,7 @@ Check for intersection basically.
   slope1=(b->y-a->y)/(b->x-a->x);
   off1=slope1*-a->x+a->y;
   off2=slope2*-a2->x+a2->y;
+  if(slope1==slope2) return FALSE;
   dst->x=((off2-off1)/(slope1-slope2));
   dst->y=slope1*(dst->x)+off1;
 fin:

@@ -744,15 +744,15 @@ while(TRUE) {
   DrawDoomWorld(&cam,l,gr.dc);
   ST_Start(gr.dc);
   if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {
-    MoveInLevel(l,&cam.x,cam.angle,GRID_SZ/4,2,cam.h-48);
+    MoveInLevel(l,&cam.x,cam.angle,GRID_SZ/4,16,cam.h-48);
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)) {
-    MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,2,cam.h-48);
+    MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,16,cam.h-48);
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
-     cam.angle-=pi/16;
+     cam.angle-=pi/16;
      ST_Key(2);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)) {

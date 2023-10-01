@@ -5,6 +5,7 @@
 #include "DoomGr.HC";
 #include "Numbers/Vector.HC";
 #include "Things.HC";
+#include "World.HC";
 //https://doomwiki.org/wiki/WAD
 class CWadDirectory {
   U32 ptr;
@@ -21,7 +22,7 @@ class CWadThing {
 #define  WAD_THINGF_MULTIPLAYER 0x10 //For multiplayer maps 
   I16 x,y,angle;
   U16 thing_type,flags;
-};
+};
 
 //https://doomwiki.org/wiki/Linedef
 class CWadLinedef {
@@ -37,8 +38,8 @@ class CWadLinedef {
 #define WAD_LINEDEFF_NO_SHOW_ON_MAP 0x80
 #define WAD_LINEDEFF_SHOW_ON_MAP 0x100
   I16 flags;
-  I16 special_type;
-  I16 sector_tag;
+  U16 special_type;
+  U16 sector_tag;
   I16 front,back; //See CWadSidedef
 };
 
@@ -160,14 +161,17 @@ Bool BoundBoxF64Inside(F64 x,F64 y,CBoundBoxF64 *box) {
   return TRUE;
 }
 
-class CDoomLinedef:CQue {
+class CDoomLinedef:CQue {
   CD2 *start,*end;
   CDoomSidedef *front;
   CDoomSidedef *back;
+  union {
+    I64 sector_tag;
+    CDoomSector *tagged_sector;
+  }
   I16 flags;
-  I16 special_type;
-  I16 sector_tag;
-  I16 pad;
+  CDoomActionSector *special_type;
+  I16 pad[2];
 //private
   CD2 clip_start,clip_end;
   Bool in_view;
@@ -198,6 +202,8 @@ class CDoomSector:CQue {
   CDC *ceil_dc;
   F64 ceil_height;
   F64 floor_height;
+  F64 base_ceil_height;
+  F64 base_floor_height;
   F64 base_light_level,cur_light_level;
   I64 special_type;
   I64 linedef_cnt;
@@ -207,7 +213,11 @@ class CDoomSector:CQue {
 //I tried everything else but I just cant figure out how to draw the floors
   F64 shape_start_x,shape_start_y;
   CDC *shape_dc;
-  Bool drawn,pad[7];
+  CDoomLinedef *cur_action_linedef;
+  Bool drawn,closing,opening,activated,waiting,pad[3];
+  F64 wait_time;
+  F64 speed;
+  F64 start_tS;
 };
 
 
@@ -226,6 +236,8 @@ class CDoomLevel {
   I64 block_map_cols,block_map_rows;
   I64 *block_map_offsets;
   CDoomSector **block_map_data;
+  CDoomLinedef **action_linedefs;
+  Bool has_red_key,has_blue_key,has_yellow_key;
 };
 
 class CWadTexturePatch {
@@ -608,9 +620,6 @@ found_pstart:
     }
     goto found_pstart;
   }
-  wad_dir=wad->body+wad->directory_ptr;
-  wad_dir+=W_CheckNumForName("STBAR",wad); 
-  GrBlot(,0,0,ReadDoomImage(wad->body+wad_dir->ptr));
   LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE1",wad),ret);
   if(W_GetLumpPtrFromName("TEXTURE2",wad)>=0)
     LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE2",wad),ret);
@@ -821,6 +830,8 @@ found:
       dlinedef->front=dside_list[wlinedef->front];
     if(wlinedef->front!=-1)
       dlinedef->back=dside_list[wlinedef->back];
+    dlinedef->sector_tag=wlinedef->sector_tag;
+    dlinedef->special_type=action_sector_types[wlinedef->special_type];
     dlinedef_list[idx]=dlinedef;
     QueIns(dlinedef,level->linedefs.last);
     wlinedef++;
@@ -908,13 +919,15 @@ found:
     QueIns(dsect,&level->sectors);
     dsect->floor_height=wsect->floor_height;
     dsect->ceil_height=wsect->ceil_height;
+    dsect->base_floor_height=wsect->floor_height;
+    dsect->base_ceil_height=wsect->ceil_height;
     MemCpy(name,wsect->floor_texture_name,8);
     dsect->floor_dc=FramePtr(name);
     MemCpy(name,wsect->ceil_texture_name,8);
     dsect->ceil_dc=FramePtr(name);
     dsect->base_light_level=wsect->light_level;
     dsect->cur_light_level=wsect->light_level;
-    dsect->special_type=wsect->special_type;
+//    dsect->special_type=action_sector_types[wsect->special_type];
     dsect_list[idx]=dsect;
     wsect++;
   }
@@ -925,7 +938,7 @@ found:
     dside_list[idx]->sector=dsect_list[wside->sector];
     wside++;
   }
-//SECTORS(3) Get all the linedefs for the sector
+//SECTORS(3) Get all the linedefs for the sector,also assign sectors based on tag
   cnt=wad_dir[1].lump_size/sizeof(CWadLinedef);
   wlinedef=wad_dir[1].ptr+wad(U8*);
   if(StrCmp8("LINEDEFS",wad_dir[1].lump_name)) throw('Wad');
@@ -942,6 +955,8 @@ found:
 	dlinedef_list[idx]->back->sector,
 	);
     }
+    if(dlinedef_list[idx]->sector_tag!=0xffff)
+      dlinedef_list[idx]->sector_tag=dsect_list[dlinedef_list[idx]->sector_tag];
   }
 //SECTORS(4) Generate sectors shapes
   cnt=wad_dir[7].lump_size/sizeof(CWadSector);

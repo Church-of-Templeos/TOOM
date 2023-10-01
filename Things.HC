@@ -42,7 +42,7 @@ U8 *ReadALine(U8 **fbuf) {
   *fbuf+=StrLen(st);
   return StrNew(st);
 }
-
+
 U0 ParseThingProps() {
   MemSet(&doom_thing_types,0,8*0x10000);
   CDoomThingTemplate *template;
@@ -147,7 +147,7 @@ CDC *GetThingFaceSprite(CDoomThingTemplate *template,F64 angle,U8 ani_frame='A',
   }
 //Try opposite order
   buttplate[7]='0'+face;
-  for(try_face=0;try_face!=9;try_face++) {
+  for(try_face=0;try_face!=9;try_face++) {
     buttplate[5]=try_face+'0';
     if(ret=FramePtr(buttplate)) {
        return ret;

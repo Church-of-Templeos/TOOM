@@ -434,7 +434,7 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   sprite=GetThingFaceSprite(thing->template,angle,'A'+anim_frame,&reflect);
   p.x=thing->x,p.y=thing->y;
   if(sprite)
-    PlotSpriteIn3DSpace(to_dc,sprite,cam,&p,thing->height,reflect);
+    PlotSpriteIn3DSpace(to_dc,sprite,cam,&p,thing->height,reflect);
 }
 
 F64 FloorRaise(CDoomLinedef *l,CDoomSector *sector) {
@@ -736,27 +736,241 @@ cam.h=0;
 DocClear;
 Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
 Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
-  
+
+#define WACTIVATE_PUSH 1
+#define WACTIVATE_SHOOT 2
+#define WACTIVATE_SWITCH 4
+#define WACTIVATE_MONSTER 8
+#define WACTIVATE_WALK 0x10
+U0 UpdateSector(CDoomSector *s) {
+  F64 percent,time=tS,ceil=I16_MIN;
+  I64 idx;
+  if(!s->cur_action_linedef) return;
+  if(s->cur_action_linedef->special_type->type=='Door') {
+//A door is fully open when its ceiling height is 4 less than the lowest neighbor ceiling adjacent to it
+    for(idx=0;idx!=s->linedef_cnt;idx++) {
+      if(s->linedefs[idx]->back&&s->linedefs[idx]->back->sector!=s)
+        ceil=Max(s->linedefs[idx]->back->sector->base_ceil_height-4,ceil);
+      else if(s->linedefs[idx]->front&&s->linedefs[idx]->front->sector!=s)
+        ceil=Max(s->linedefs[idx]->front->sector->base_ceil_height-4,ceil);
+    }
+    if(s->opening) {
+      percent=(time-s->start_tS)/s->speed;
+      if(percent>=1.) {
+        s->ceil_height=ceil;
+//-1 for never close/open again
+        if(s->wait_time>=0.) {
+//close again
+	  if(s->wait_time+s->start_tS<time) return;
+	  s->start_tS=tS;
+	  s->opening=FALSE;
+	  s->closing=TRUE;
+	  s->wait_time=-1.;
+        }
+      } else {
+        s->ceil_height=percent*(ceil
+	      -s->base_floor_height)+s->base_floor_height;
+      }
+    } else if(s->closing) {
+      percent=(time-s->start_tS)/s->speed;
+      if(percent>=1.) {
+        s->ceil_height=s->base_floor_height;
+//-1 for never close/open again
+        if(s->wait_time>=0.) {
+	  if(s->wait_time+s->start_tS<time) return;
+//open again
+	  s->start_tS=tS;
+	  s->opening=TRUE;
+	  s->closing=FALSE;
+	  s->wait_time=-1.;
+        }
+      }  else {
+        s->ceil_height=percent*(s->base_floor_height
+	      -ceil)+ceil;
+      }
+    }
+  }
+}
+U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
+  CDoomActionSector *type;
+  CDoomSector *s;
+  CDoomDoor *door;
+  if(ld) {
+    if((s=ld->tagged_sector)&&(type=ld->special_type)) {
+      if(type->type=='Door') {
+        door=type;
+        switch(door->trigger) {
+	  case 'P1':
+	    s=ld->back->sector;
+	    if(s->activated) return;
+	    if(!(flags&WACTIVATE_PUSH)) return;
+activate1:
+	    s->activated=TRUE;
+activate:
+//Check for keys
+	    if(l->has_red_key^^(door->key&DOOR_LOCK_RED)) return;
+	    if(l->has_blue_key^^(door->key&DOOR_LOCK_BLUE)) return;
+	    if(l->has_yellow_key^^(door->key&DOOR_LOCK_YELLOW)) return;
+//Do the door action
+	    switch(door->action) {
+	      case DOOR_ACTION_OPEN_WAIT_CLOSE:
+		if(s->opening) return;
+PrintI("owc",1);
+PrintF("speed",door->speed);
+PrintF("wait",door->wait);
+		s->cur_action_linedef=ld;
+		s->opening=TRUE;
+		s->start_tS=tS;
+		s->speed=door->speed;
+		s->wait_time=door->wait;
+	        break;
+	      case DOOR_ACTION_CLOSE_WAIT_OPEN:
+		if(s->closing) return;
+PrintI("cwo",1);
+		s->cur_action_linedef=ld;
+		s->closing=TRUE;
+		s->start_tS=tS;
+		s->speed=door->speed;
+		s->wait_time=door->wait;
+	        break;
+	      case DOOR_ACTION_CLOSE:
+		if(s->closing) return;
+PrintI("c",1);
+		s->cur_action_linedef=ld;
+		s->closing=TRUE;
+		s->start_tS=tS;
+		s->speed=door->speed;
+		s->wait_time=-1.;
+	        break;
+	      case DOOR_ACTION_OPEN:
+		if(s->opening) return;
+PrintI("o",1);
+		s->cur_action_linedef=ld;
+		s->opening=TRUE;
+		s->start_tS=tS;
+		s->speed=door->speed;
+		s->wait_time=-1.;
+	        break;
+	    }
+	    break;
+	  case 'W1':
+	    if(s->activated) return;
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto activate1;
+	    break;
+	  case 'S1':
+	    if(s->activated) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto activate1;
+	    break;
+	  case 'G1':
+	    if(s->activated) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto activate1;
+	    break;
+	  case 'PR':
+	    s=ld->back->sector;
+	    if(!(flags&WACTIVATE_PUSH)) return;
+	    goto activate;
+	  case 'WR':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto activate;
+	  case 'GR':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto activate;
+	  case 'SR':
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto activate;
+        }
+      }
+    }
+  }
+}
+
+
+class CDoomPlayer {
+  CD2 position;
+  F64 angle,height;
+  F64 health,armor; 
+  Bool running;
+};
+
+U0 PlayerUse(CDoomLevel *l,CDoomPlayer *p) {
+  CD2 dummy;
+  CDoomLinedef *ld;
+  dummy.x=p->position.x;
+  dummy.y=p->position.y;
+  if(ld=MoveInLevel(l,&dummy,p->angle,64.,1.,p->height,0)) {
+     TriggerLinedef(l,ld,WACTIVATE_SWITCH);
+  }
+}
+
+U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 speed=GRID_SZ/4) {
+  CFifoI64 *crossed_f=FifoI64New(16);
+  CDoomLinedef *crossed;
+  CDoomLinedef *hit=MoveInLevel(l,&p->position,p->angle,speed,16,p->height);
+  while(FifoI64Rem(crossed_f,&crossed)) {
+    TriggerLinedef(l,crossed,WACTIVATE_WALK);
+  }
+  if(hit) TriggerLinedef(l,hit,WACTIVATE_PUSH);
+  FifoI64Del(crossed_f);
+  if(GetSectorForCoord(l,p->position.x,p->position.y))
+    p->height=GetSectorForCoord(l,p->position.x,p->position.y)->floor_height;
+}
+
+U0 PlayerLook(CDoomPlayer *p,F64 angle) {
+  p->angle=angle;
+}
+
+CDoomPlayer *PlayerNew(CDoomLevel *l) {
+  CDoomPlayer *p=CAlloc(sizeof CDoomPlayer);
+  CDoomThing *t,*head=&l->things;
+  for(t=head->next;t!=head;t=t->next) {
+//https://doomwiki.org/wiki/Thing_types#Other
+    if(t->thing_type==1) {
+      p->position.x=t->x;
+      p->position.y=t->y;
+      p->angle=t->angle;
+      break;
+    }
+  }
+  return p;
+}
+
+U0 UpdateLevel(CDoomLevel *l) {
+  CDoomSector *sector,*head=&l->sectors;
+  for(sector=head->next;sector!=head;sector=sector->next)
+    UpdateSector(sector);
+}
+
+U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
+  cam->h=p->height+48;
+  cam->x=p->position.x;
+  cam->y=p->position.y;
+  cam->angle=p->angle;
+}
+CDoomPlayer *p=PlayerNew(l);
+PlayerMove(l,p,0.);
 while(TRUE) {
   DCFill;
-  if(GetSectorForCoord(l,cam.x,cam.y))
-    cam.h=GetSectorForCoord(l,cam.x,cam.y)->floor_height+48;
+  UpdateLevel(l);
+  UpdateCameraFromPlayer(&cam,p);
   DrawDoomWorld(&cam,l,gr.dc);
   ST_Start(gr.dc);
   if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {
-    MoveInLevel(l,&cam.x,cam.angle,GRID_SZ/4,16,cam.h-48);
+    PlayerMove(l,p,GRID_SZ/4);
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)) {
-    MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,16,cam.h-48);
+    PlayerMove(l,p,-GRID_SZ/4);
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
-     cam.angle-=pi/16;
+     p->angle-=pi/16.;
      ST_Key(2);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)) {
-     cam.angle+=pi/16;
+     p->angle+=pi/16.;
      ST_Key(1);
   }
   if(!Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)&&!Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
@@ -777,11 +991,15 @@ while(TRUE) {
      play_weap=2;
      SwapWeapon(2);
   }
+  if(Bt(kbd.down_bitmap,Char2ScanCode(' ')&0xff)) {
+    PlayerUse(l,p);
+  }
   if(Bt(kbd.down_bitmap,Char2ScanCode('\n')&0xff)) {
      DCFill;
      ST_Exit();
     break;
   }
+  UpdateLevel(l);
   Refresh;
 }
 #endif

@@ -4,7 +4,7 @@
 #define STEP_HEIGHT 24
 #define COLLISF_CENTER_RADIUS 1
 
-extern Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=0);
+extern Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=0,CFifoI64 *walked_over_hot=NULL);
 
 Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
   F64 v0=ld->end->x-ld->start->x;
@@ -34,7 +34,7 @@ Bool AdjustForRadius(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 rad
     dist=radius-DistFromLine(point,ld->start,ld->end);
     MoveInLevel(l,point,ld_normal1,-dist,radius,cur_h,0);
     angle2=ld_normal1-angle;
-    x=-to_travel*FSin(ld_normal1+angle2);
+    x=-to_travel*FSin(ld_normal1+angle2);
     MoveInLevel(l,point,ld_normal1+pi/2,x,radius,cur_h,0);
     return TRUE;
   } else{
@@ -52,7 +52,8 @@ Bool AdjustForRadius(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 rad
   return FALSE;
 }
 
-Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=COLLISF_CENTER_RADIUS) {
+//walked_over_hot is "hot" linedefs that have a walkover action on them
+CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=COLLISF_CENTER_RADIUS,CFifoI64 *walked_over_hot=NULL) {
   if(dist<0) {
     dist=-dist;
     angle+=pi;
@@ -67,7 +68,9 @@ Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur
   F64 floor_height=0,ceil_height,odist=dist;
   F64 min_dist=I16_MAX,wall_angle,slope,off;
   CDoomLinedef *best=NULL;
-  CDoomLinedef *walls[64];
+  CDoomLinedef *walls[64],*walked_over[64];
+  F64 walked_over_dists[64];
+  I64 walked_over_idx=0;
   CDoomLinedef **lds,*wall;
   vector=CreateVector(2);
   move1.x=at->x,move1.y=at->y;
@@ -87,7 +90,7 @@ Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur
     for(lds=l->block_map_data+o;*lds;lds++,i++) {
 //TODO ceiling
       vector->data[0]=lds[0]->end->x-lds[0]->start->x;
-      vector->data[1]=lds[0]->end->y-lds[0]->start->y;
+      vector->data[1]=lds[0]->end->y-lds[0]->start->y;
       dummy.x=move1.x-lds[0]->start->x;
       dummy.y=move1.y-lds[0]->start->y;
       if(lds[0]->front^^lds[0]->back) {
@@ -114,6 +117,18 @@ Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur
 	    min_dist=dist;
 	  }
         }
+      } else {
+//W1/WR
+        if(lds[0]->special_type) {
+	  if(lds[0]->special_type->type=='Door') {
+	    if(walked_over_idx<64) {
+	      if(PlaneIntersect(result,&move1,&move2,lds[0]->start,lds[0]->end))  {
+	        walked_over_dists[walked_over_idx]=Sqrt(Sqr(result->x-move1.x)+Sqr(result->y-move1.y));
+	        walked_over[walked_over_idx++]=*lds;
+	      }
+	    }
+	  }
+        }
       }
 skip:;
     }
@@ -133,6 +148,16 @@ skip:;
   result->x=move1.x+cos*(dist-radius);
   result->y=move1.y+sin*(dist-radius);
 fin:
+  if(!best&&walked_over_hot) {
+    min_dist=dist-radius;
+    goto look_for_hot;
+  } else if(best&&walked_over_hot) {
+look_for_hot:
+    while(--walked_over_idx>=0) {
+      if(walked_over_dists[walked_over_idx]<min_dist)
+        FifoI64Ins(walked_over_hot,walked_over[walked_over_idx]);
+    }
+  }
   if(flags&COLLISF_CENTER_RADIUS) {
     try_cnt=0;
     if(best) AdjustForRadius(l,best,result,angle,radius,cur_height,Max(odist-dist,0.));
@@ -145,6 +170,6 @@ try_again:
       goto try_again;
   }
   DestroyVector(vector);
-  return !!best;
+  return best;
 }
 #endif

@@ -162,5 +162,5 @@
 3	3	S	16	56	PLAY	A+		Player 3 start
 4	4	S	16	56	PLAY	A+		Player 4 start
 88	58	2	16	16	BBRN	A+	O2*	Romero's head
-87	57	2	20	32	none3	-		Spawn spot
+87	57	2	20	32	none3	-		Spawn spot
 14	E	S	20	16	none4	-		Teleport landing

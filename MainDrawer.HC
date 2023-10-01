@@ -18,6 +18,10 @@ static CWad *wad=LoadWad("DOOM.WAD");
 //#include "Weapons.HC";
 #include "ST.HC";
 #include "FastTrig.HC"
+
+I64 cursor_x = ms.pos.x, cursor_tx = ms.pos.x;
+
+
 class CDoomCamera {
   F64 x,y,h;
   F64 angle,fov;
@@ -957,20 +961,45 @@ while(TRUE) {
   UpdateCameraFromPlayer(&cam,p);
   DrawDoomWorld(&cam,l,gr.dc);
   ST_Start(gr.dc);
-  if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {
-    PlayerMove(l,p,GRID_SZ/4);
+
+//mouse camera pan.
+  cursor_x=ms.pos.x;
+  if(cursor_tx!=cursor_x)
+  {
+   MsSet(320,240);
+   if(cursor_x<1)
+   {
+    cursor_x=1;
+   }
+   cam.angle-=(pi/cursor_x-pi/cursor_tx)*32;
+   cursor_tx = cursor_x;
+   
+  }
+
+
+ if(Bt(kbd.down_bitmap,SC_CURSOR_UP)||Bt(kbd.down_bitmap,Char2ScanCode('w')))
+  {
+    MoveInLevel(l,&cam.x,cam.angle,GRID_SZ/4,16,cam.h-48);
     ST_Key(0);
   }
-  if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)) {
-    PlayerMove(l,p,-GRID_SZ/4);
+  if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)||Bt(kbd.down_bitmap,Char2ScanCode('s'))) {
+    MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,16,cam.h-48);
     ST_Key(0);
   }
-  if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
-     p->angle-=pi/16.;
+  if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)||Bt(kbd.down_bitmap,Char2ScanCode('q'))) {
+    MoveInLevel(l,&cam.x,cam.angle+90,-GRID_SZ/4,16,cam.h-90);
+    ST_Key(0);
+  }
+  if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)||Bt(kbd.down_bitmap,Char2ScanCode('e'))) {
+    MoveInLevel(l,&cam.x,cam.angle-90,-GRID_SZ/4,16,cam.h-90);
+    ST_Key(0);
+  }
+  if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)||Bt(kbd.down_bitmap,Char2ScanCode('a'))) {
+     cam.angle-=pi/16;
      ST_Key(2);
   }
-  if(Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)) {
-     p->angle+=pi/16.;
+  if(Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)||Bt(kbd.down_bitmap,Char2ScanCode('d'))) {
+     cam.angle+=pi/16;
      ST_Key(1);
   }
   if(!Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)&&!Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {

@@ -986,11 +986,11 @@ while(TRUE) {
     MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,16,cam.h-48);
     ST_Key(0);
   }
-  if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)||Bt(kbd.down_bitmap,Char2ScanCode('q'))) {
+  if(Bt(kbd.down_bitmap,Char2ScanCode('q'))) {
     MoveInLevel(l,&cam.x,cam.angle+90,-GRID_SZ/4,16,cam.h-90);
     ST_Key(0);
   }
-  if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)||Bt(kbd.down_bitmap,Char2ScanCode('e'))) {
+  if(Bt(kbd.down_bitmap,Char2ScanCode('e'))) {
     MoveInLevel(l,&cam.x,cam.angle-90,-GRID_SZ/4,16,cam.h-90);
     ST_Key(0);
   }

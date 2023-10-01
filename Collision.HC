@@ -90,7 +90,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
     for(lds=l->block_map_data+o;*lds;lds++,i++) {
 //TODO ceiling
       vector->data[0]=lds[0]->end->x-lds[0]->start->x;
-      vector->data[1]=lds[0]->end->y-lds[0]->start->y;
+      vector->data[1]=lds[0]->end->y-lds[0]->start->y;
       dummy.x=move1.x-lds[0]->start->x;
       dummy.y=move1.y-lds[0]->start->y;
       if(lds[0]->front^^lds[0]->back) {

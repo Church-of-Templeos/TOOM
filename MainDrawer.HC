@@ -258,7 +258,7 @@ next:;
   }
 } 
 
-U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,Bool floor=FALSE) {
+U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,Bool floor=FALSE,CDoomLinedef *ld,CDoomSidedef *sd) {
   CD2 clone_st,clone_en,zero;
   clone_st.x=st->x,clone_st.y=st->y;
   clone_en.x=en->x,clone_en.y=en->y;
@@ -271,9 +271,10 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   F64 end_angle=FArg(en->x,en->y),tmp;
   F64 margin;
   CD2 ray,hit,*sw;
-  I64 ix,iy,ih=0,tx,ty,ih2;
+  I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y;
   I32 *db_z,idist;
-  F64 dist;
+  F64 dist,ratio;
+  Bool repeat=FALSE,onesided=ld->front^^ld->back;
   U16 *color,*to;
   if(start_angle>end_angle) {
     tmp=start_angle;
@@ -286,6 +287,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   }
   start_angle=Clamp(start_angle,-cam->fov/2,cam->fov/2);
   end_angle=Clamp(end_angle,-cam->fov/2,cam->fov/2);
+  repeat=TRUE;
   for(ca=start_angle;ca<=end_angle;ca+=cam->fov/GR_WIDTH*2) {
     ray.x=I16_MAX*FCos(ca);
     ray.y=I16_MAX*FSin(ca);
@@ -295,11 +297,12 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       ix=GR_WIDTH/2.+ca/(cam->fov/2.)*GR_WIDTH/2.;
       ix&=~1;
       if(dist<=0.) dist=1;
-      tx=ToI64(Sqrt(Sqr(hit.x-st->x)+Sqr(hit.y-st->y)))%texture->width/2;
+      tx=(ToI64(Sqrt(Sqr(hit.x-st->x)+Sqr(hit.y-st->y)))*2+xoff*2)%texture->width;
       if(0<=ix<=GR_WIDTH-2) {
 //The offset from the ground is included in the "height",we dont render the overdraw
         margin=DIST_SCALE/(dist*FCos(ca))*(cam->h-level);
         ih=DIST_SCALE/(dist*FCos(ca))*height;
+        ratio=height/ToF64(ih);
         iy=GR_HEIGHT/2;
         if(margin>=0.) {
 	  iy-=ih;
@@ -316,7 +319,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  cam->ceil_heights[ix/2]=0;
 	  cam->floor_depths[ix/2]=idist;
         }
-//Todo clip flooor_heights
+	ih2+=2;
         while((ih2-=2)>=0) {
 	  if(!(cam->ceil_heights[ix/2]<=iy+ih2<=cam->floor_heights[ix/2]-2)) {
 	    if(iy+ih2<cam->ceil_heights[ix/2])
@@ -327,11 +330,33 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    if(iy+ih2<0) break;
 	    if(ih2<0) break;
 	  }
-	  ty=ToF64(ih2)/ih*(texture->height-1)/2;
+//https://doomwiki.org/wiki/Texture_alignment
+	  if(repeat) {
+	    if(onesided) {
+//Dont ask nroot how any of this works,he typed in random stuff
+	      if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
+	        ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2))%texture->height;
+	      } else {
+	        ty=((level-flrh)*2+ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)-(level-flrh)*2)%texture->height;
+	      }
+	    } else {
+		//$BK,1$TODO ask nroot to not copy and paste the above code here$BK,0$
+	      if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
+	        ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2))%texture->height;
+	      } else {
+	        ty=((level-flrh)*2+ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)-(level-flrh)*2)%texture->height;
+	      }
+	    }
+	  } else {
+	    ty=(ToF64(ih2)/ih)*(texture->height-2);
+          }
 	  tx=AbsI64(tx);
+	  ty=AbsI64(ty);
 	  ty=ClampI64(ty,0,texture->height-2);
 	  tx=ClampI64(tx,0,texture->width-2);
-	  color=texture->body[tx*2+ty*2*texture->width_internal](U16);
+	  tx&=~1;
+	  ty&=~1;
+	  color=texture->body[tx+ty*texture->width_internal](U16);
 	  to=&to_dc->body[ix+(iy+ih2)*to_dc->width_internal];
 	  db_z=&to_dc->depth_buf[ix+(iy+ih2)*to_dc->width_internal];
 	  if(*db_z>idist) {
@@ -342,7 +367,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    db_z[1]=idist;
 	    *to=color;
 	    to(U8*)+=to_dc->width_internal;
-	    color=texture->body[tx*2+(ty*2+1)*texture->width_internal](U16);
+	    color=texture->body[tx+(ty+1)*texture->width_internal](U16);
 	    *to=color;
 	  }
         }
@@ -536,7 +561,7 @@ draw_wall:
         if(ToI64(h)&&ToI64(h2)) {
 	  if(fail_cnt!=2) {
 	    if(!no_draw)
-	      RayCastWall(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,wall==0||wall==2);
+	      RayCastWall(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,sector->ceil_height,wall==0||wall==2,seg->linedef,sidedef);
 	    if(!sector->drawn) {
 	      sector->drawn=TRUE;
 	      FifoI64Ins(cam->visible_sectors,sector);
@@ -743,16 +768,16 @@ Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
 #define WACTIVATE_MONSTER 8
 #define WACTIVATE_WALK 0x10
 U0 UpdateSector(CDoomSector *s) {
-  F64 percent,time=tS,ceil=I16_MIN;
+  F64 percent,time=tS,ceil=I16_MAX;
   I64 idx;
   if(!s->cur_action_linedef) return;
   if(s->cur_action_linedef->special_type->type=='Door') {
 //A door is fully open when its ceiling height is 4 less than the lowest neighbor ceiling adjacent to it
     for(idx=0;idx!=s->linedef_cnt;idx++) {
       if(s->linedefs[idx]->back&&s->linedefs[idx]->back->sector!=s)
-        ceil=Max(s->linedefs[idx]->back->sector->base_ceil_height-4,ceil);
+        ceil=Min(s->linedefs[idx]->back->sector->base_ceil_height-4,ceil);
       else if(s->linedefs[idx]->front&&s->linedefs[idx]->front->sector!=s)
-        ceil=Max(s->linedefs[idx]->front->sector->base_ceil_height-4,ceil);
+        ceil=Min(s->linedefs[idx]->front->sector->base_ceil_height-4,ceil);
     }
     if(s->opening) {
       percent=(time-s->start_tS)/s->speed;
@@ -785,7 +810,7 @@ U0 UpdateSector(CDoomSector *s) {
 	  s->wait_time=-1.;
         }
       }  else {
-        s->ceil_height=percent*(s->base_floor_height
+        s->ceil_height=percent*(s->base_floor_height
 	      -ceil)+ceil;
       }
     }

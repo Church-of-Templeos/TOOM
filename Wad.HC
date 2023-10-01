@@ -161,7 +161,7 @@ Bool BoundBoxF64Inside(F64 x,F64 y,CBoundBoxF64 *box) {
   return TRUE;
 }
 
-class CDoomLinedef:CQue {
+class CDoomLinedef:CQue {
   CD2 *start,*end;
   CDoomSidedef *front;
   CDoomSidedef *back;
@@ -807,6 +807,7 @@ found:
     dside=CAlloc(sizeof CDoomSidedef);
     dside->xoff=wside->x_offset;
     dside->yoff=wside->y_offset;
+PrintI("dside->yoff",wside->y_offset);
     name[8]=0;
     MemCpy(name,wside->middle_texture_name,8);
     dside->middle_texture=FramePtr(name);
@@ -831,6 +832,7 @@ found:
     if(wlinedef->front!=-1)
       dlinedef->back=dside_list[wlinedef->back];
     dlinedef->sector_tag=wlinedef->sector_tag;
+    dlinedef->flags=wlinedef->flags;
     dlinedef->special_type=action_sector_types[wlinedef->special_type];
     dlinedef_list[idx]=dlinedef;
     QueIns(dlinedef,level->linedefs.last);

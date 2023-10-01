@@ -18,6 +18,10 @@ static CWad *wad=LoadWad("DOOM.WAD");
 //#include "Weapons.HC";
 #include "ST.HC";
 #include "FastTrig.HC"
+
+I64 cursor_x = ms.pos.x, cursor_tx = ms.pos.x;
+
+
 class CDoomCamera {
   F64 x,y,h;
   F64 angle,fov;
@@ -953,7 +957,7 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
   for(t=head->next;t!=head;t=t->next) {
 //https://doomwiki.org/wiki/Thing_types#Other
     if(t->thing_type==1) {
-      p->position.x=t->x;
+      p->position.x=t->x+10;
       p->position.y=t->y;
       p->angle=t->angle;
       break;
@@ -965,7 +969,7 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
 U0 UpdateLevel(CDoomLevel *l) {
   CDoomSector *sector,*head=&l->sectors;
   for(sector=head->next;sector!=head;sector=sector->next)
-    UpdateSector(sector);
+    UpdateSector(sector);
 }
 
 U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
@@ -975,27 +979,56 @@ U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
   cam->angle=p->angle;
 }
 CDoomPlayer *p=PlayerNew(l);
-PlayerMove(l,p,0.);
+PlayerMove(l,p,0);
 while(TRUE) {
   DCFill;
   UpdateLevel(l);
   UpdateCameraFromPlayer(&cam,p);
   DrawDoomWorld(&cam,l,gr.dc);
   ST_Start(gr.dc);
-  if(Bt(kbd.down_bitmap,SC_CURSOR_UP)) {
+
+//mouse camera pan.
+  cursor_x=ms.pos.x;
+  if(cursor_tx!=cursor_x)
+  {
+   MsSet(320,240);
+   if(cursor_x<1)
+   {
+    cursor_x=1;
+   }
+   //cam.angle-=(pi/cursor_x-pi/cursor_tx)*32;
+   cursor_tx = cursor_x;
+   
+  }
+
+
+ if(Bt(kbd.down_bitmap,SC_CURSOR_UP)||Bt(kbd.down_bitmap,Char2ScanCode('w')))
+  {
+    MoveInLevel(l,&cam.x,cam.angle,GRID_SZ/4,16,cam.h-48);
     PlayerMove(l,p,GRID_SZ/4);
     ST_Key(0);
   }
-  if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)) {
+  if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)||Bt(kbd.down_bitmap,Char2ScanCode('s'))) {
+    MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,16,cam.h-48);
     PlayerMove(l,p,-GRID_SZ/4);
     ST_Key(0);
   }
-  if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
-     p->angle-=pi/16.;
+  if(Bt(kbd.down_bitmap,Char2ScanCode('q'))) {
+    MoveInLevel(l,&cam.x,cam.angle+90,-GRID_SZ/4,16,cam.h-90);
+    ST_Key(0);
+  }
+  if(Bt(kbd.down_bitmap,Char2ScanCode('e'))) {
+    MoveInLevel(l,&cam.x,cam.angle-90,-GRID_SZ/4,16,cam.h-90);
+    ST_Key(0);
+  }
+  if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)||Bt(kbd.down_bitmap,Char2ScanCode('a'))) {
+     cam.angle-=pi/16;
+      p->angle-=pi/16.;
      ST_Key(2);
   }
-  if(Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)) {
-     p->angle+=pi/16.;
+  if(Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)||Bt(kbd.down_bitmap,Char2ScanCode('d'))) {
+     cam.angle+=pi/16;
+      p->angle+=pi/16.;
      ST_Key(1);
   }
   if(!Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)&&!Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {

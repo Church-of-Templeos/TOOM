@@ -17,7 +17,7 @@ static CWad *wad=LoadWad("DOOM.WAD");
 #include "Wad.HC";
 //#include "Weapons.HC";
 #include "ST.HC";
-#include "FastTrig.HC"
+#include "FastTrig.HC";
 
 I64 cursor_x = ms.pos.x, cursor_tx = ms.pos.x;
 
@@ -440,7 +440,7 @@ CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
   CDoomSector *head=&level->sectors,*s=head->next;
   while(s!=head) {
     if(0<=x-s->shape_start_x<=s->shape_dc->width*2)
-      if(0<=y-s->shape_start_y<=s->shape_dc->height*2) {
+      if(0<=y-s->shape_start_y<=s->shape_dc->height*2) {
         if(GrPeek0(s->shape_dc,(x-s->shape_start_x)/2,(y-s->shape_start_y)/2))
 	  return s;
       }
@@ -753,7 +753,6 @@ U0 AnimateTask(I64)
   }
   
 }
-#include"Collision";
 
 CDoomCamera cam;
 CDoomSector *sect=l->sectors.last;
@@ -918,60 +917,15 @@ PrintI("o",1);
 }
 
 
-class CDoomPlayer {
-  CD2 position;
-  F64 angle,height;
-  F64 health,armor; 
-  Bool running;
-};
-
-U0 PlayerUse(CDoomLevel *l,CDoomPlayer *p) {
-  CD2 dummy;
-  CDoomLinedef *ld;
-  dummy.x=p->position.x;
-  dummy.y=p->position.y;
-  if(ld=MoveInLevel(l,&dummy,p->angle,64.,1.,p->height,0)) {
-     TriggerLinedef(l,ld,WACTIVATE_SWITCH);
-  }
-}
-
-U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 speed=GRID_SZ/4) {
-  CFifoI64 *crossed_f=FifoI64New(16);
-  CDoomLinedef *crossed;
-  CDoomLinedef *hit=MoveInLevel(l,&p->position,p->angle,speed,16,p->height);
-  while(FifoI64Rem(crossed_f,&crossed)) {
-    TriggerLinedef(l,crossed,WACTIVATE_WALK);
-  }
-  if(hit) TriggerLinedef(l,hit,WACTIVATE_PUSH);
-  FifoI64Del(crossed_f);
-  if(GetSectorForCoord(l,p->position.x,p->position.y))
-    p->height=GetSectorForCoord(l,p->position.x,p->position.y)->floor_height;
-}
-
-U0 PlayerLook(CDoomPlayer *p,F64 angle) {
-  p->angle=angle;
-}
-
-CDoomPlayer *PlayerNew(CDoomLevel *l) {
-  CDoomPlayer *p=CAlloc(sizeof CDoomPlayer);
-  CDoomThing *t,*head=&l->things;
-  for(t=head->next;t!=head;t=t->next) {
-//https://doomwiki.org/wiki/Thing_types#Other
-    if(t->thing_type==1) {
-      p->position.x=t->x+10;
-      p->position.y=t->y;
-      p->angle=t->angle;
-      break;
-    }
-  }
-  return p;
-}
-
 U0 UpdateLevel(CDoomLevel *l) {
   CDoomSector *sector,*head=&l->sectors;
   for(sector=head->next;sector!=head;sector=sector->next)
     UpdateSector(sector);
 }
+
+
+#include "Collision.HC";
+#include "Player.HC";
 
 U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
   cam->h=p->height+48;
@@ -979,6 +933,8 @@ U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
   cam->y=p->position.y;
   cam->angle=p->angle;
 }
+
+
 CDoomPlayer *p=PlayerNew(l);
 PlayerMove(l,p,0);
 while(TRUE) {

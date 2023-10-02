@@ -344,7 +344,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	        ty=((level-flrh)*2+ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)-(level-flrh)*2)%texture->height;
 	      }
 	    } else {
-		//$BK,1$TODO ask nroot to not copy and paste the above code here$BK,0$
+		//$BK,1$TODO ask nroot to not copy and paste the above code here$BK,0$
 	      if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
 	        ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2))%texture->height;
 	      } else {
@@ -425,11 +425,12 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,
       if(*db_z>dist) {
         dst=&to_dc->body[x+y*to_dc->width_internal];
         if(from->u8[0]!=TRANSPARENT)
-          *dst=*from,*db_z=dist;
+          *dst=*from,*db_z=dist,db_z[1]=dist;
         from(U8*)+=sprite->width_internal;
         dst(U8*)+=to_dc->width_internal;
+	db_z+=to_dc->width_internal;
         if(from->u8[0]!=TRANSPARENT)
-          *dst=*from,*db_z=dist;
+          *dst=*from,*db_z=dist,db_z[1]=dist;
       }
     }
   }
@@ -439,7 +440,7 @@ CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
   CDoomSector *head=&level->sectors,*s=head->next;
   while(s!=head) {
     if(0<=x-s->shape_start_x<=s->shape_dc->width*2)
-      if(0<=y-s->shape_start_y<=s->shape_dc->height*2) {
+      if(0<=y-s->shape_start_y<=s->shape_dc->height*2) {
         if(GrPeek0(s->shape_dc,(x-s->shape_start_x)/2,(y-s->shape_start_y)/2))
 	  return s;
       }
@@ -460,7 +461,7 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
     frame_cnt--; //Last one??? This is temporary so it doesnt mater now
   anim_frame%=frame_cnt;
   angle=FArg(cam->x-thing->x,cam->y-thing->y)+cam->angle+thing->angle;
-  sprite=GetThingFaceSprite(thing->template,angle,'A'+anim_frame,&reflect);
+  sprite=GetThingFaceSprite(thing->template,angle,thing->template->animation[anim_frame],&reflect);
   p.x=thing->x,p.y=thing->y;
   if(sprite)
     PlotSpriteIn3DSpace(to_dc,sprite,cam,&p,thing->height,reflect);
@@ -969,7 +970,7 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
 U0 UpdateLevel(CDoomLevel *l) {
   CDoomSector *sector,*head=&l->sectors;
   for(sector=head->next;sector!=head;sector=sector->next)
-    UpdateSector(sector);
+    UpdateSector(sector);
 }
 
 U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {

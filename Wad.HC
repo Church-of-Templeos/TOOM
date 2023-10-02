@@ -4,8 +4,8 @@
 
 #include "DoomGr.HC";
 #include "Numbers/Vector.HC";
-#include "Things.HC";
 #include "World.HC";
+#include "Things.HC";
 //https://doomwiki.org/wiki/WAD
 class CWadDirectory {
   U32 ptr;
@@ -97,9 +97,6 @@ class CWadSubsector {
   I16 cnt;
   I16 first;
 }; 
-
-
-
 
 class CDoomThing:CQue {
   F64 x,y,angle,height;
@@ -626,6 +623,7 @@ found_pstart:
   return ret;
 }
 
+
 Bool InBound(F64 a,F64 l,F64 h) {
   if(l<h)
     return l-.1<=a<=h+.1;
@@ -807,7 +805,6 @@ found:
     dside=CAlloc(sizeof CDoomSidedef);
     dside->xoff=wside->x_offset;
     dside->yoff=wside->y_offset;
-PrintI("dside->yoff",wside->y_offset);
     name[8]=0;
     MemCpy(name,wside->middle_texture_name,8);
     dside->middle_texture=FramePtr(name);
@@ -832,7 +829,7 @@ PrintI("dside->yoff",wside->y_offset);
     if(wlinedef->front!=-1)
       dlinedef->back=dside_list[wlinedef->back];
     dlinedef->sector_tag=wlinedef->sector_tag;
-    dlinedef->flags=wlinedef->flags;
+    dlinedef->flags=wlinedef->flags;
     dlinedef->special_type=action_sector_types[wlinedef->special_type];
     dlinedef_list[idx]=dlinedef;
     QueIns(dlinedef,level->linedefs.last);
@@ -1022,6 +1019,7 @@ U0 DumpWad(CWad *wad) {
 //
 CDoomGr *dgr=LoadWadGr(wad);
 CDoomLevel *l=LoadWadLevel(wad,"E1M1");;
+
 /*
 DCFill;
 if(l)

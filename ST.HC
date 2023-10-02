@@ -774,8 +774,8 @@ U0 SwapWeapon(I64 weapon)
     break;
    case 2:
     //weapons.on=TRUE;
-    weapons.x=SCREENWIDTH/2.5;
-    weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
+    weapons.x=SCREENWIDTH/2.5;
+    weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
     weapons.data=0;
     weapons.inum=12;//shotgun
     Sleep(20);

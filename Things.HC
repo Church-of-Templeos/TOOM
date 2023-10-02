@@ -3,9 +3,16 @@
 //https://doomwiki.org/wiki/Thing_types
 #define THINGS_FILE "ThingProps.TXT"
 
+class CDoomAnimationFrame {
+  U8 chr,pad[7];
+  CDC *faces[8];
+  Bool reflect[8];
+};
+
 class CDoomThingTemplate {
   U8 spr_base_name[4],pad[4];
   U8 *animation;
+  CDoomAnimationFrame *_animation;
   I64 height,radius,type;
 #define TF_POWERUP 1
 #define TF_ARTIFACT 2
@@ -17,11 +24,18 @@ class CDoomThingTemplate {
   I64 flags;
 } *doom_thing_types[0x10000];
 
+
 class CDoomMonsterTemplate:CDoomThingTemplate {
   I64 code;
   F64 x,y,angle,pain_chance;
   F64 min_damage,max_damage;
   I64 hp,speed,mass;
+//These are NULL terminated
+  CDoomAnimationFrame *_idle_frames;
+  CDoomAnimationFrame *_chase_frames;
+  CDoomAnimationFrame *_attack_frames;
+  CDoomAnimationFrame *_hurt_frames;
+  CDoomAnimationFrame *_dying_frames;
   U8 *idle_frames;
   U8 *chase_frames;
   U8 *attack_frames;
@@ -42,7 +56,7 @@ U8 *ReadALine(U8 **fbuf) {
   *fbuf+=StrLen(st);
   return StrNew(st);
 }
-
+
 U0 ParseThingProps() {
   MemSet(&doom_thing_types,0,8*0x10000);
   CDoomThingTemplate *template;
@@ -110,9 +124,7 @@ skip:
   }
   Free(o);
 }
-ParseThingProps;
-
-CDC *GetThingFaceSprite(CDoomThingTemplate *template,F64 angle,U8 ani_frame='A',Bool *reflect=NULL) {
+CDC *_GetThingFaceSprite(CDoomThingTemplate *template,F64 angle,U8 ani_frame='A',Bool *reflect=NULL) {
   I64 face=1,try_face;
   F64 gap_inc=2.*pi/8.,gap;
   CDC *ret;
@@ -155,4 +167,44 @@ CDC *GetThingFaceSprite(CDoomThingTemplate *template,F64 angle,U8 ani_frame='A',
   }
   return NULL; 
 }
+static CDoomAnimationFrame *GenerateCacheFrames(CDoomThingTemplate *t,U8 *frames) {
+  if(!frames) return NULL;
+  I64 cnt=StrLen(frames);
+  CDoomAnimationFrame *ret=CAlloc(sizeof(CDoomAnimationFrame)*(cnt+1));
+  F64 angle;
+  CDC *last_dc;
+  Bool last_reflect;
+  I64 face,idx;
+  for(idx=0;idx!=cnt;idx++)  {
+    if(!Bt(char_bmp_alpha,frames[idx]))
+      break;
+    ret[idx].chr=frames[idx];
+    for(angle=-2.*pi/8.,face=0;angle<=2*pi+.1;angle+=2*pi/8.,face++) {
+      last_dc=_GetThingFaceSprite(t,angle,frames[idx],&ret[idx].reflect[face]);
+      ret[idx].faces[face]=last_dc;
+    }
+    //Fill in "missing" faces
+    for(face=1;face!=8;face++) {
+      if(ret[idx].faces[face]) {
+	last_dc=ret[idx].faces[face];
+	last_reflect=ret[idx].reflect[face];
+      } else
+        ret[idx].faces[face]=last_dc,ret[idx].reflect[face]=last_reflect;
+    }
+  }
+  return ret;
+}
+U0 _CacheAnimationFrames(CDoomThingTemplate *t) {
+  t->_animation=GenerateCacheFrames(t,t->animation);
+}
+U0 CacheAnimationFrames() {
+  I64 i=0;
+  static I64 init=0;
+  if(init)  return;
+  init=1;
+  for(i=0;i!=0x10000;i++)
+    if(doom_thing_types[i])
+      _CacheAnimationFrames(doom_thing_types[i]);
+}
+ParseThingProps;
 #endif

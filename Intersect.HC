@@ -50,7 +50,7 @@ Check for intersection basically.
   slope1=(b->y-a->y)/(b->x-a->x);
   off1=slope1*-a->x+a->y;
   off2=slope2*-a2->x+a2->y;
-  if(slope1==slope2) return FALSE;
+  if(slope1==slope2) return FALSE;
   dst->x=((off2-off1)/(slope1-slope2));
   dst->y=slope1*(dst->x)+off1;
 fin:
@@ -59,3 +59,4 @@ fin:
         InRange(a->y,dst->y,b->y)&&
         InRange(a2->y,dst->y,b2->y);
 }
+

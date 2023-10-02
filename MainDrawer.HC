@@ -19,6 +19,9 @@ static CWad *wad=LoadWad("DOOM.WAD");
 #include "ST.HC";
 #include "FastTrig.HC"
 
+//IMPORTANT
+CacheAnimationFrames;
+
 I64 cursor_x = ms.pos.x, cursor_tx = ms.pos.x;
 
 
@@ -294,7 +297,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   repeat=TRUE;
   for(ca=start_angle;ca<=end_angle;ca+=cam->fov/GR_WIDTH*2) {
     ray.x=I16_MAX*FCos(ca);
-    ray.y=I16_MAX*FSin(ca);
+    ray.y=I16_MAX*FSin(ca); 
     if(PlaneIntersect(&hit,&ray,&zero,st,en)) {
       dist=Sqrt(Sqr(hit.x)+Sqr(hit.y));
       idist=dist;
@@ -323,7 +326,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  cam->ceil_heights[ix/2]=0;
 	  cam->floor_depths[ix/2]=idist;
         }
-	ih2+=2;
+        ih2+=2;
         while((ih2-=2)>=0) {
 	  if(!(cam->ceil_heights[ix/2]<=iy+ih2<=cam->floor_heights[ix/2]-2)) {
 	    if(iy+ih2<cam->ceil_heights[ix/2])
@@ -344,16 +347,23 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	        ty=((level-flrh)*2+ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)-(level-flrh)*2)%texture->height;
 	      }
 	    } else {
-		//$BK,1$TODO ask nroot to not copy and paste the above code here$BK,0$
-	      if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
-	        ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2))%texture->height;
-	      } else {
-	        ty=((level-flrh)*2+ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)-(level-flrh)*2)%texture->height;
+	      if(floor) {
+	        if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
+		  ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)+(ceilh-level)*2)%texture->height;
+	        } else {
+		  ty=((level-flrh)*2+ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)-(level-flrh)*2)%texture->height;
+	        }
+	      } else{
+	        if(ld->flags&WAD_LINEDEFF_UPPER_UNPEGGED) {
+		  ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2))%texture->height;
+	        } else {
+		  ty=((level-flrh)*2+ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)-(level-flrh)*2)%texture->height;
+	        }
 	      }
 	    }
 	  } else {
 	    ty=(ToF64(ih2)/ih)*(texture->height-2);
-          }
+	  }
 	  tx=AbsI64(tx);
 	  ty=AbsI64(ty);
 	  ty=ClampI64(ty,0,texture->height-2);
@@ -377,10 +387,10 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
         }
         if(iy<cam->floor_heights[ix/2]) {
 set_floor_height:
-	if(floor)
-	  cam->floor_heights[ix/2]=ClampI64(iy,0,GR_HEIGHT);
-	else
-	  cam->ceil_heights[ix/2]=ClampI64(iy+ih,0,GR_HEIGHT);
+	  if(floor)
+	    cam->floor_heights[ix/2]=ClampI64(iy,0,GR_HEIGHT);
+	  else
+	    cam->ceil_heights[ix/2]=ClampI64(iy+ih,0,GR_HEIGHT);
 	  cam->floor_depths[ix/2]=idist;
 //	  cam->ceil_depths[ix/2]=idist;
         } else if(cam->floor_depths[ix/2]>=idist) {
@@ -440,7 +450,7 @@ CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
   CDoomSector *head=&level->sectors,*s=head->next;
   while(s!=head) {
     if(0<=x-s->shape_start_x<=s->shape_dc->width*2)
-      if(0<=y-s->shape_start_y<=s->shape_dc->height*2) {
+      if(0<=y-s->shape_start_y<=s->shape_dc->height*2) {
         if(GrPeek0(s->shape_dc,(x-s->shape_start_x)/2,(y-s->shape_start_y)/2))
 	  return s;
       }
@@ -451,17 +461,26 @@ CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
 
 U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   if(!thing->template) return; //???
-  I64 anim_frame=tS*4,frame_cnt;
-  F64 angle;
+  I64 anim_frame=tS*4,frame_cnt,face;
+  F64 angle,gap;
   CDC *sprite;
   CD2 p;
   Bool reflect;
   frame_cnt=StrLen(thing->template->animation);
-  if(StrOcc(thing->template->animation,'+'))
+  if(StrOcc(thing->template->animation,'+'))
     frame_cnt--; //Last one??? This is temporary so it doesnt mater now
   anim_frame%=frame_cnt;
-  angle=FArg(cam->x-thing->x,cam->y-thing->y)+cam->angle+thing->angle;
-  sprite=GetThingFaceSprite(thing->template,angle,thing->template->animation[anim_frame],&reflect);
+  angle=Wrap(FArg(cam->x-thing->x,cam->y-thing->y)+cam->angle+thing->angle);
+  if(angle<=0.)
+    angle+=2.*pi;
+  face=1;
+  for(gap=-2.*pi/8.;gap<2*pi;gap+=2.*pi/8.) {
+    if(gap<=angle<=gap+2.*pi/8.)
+      break;
+    face++;
+  }
+  reflect=thing->template->_animation[anim_frame].reflect[face-1];
+  sprite=thing->template->_animation[anim_frame].faces[face-1];
   p.x=thing->x,p.y=thing->y;
   if(sprite)
     PlotSpriteIn3DSpace(to_dc,sprite,cam,&p,thing->height,reflect);
@@ -491,6 +510,19 @@ F64 CeilDepress(CDoomLinedef *l,CDoomSector *sector) {
 	));
 }
 
+F64 HighestCeil(CDoomLinedef *l,CDoomSector *sector) {
+  F64 ret=sector->ceil_height;
+  if(l->back^^l->front) {
+    if(l->back) return Max(ret,l->back->sector->ceil_height);
+    if(l->front) return Max(ret,l->front->sector->ceil_height);
+    return ret;
+  }
+  return Max(l->front->sector->ceil_height,Max(
+	l->back->sector->ceil_height,ret
+	));
+}
+
+
 
 U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
   CD2 start_floor,start_ceil;
@@ -505,7 +537,7 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
   Vector *wall_vect=CreateVector(2);
   CD2 cam_cord;
   I64 miss_cnt=0;
-  F64 floor,ceil;
+  F64 floor,ceil,highest_ceil;
   for(seg_idx=0;seg_idx!=ss->cnt;seg_idx++) {
     seg=&ss->first[seg_idx];
 //Use linedef as we want to see what side of the WALL we are on(not seg)
@@ -541,6 +573,7 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
         goto skip;
     }
     sector=sidedef->sector;
+    highest_ceil=HighestCeil(seg->linedef,sector);
     for(wall=0;wall!=3;wall++) {
       if(wall==0&&(texture=sidedef->lower_texture)) {
         floor=Min(sector->floor_height,FloorRaise(seg->linedef,sector));
@@ -566,7 +599,7 @@ draw_wall:
         if(ToI64(h)&&ToI64(h2)) {
 	  if(fail_cnt!=2) {
 	    if(!no_draw)
-	      RayCastWall(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,sector->ceil_height,wall==0||wall==2,seg->linedef,sidedef);
+	      RayCastWall(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall==0||wall==2,seg->linedef,sidedef);
 	    if(!sector->drawn) {
 	      sector->drawn=TRUE;
 	      FifoI64Ins(cam->visible_sectors,sector);
@@ -845,9 +878,6 @@ activate:
 	    switch(door->action) {
 	      case DOOR_ACTION_OPEN_WAIT_CLOSE:
 		if(s->opening) return;
-PrintI("owc",1);
-PrintF("speed",door->speed);
-PrintF("wait",door->wait);
 		s->cur_action_linedef=ld;
 		s->opening=TRUE;
 		s->start_tS=tS;
@@ -856,7 +886,6 @@ PrintF("wait",door->wait);
 	        break;
 	      case DOOR_ACTION_CLOSE_WAIT_OPEN:
 		if(s->closing) return;
-PrintI("cwo",1);
 		s->cur_action_linedef=ld;
 		s->closing=TRUE;
 		s->start_tS=tS;
@@ -865,7 +894,6 @@ PrintI("cwo",1);
 	        break;
 	      case DOOR_ACTION_CLOSE:
 		if(s->closing) return;
-PrintI("c",1);
 		s->cur_action_linedef=ld;
 		s->closing=TRUE;
 		s->start_tS=tS;
@@ -874,7 +902,6 @@ PrintI("c",1);
 	        break;
 	      case DOOR_ACTION_OPEN:
 		if(s->opening) return;
-PrintI("o",1);
 		s->cur_action_linedef=ld;
 		s->opening=TRUE;
 		s->start_tS=tS;
@@ -1023,12 +1050,10 @@ while(TRUE) {
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)||Bt(kbd.down_bitmap,Char2ScanCode('a'))) {
-     cam.angle-=pi/16;
       p->angle-=pi/16.;
      ST_Key(2);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)||Bt(kbd.down_bitmap,Char2ScanCode('d'))) {
-     cam.angle+=pi/16;
       p->angle+=pi/16.;
      ST_Key(1);
   }

@@ -107,9 +107,9 @@ extern class CDoomSector;
 
 class CDoomSidedef:CQue {
   I16 yoff,xoff;
-  CDC *upper_texture;
-  CDC *lower_texture;
-  CDC *middle_texture;
+  CDC *upper_texture[4]; //These are for animations
+  CDC *lower_texture[4];
+  CDC *middle_texture[4];
   CDoomSector *sector;
 };
 
@@ -195,8 +195,8 @@ class CDoomGr {
 };
 
 class CDoomSector:CQue {
-  CDC *floor_dc;
-  CDC *ceil_dc;
+  CDC *floor_dc[4];
+  CDC *ceil_dc[4];
   F64 ceil_height;
   F64 floor_height;
   F64 base_ceil_height;
@@ -266,7 +266,7 @@ CDC *PNameIndexToDC(I64 idx,CDoomGr *gr) {
 
 
 U0 LoadWadTEXTUREs(CWadTEXTURE1 *header,CDoomGr *gr) {
-  I64 texture,i;
+  I64 texture,i,anim_cnt;
   U8 name[9];
   CDC *result,*patch;
   CWadTexture *map_texture;
@@ -652,6 +652,7 @@ U0 GenerateSectorShape(CDoomSector *s) {
   I64 maxy,new_maxy,tmp;
   I64 cnt,side,ix,iy,choose_idx;
   CDoomLinedef **array=CAlloc(s->linedef_cnt*8);
+  CDC **arr;
   CD2 p1,p2;
   Bool odd;
   for(cnt=0;cnt!=s->linedef_cnt;cnt++) {
@@ -733,6 +734,7 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   I64 idx,cnt,x,y,min,max;
   U16 *offs;
   U8 name[9];
+  CDC **arr;
   CDoomLevel *level=CAlloc(sizeof CDoomLevel);
   CDoomThing *dthing;
   CWadThing *wthing;
@@ -768,10 +770,10 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   return NULL;
 found:
 //Order of other lumps is important
-//rest will not be used for now
-//Move past level lump
+  //rest will not be used for now
+  //Move past level lump
   wad_dir++;
-  //Things
+//Things
   cnt=wad_dir->lump_size/sizeof(CWadThing);
   wthing=wad_dir->ptr+wad->body;
   for(idx=0;idx!=cnt;idx++) {
@@ -785,7 +787,7 @@ found:
     QueIns(dthing,level->things.last);
     wthing++;
   }
-  //Load vertexes first P
+//Load vertexes first P
   cnt=wad_dir[3].lump_size/sizeof(CWadVertex);
   vertex=wad_dir[3].ptr+wad->body;
   level->vertice_cnt=cnt;
@@ -807,11 +809,70 @@ found:
     dside->yoff=wside->y_offset;
     name[8]=0;
     MemCpy(name,wside->middle_texture_name,8);
-    dside->middle_texture=FramePtr(name);
+    dside->middle_texture[0]=FramePtr(name);
     MemCpy(name,wside->upper_texture_name,8);
-    dside->upper_texture=FramePtr(name);
+    dside->upper_texture[0]=FramePtr(name);
     MemCpy(name,wside->lower_texture_name,8);
-    dside->lower_texture=FramePtr(name);
+    dside->lower_texture[0]=FramePtr(name);
+//https://doomwiki.org/wiki/Animated_wall
+    for(x=0;x!=3;x++) {
+      switch(x) {
+	  break;case 0:
+	  arr=dside->middle_texture;
+	  MemCpy(name,wside->middle_texture_name,8);
+	  break;case 1:
+	  arr=dside->upper_texture;
+	  MemCpy(name,wside->upper_texture_name,8);
+	  break;case 2:
+	  arr=dside->lower_texture;
+	  MemCpy(name,wside->lower_texture_name,8);
+      }
+      if(!StrNCmp(name,"BLODGR1",5)) {
+	arr[0]=FramePtr("BLODGR1");
+        arr[1]=FramePtr("BLODGR2");
+        arr[2]=FramePtr("BLODGR3");
+        arr[3]=FramePtr("BLODGR4");
+      }
+      if(!StrNCmp(name,"BLODRIP1",7)) {
+	arr[0]=FramePtr("BLODRIP1");
+        arr[1]=FramePtr("BLODRIP2");
+        arr[2]=FramePtr("BLODRIP3");
+        arr[3]=FramePtr("BLODRIP4");
+      }
+      if(!StrNCmp(name,"FIREBLU1",7)) {
+	arr[0]=FramePtr("FIREBLU1");
+        arr[1]=FramePtr("FIREBLU2");
+      }
+      if(!StrNCmp(name,"FIRELAV3",7)) {
+	arr[0]=FramePtr("FIRELAVA3");
+        arr[1]=FramePtr("FIRELAVA");
+      }
+      if(!StrNCmp("FIREMAG1",name,7)) {
+	arr[0]=FramePtr("FIREMAG1");
+        arr[1]=FramePtr("FIREMAG2");
+        arr[2]=FramePtr("FIREMAG3");
+      }
+      if(!StrNCmp("FIREWALA",name,7)) {
+	arr[0]=FramePtr("FIREMALA");
+        arr[1]=FramePtr("FIREWALB");
+        arr[2]=FramePtr("FIREWALL");
+      }
+      if(!StrNCmp("GSTFONT1",name,7)) {
+	arr[0]=FramePtr("GSTFONT1");
+        arr[1]=FramePtr("GSTFONT2");
+        arr[2]=FramePtr("GSTFONT3");
+      }
+      if(!StrNCmp("ROCKRED1",name,7)) {
+	arr[0]=FramePtr("ROCKRED1");
+        arr[1]=FramePtr("ROCKRED2");
+        arr[2]=FramePtr("ROCKRED3");
+      }
+      if(!StrNCmp("SLADRIP1",name,7)) {
+	arr[0]=FramePtr("SLADRIP1");
+        arr[1]=FramePtr("SLADRIP2");
+        arr[2]=FramePtr("SLADRIP3");
+      }
+    }
     dside_list[idx]=dside;
     wside++;
   }  
@@ -921,9 +982,43 @@ found:
     dsect->base_floor_height=wsect->floor_height;
     dsect->base_ceil_height=wsect->ceil_height;
     MemCpy(name,wsect->floor_texture_name,8);
-    dsect->floor_dc=FramePtr(name);
+    dsect->floor_dc[0]=FramePtr(name);
     MemCpy(name,wsect->ceil_texture_name,8);
-    dsect->ceil_dc=FramePtr(name);
+    dsect->ceil_dc[0]=FramePtr(name);
+//https://doomwiki.org/wiki/Animated_flat
+    for(x=0;x!=2;x++) {
+      switch(x) {
+	  break;case 0:
+	  arr=dsect->floor_dc;
+	  MemCpy(name,wsect->floor_texture_name,8);
+	  break;case 1: 
+	  arr=dsect->ceil_dc;
+	  MemCpy(name,wsect->ceil_texture_name,8);
+      }
+      if(!StrNCmp(name,"NUKAGE",5)){
+        arr[0]=FramePtr("NUKAGE1");
+        arr[1]=FramePtr("NUKAGE2");
+        arr[2]=FramePtr("NUKAGE3");
+        arr[3]=FramePtr("NUKAGE4");
+      }
+      if(!StrNCmp(name,"FWATER",6)){
+        arr[0]=FramePtr("FWATER1");
+        arr[1]=FramePtr("FWATER2");
+        arr[2]=FramePtr("FWATER3");
+        arr[3]=FramePtr("FWATER4");
+      }
+      if(!StrNCmp(name,"LAVA",4)){
+        arr[0]=FramePtr("LAVA1");
+        arr[1]=FramePtr("LAVA2");
+        arr[2]=FramePtr("LAVA3");
+        arr[3]=FramePtr("LAVA4");
+      }
+      if(!StrNCmp(name,"BLOOD",5)){
+        arr[0]=FramePtr("BLOOD1");
+        arr[1]=FramePtr("BLOOD2");
+        arr[2]=FramePtr("BLOOD3");
+      }
+    }
     dsect->base_light_level=wsect->light_level;
     dsect->cur_light_level=wsect->light_level;
 //    dsect->special_type=action_sector_types[wsect->special_type];
@@ -943,16 +1038,16 @@ found:
   if(StrCmp8("LINEDEFS",wad_dir[1].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
     if(dlinedef_list[idx]->front) {
-    AddLinedefToSector(
-	dlinedef_list[idx],
-	dlinedef_list[idx]->front->sector,
-	);
+      AddLinedefToSector(
+	    dlinedef_list[idx],
+	    dlinedef_list[idx]->front->sector,
+	    );
     }
     if(dlinedef_list[idx]->back) {     
-    AddLinedefToSector(
-	dlinedef_list[idx],
-	dlinedef_list[idx]->back->sector,
-	);
+      AddLinedefToSector(
+	    dlinedef_list[idx],
+	    dlinedef_list[idx]->back->sector,
+	    );
     }
     if(dlinedef_list[idx]->sector_tag!=0xffff)
       dlinedef_list[idx]->sector_tag=dsect_list[dlinedef_list[idx]->sector_tag];

@@ -467,7 +467,7 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   CD2 p;
   Bool reflect;
   frame_cnt=StrLen(thing->template->animation);
-  if(StrOcc(thing->template->animation,'+'))
+  if(StrOcc(thing->template->animation,'+'))
     frame_cnt--; //Last one??? This is temporary so it doesnt mater now
   anim_frame%=frame_cnt;
   angle=Wrap(FArg(cam->x-thing->x,cam->y-thing->y)+cam->angle+thing->angle);
@@ -522,7 +522,30 @@ F64 HighestCeil(CDoomLinedef *l,CDoomSector *sector) {
 	));
 }
 
+I64 FrameCnt(CDC **arr) {
+  I64 i=0;
+  while(i<4&&arr[i])
+    i++;
+  return i;
+}
 
+CDC *GetMiddleTexture(CDoomSidedef *s) {
+  if(!s->middle_texture[0]) return NULL;
+  I64 t=ToI64(tS*4)%FrameCnt(s->middle_texture);
+  return s->middle_texture[t];
+}
+
+CDC *GetUpperTexture(CDoomSidedef *s) {
+  if(!s->upper_texture[0]) return NULL;
+  I64 t=ToI64(tS*4)%FrameCnt(s->upper_texture);
+  return s->upper_texture[t];
+}
+
+CDC *GetLowerTexture(CDoomSidedef *s) {
+  if(!s->lower_texture[0]) return NULL;
+  I64 t=ToI64(tS*4)%FrameCnt(s->lower_texture);
+  return s->lower_texture[t];
+}
 
 U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
   CD2 start_floor,start_ceil;
@@ -575,7 +598,7 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
     sector=sidedef->sector;
     highest_ceil=HighestCeil(seg->linedef,sector);
     for(wall=0;wall!=3;wall++) {
-      if(wall==0&&(texture=sidedef->lower_texture)) {
+      if(wall==0&&(texture=GetLowerTexture(sidedef))) {
         floor=Min(sector->floor_height,FloorRaise(seg->linedef,sector));
         ceil=Max(sector->floor_height,FloorRaise(seg->linedef,sector));
 draw_wall:
@@ -610,11 +633,11 @@ draw_wall:
 	    }
 	  }
         }
-      } else if(wall==1&&(texture=sidedef->upper_texture)) {
+      } else if(wall==1&&(texture=GetUpperTexture(sidedef))) {
         floor=Min(sector->ceil_height,CeilDepress(seg->linedef,sector));
         ceil=Max(sector->ceil_height,CeilDepress(seg->linedef,sector));
         goto draw_wall;
-      } else if(wall==2&&(texture=sidedef->middle_texture)) {
+      } else if(wall==2&&(texture=GetMiddleTexture(sidedef))) {
         floor=sector->floor_height;
         ceil=sector->ceil_height;
         goto draw_wall;
@@ -669,7 +692,7 @@ I64 SectorFloorSort(CDoomSector *a,CDoomSector *b)  {
 U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   CDoomSector *sector,**sorted;  
   CDoomThing *thing;
-  I64 idx=0,idx2;
+  I64 idx=0,idx2,af,tf;
   for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next)
     sector->drawn=FALSE;
   for(idx=0;idx!=GR_WIDTH/2;idx++) {
@@ -696,16 +719,15 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     sorted[idx++]=sector;
 //SectorFloorSort is highest floor first
   QSortI64(sorted,idx,&SectorFloorSort);
+  af=ToI64(tS*4);
   for(idx2=0;idx2!=idx;idx2++) {
     if(sorted[idx2]->floor_dc) {
       if(sorted[idx2]->floor_height<cam->h)
-        DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->floor_height,sorted[idx2]->floor_dc,TRUE);
-//	RayCastFloor(to_dc,cam,sorted[idx2]->floor_dc,sorted[idx2],sorted[idx2]->floor_height);
+        DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->floor_height,sorted[idx2]->floor_dc[af%FrameCnt(sorted[idx2]->floor_dc)],TRUE);
     }
     if(sorted[idx2]->ceil_dc) {
       if(sorted[idx2]->ceil_height>cam->h)
-        DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->ceil_height,sorted[idx2]->ceil_dc,FALSE);
-//	RayCastFloor(to_dc,cam,sorted[idx2]->ceil_dc,sorted[idx2],sorted[idx2]->ceil_height);
+        DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->ceil_height,sorted[idx2]->ceil_dc[af%FrameCnt(sorted[idx2]->ceil_dc)],FALSE);
     }
   }
   for(thing=level->things.next;thing!=&level->things;thing=thing->next) {
@@ -960,7 +982,7 @@ U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
   cam->y=p->position.y;
   cam->angle=p->angle;
 }
-
+
 
 CDoomPlayer *p=PlayerNew(l);
 PlayerMove(l,p,0);

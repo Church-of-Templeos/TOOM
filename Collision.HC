@@ -19,7 +19,7 @@ F64 DistFromLine(CD2 *p,CD2 *l1,CD2 *l2) {
   return Abs((l2->x-l1->x)*(l1->y-p->y)-(l2->y-l1->y)*(l1->x-p->x))/Sqrt(Sqr(l1->x-l2->x)+Sqr(l1->y-l2->y));
 }
 Bool AdjustForRadius(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F64 cur_h,F64 to_travel) {
-  I64 i;
+  I64 i;
   CD2 closest_point,side,opoint;
   F64 ld_normal1,ld_normal2,angle2;
   F64 dist;
@@ -34,7 +34,7 @@ Bool AdjustForRadius(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 rad
     dist=radius-DistFromLine(point,ld->start,ld->end);
     MoveInLevel(l,point,ld_normal1,-dist,radius,cur_h,0);
     angle2=ld_normal1-angle;
-    x=-to_travel*FSin(ld_normal1+angle2+pi/2);
+    x=-to_travel*FSin(angle2);
     MoveInLevel(l,point,ld_normal1+pi/2,x,radius,cur_h,0);
     return TRUE;
   } else{
@@ -44,7 +44,7 @@ Bool AdjustForRadius(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 rad
       dist=radius-DistFromLine(point,ld->start,ld->end);
       MoveInLevel(l,point,ld_normal2,-dist,radius,cur_h,0);
       angle2=ld_normal2-angle;
-      x=-to_travel*FSin(ld_normal2+angle2+pi/2);
+      x=-to_travel*FSin(angle2);
       MoveInLevel(l,point,ld_normal2+pi/2,x,radius,cur_h,0);
       return TRUE;
     }

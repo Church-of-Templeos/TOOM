@@ -37,8 +37,8 @@ U0 PlayerLook(CDoomPlayer *p,F64 angle) {
 
 
 CDoomPlayer *PlayerNew(CDoomLevel *l) {
-  CDoomPlayer *p=CAlloc(sizeof CDoomPlayer);
-  CDoomThing *t,*head=&l->things;
+  CDoomPlayer *p=CAlloc(sizeof CDoomPlayer);
+  CDoomThing *t,*head=&l->things;
   for(t=head->next;t!=head;t=t->next) {
 //https://doomwiki.org/wiki/Thing_types#Other
     if(t->thing_type==1) {

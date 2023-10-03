@@ -214,7 +214,7 @@ class CDoomSector:CQue {
   Bool drawn,closing,opening,activated,waiting,pad[3];
   F64 wait_time;
   F64 speed;
-  F64 start_tS;
+  F64 start_tS,door_height_offset;
 };
 
 
@@ -734,7 +734,7 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   I64 idx,cnt,x,y,min,max;
   U16 *offs;
   U8 name[9];
-  CDC **arr;
+  CDC **arr;
   CDoomLevel *level=CAlloc(sizeof CDoomLevel);
   CDoomThing *dthing;
   CWadThing *wthing;

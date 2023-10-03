@@ -282,6 +282,11 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   I32 *db_z,idist;
   F64 dist,ratio;
   Bool repeat=FALSE,onesided=ld->front^^ld->back;
+  CDoomSidedef *opposite;
+  if(ld->front==sd)
+    opposite=ld->back;
+  else
+    opposite=ld->front;
   U16 *color,*to;
   if(start_angle>end_angle) {
     tmp=start_angle;
@@ -344,7 +349,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	      if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
 	        ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2))%texture->height;
 	      } else {
-	        ty=((level-flrh)*2+ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)-(level-flrh)*2)%texture->height;
+	        ty=(ToI64(ih2*ratio)*2+yoff*2-ratio*sd->sector->door_height_offset*2)%texture->height;
 	      }
 	    } else {
 	      if(floor) {
@@ -357,13 +362,16 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	        if(ld->flags&WAD_LINEDEFF_UPPER_UNPEGGED) {
 		  ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2))%texture->height;
 	        } else {
-		  ty=((level-flrh)*2+ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)-(level-flrh)*2)%texture->height;
+		  ty=(ToI64(ih2*ratio)*2+yoff*2)%texture->height;
 	        }
 	      }
 	    }
 	  } else {
 	    ty=(ToF64(ih2)/ih)*(texture->height-2);
 	  }
+	  //Doors raise the ceiling but the texture needs to move along with it
+	  if(opposite)
+            ty=ToI64(ty+opposite->sector->door_height_offset*2)%texture->height;
 	  tx=AbsI64(tx);
 	  ty=AbsI64(ty);
 	  ty=ClampI64(ty,0,texture->height-2);
@@ -719,7 +727,7 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     sorted[idx++]=sector;
 //SectorFloorSort is highest floor first
   QSortI64(sorted,idx,&SectorFloorSort);
-  af=ToI64(tS*4);
+  af=ToI64(tS*4);
   for(idx2=0;idx2!=idx;idx2++) {
     if(sorted[idx2]->floor_dc) {
       if(sorted[idx2]->floor_height<cam->h)
@@ -873,6 +881,7 @@ U0 UpdateSector(CDoomSector *s) {
 	      -ceil)+ceil;
       }
     }
+    s->door_height_offset=s->ceil_height-s->base_floor_height;
   }
 }
 U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {

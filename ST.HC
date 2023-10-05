@@ -140,8 +140,6 @@ class BinaryIcon
 static PercentWidget	w_health;
 // arms background
 static BinaryIcon	w_armsbg; 
-// weapon ownership widgets
-static MultiIcon	w_arms[6];
 // face status widget
 static MultiIcon	toom_faces; 
 // armor widget
@@ -774,7 +772,7 @@ U0 SwapWeapon(I64 weapon)
     break;
    case 2:
     //weapons.on=TRUE;
-    weapons.x=SCREENWIDTH/2.5;
+    weapons.x=SCREENWIDTH/2.5;
     weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
     weapons.data=0;
     weapons.inum=12;//shotgun
@@ -786,6 +784,77 @@ U0 SwapWeapon(I64 weapon)
     weapons.on=FALSE;
     
     break;
+   case 3:
+    //weapons.on=TRUE;
+    weapons.x=SCREENWIDTH/2.5;
+    weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
+    weapons.data=0;
+    weapons.inum=12;
+    Sleep(20);
+    weapons.inum=11;
+    Sleep(20);    
+    weapons.inum=10;//chaingun
+    Sleep(20);
+    weapons.on=FALSE;
+    
+    break;
+   case 4:
+    //weapons.on=TRUE;
+    weapons.x=SCREENWIDTH/2.5;
+    weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
+    weapons.data=0;
+    weapons.inum=12;//missile launcher
+    Sleep(20);
+    weapons.inum=11;
+    Sleep(20);    
+    weapons.inum=10;
+    Sleep(20);
+    weapons.on=FALSE;
+    
+    break;
+   case 5:
+    //weapons.on=TRUE;
+    weapons.x=SCREENWIDTH/2.5;
+    weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
+    weapons.data=0;
+    weapons.inum=12;//chainsaw
+    Sleep(20);
+    weapons.inum=11;
+    Sleep(20);    
+    weapons.inum=10;
+    Sleep(20);
+    weapons.on=FALSE;
+    
+    break;
+   case 6:
+    //weapons.on=TRUE;
+    weapons.x=SCREENWIDTH/2.5;
+    weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
+    weapons.data=0;
+    weapons.inum=12;//plasma gun
+    Sleep(20);
+    weapons.inum=11;
+    Sleep(20);    
+    weapons.inum=10;
+    Sleep(20);
+    weapons.on=FALSE;
+    
+    break;
+   case 7:
+    //weapons.on=TRUE;
+    weapons.x=SCREENWIDTH/2.5;
+    weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
+    weapons.data=0;
+    weapons.inum=12;//BFG
+    Sleep(20);
+    weapons.inum=11;
+    Sleep(20);    
+    weapons.inum=10;
+    Sleep(20);
+    weapons.on=FALSE;
+    
+    break;
+   
    break;
   }
 }
@@ -818,7 +887,7 @@ U0 ST_Key(U16 val)
 
 }
 
-U0 ST_Start(CDC*dc)
+U0 ST_Start(CDC*dc, CDoomPlayer p)
 {
     st_statusbaron=TRUE;
     ST_ReadOnce(dc);

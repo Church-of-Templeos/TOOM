@@ -16,7 +16,6 @@ static CWad *wad=LoadWad("DOOM.WAD");
 
 #include "Wad.HC";
 //#include "Weapons.HC";
-#include "ST.HC";
 #include "FastTrig.HC";
 
 //IMPORTANT
@@ -371,7 +370,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  }
 	  //Doors raise the ceiling but the texture needs to move along with it
 	  if(opposite)
-            ty=ToI64(ty+opposite->sector->door_height_offset*2)%texture->height;
+            ty=ToI64(ty+opposite->sector->door_height_offset*2)%texture->height;
 	  tx=AbsI64(tx);
 	  ty=AbsI64(ty);
 	  ty=ClampI64(ty,0,texture->height-2);
@@ -804,18 +803,7 @@ U0 SongTask(I64)
   }
 }
 
-//temp variable
-I64 play_weap=0;
 
-U0 AnimateTask(I64)
-{
-  while(TRUE)
-  {   
-   AnimateFire(play_weap);
-   Sleep(60);  
-  }
-  
-}
 
 CDoomCamera cam;
 CDoomSector *sect=l->sectors.last;
@@ -827,7 +815,6 @@ cam.fov=pi/4;
 cam.h=0;
 DocClear;
 Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
-Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
 
 #define WACTIVATE_PUSH 1
 #define WACTIVATE_SHOOT 2
@@ -984,6 +971,20 @@ U0 UpdateLevel(CDoomLevel *l) {
 
 #include "Collision.HC";
 #include "Player.HC";
+#include "ST.HC";
+
+//temp variable
+I64 play_weap=0;
+
+U0 AnimateTask(I64)
+{
+  while(TRUE)
+  {   
+   AnimateFire(play_weap);
+   Sleep(60);  
+  }
+  
+}
 
 U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
   cam->h=p->height+48;
@@ -995,24 +996,29 @@ U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
 
 CDoomPlayer *p=PlayerNew(l);
 PlayerMove(l,p,0);
+Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
+
 while(TRUE) {
   DCFill;
   UpdateLevel(l);
   UpdateCameraFromPlayer(&cam,p);
   DrawDoomWorld(&cam,l,gr.dc);
-  ST_Start(gr.dc);
+  ST_Start(gr.dc,p);
 
 //mouse camera pan.
   cursor_x=ms.pos.x;
   if(cursor_tx!=cursor_x)
   {
-   MsSet(320,240);
    if(cursor_x<1)
    {
     cursor_x=1;
    }
-   //cam.angle-=(pi/cursor_x-pi/cursor_tx)*32;
+   //disabled in Aiwnios (no mouse lock)
+   //p->angle-=(pi/cursor_x-pi/cursor_tx)*16;
+   MsSet(320,240);
+   cursor_x=ms.pos.x;   
    cursor_tx = cursor_x;
+  
    
   }
 
@@ -1030,10 +1036,12 @@ while(TRUE) {
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('q'))) {
     MoveInLevel(l,&cam.x,cam.angle+90,-GRID_SZ/4,16,cam.h-90);
+    PlayerMove(l,p,-GRID_SZ/4);
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('e'))) {
     MoveInLevel(l,&cam.x,cam.angle-90,-GRID_SZ/4,16,cam.h-90);
+    PlayerMove(l,p,-GRID_SZ/4);
     ST_Key(0);
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)||Bt(kbd.down_bitmap,Char2ScanCode('a'))) {
@@ -1061,6 +1069,26 @@ while(TRUE) {
   if(Bt(kbd.down_bitmap,Char2ScanCode('3'))) {
      play_weap=2;
      SwapWeapon(2);
+  }
+  if(Bt(kbd.down_bitmap,Char2ScanCode('4'))) {
+     play_weap=3;
+     SwapWeapon(3);
+  }
+  if(Bt(kbd.down_bitmap,Char2ScanCode('5'))) {
+     play_weap=4;
+     SwapWeapon(4);
+  }
+  if(Bt(kbd.down_bitmap,Char2ScanCode('6'))) {
+     play_weap=5;
+     SwapWeapon(5);
+  }
+  if(Bt(kbd.down_bitmap,Char2ScanCode('7'))) {
+     play_weap=6;
+     SwapWeapon(6);
+  }
+  if(Bt(kbd.down_bitmap,Char2ScanCode('8'))) {
+     play_weap=7;
+     SwapWeapon(7);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode(' ')&0xff)) {
     PlayerUse(l,p);

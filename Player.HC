@@ -1,10 +1,22 @@
-I64 ammo;
+class AmmoType{
+  I64 ammo;
+  I64 baseDamage;
 
+  Bool splash;
+  
+};
+
+class GunAvail{
+  Bool available;
+  AmmoType *load;
+};
 
 class CDoomPlayer {
   CD2 position;
   F64 angle,height;
-  F64 health,armor; 
+  F64 health,armor;
+  GunAvail **arsenal;
+  
   Bool running;
 };
 
@@ -38,6 +50,7 @@ U0 PlayerLook(CDoomPlayer *p,F64 angle) {
 
 CDoomPlayer *PlayerNew(CDoomLevel *l) {
   CDoomPlayer *p=CAlloc(sizeof CDoomPlayer);
+  p->arsenal=CAlloc(sizeof(GunAvail)*8);
   CDoomThing *t,*head=&l->things;
   for(t=head->next;t!=head;t=t->next) {
 //https://doomwiki.org/wiki/Thing_types#Other

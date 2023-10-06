@@ -29,7 +29,7 @@ class CDoomCamera {
   F64 x,y,h;
   F64 angle,fov;
 //Private
-//These include the wall heights too
+  //These include the wall heights too
   F64 floor_heights[GR_WIDTH/2]; //used for choosing which things not to draw
   F64 ceil_heights[GR_WIDTH/2]; //used for choosing which things not to draw
   F64 floor_depths[GR_WIDTH/2];
@@ -686,7 +686,7 @@ U0 DrawBSP(CDC *to_dc,CDoomCamera *cam,CDoomLevel *level) {
   CDoomSubsector *ss;
   CDoomBSPNode *node=DoomWhichBSPNode(cam->x,cam->y,level,&ss);
   if(node)
-   DrawBSP0(to_dc,cam,node);
+    DrawBSP0(to_dc,cam,node);
 }
 
 I64 SectorFloorSort(CDoomSector *a,CDoomSector *b)  {
@@ -882,22 +882,204 @@ U0 UpdateSector(CDoomSector *s) {
       }
     }
     s->door_height_offset=s->ceil_height-s->base_floor_height;
+  } else if(s->cur_action_linedef->special_type->type=='Floor') {
+    percent=(time-s->start_tS)/s->speed;
+    s->floor_height=percent*(s->target_end-s->target_start)+s->target_start;
+    if(s->going_up) {
+      if(s->floor_height>s->target_end) {
+	s->floor_height=s->target_end;
+	s->going_up=FALSE;
+	s->cur_action_linedef=NULL;
+      }
+    } else if(s->going_down) {
+      if(s->floor_height<s->target_end) {
+	s->floor_height=s->target_end;
+	s->going_down=FALSE;
+	s->cur_action_linedef=NULL;
+      }
+    }
   }
 }
-U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
+
+F64 GetTargetFloorHeight(CDoomSector *floor,I64 type,I64 up=FALSE) {
+  F64 dst;
+  F64 diff;
+  CDoomSidedef *sd;
+  I64 idx;
+  switch(type) {
+      break; case FLOOR_DST_LOWEST:
+      break; case FLOOR_ABS_24:
+      dst=floor->floor_height;
+      if(up)
+        return dst+24;
+      return dst-24;
+      break; case FLOOR_ABS_512:
+      dst=floor->floor_height;
+      if(up)
+        return dst+512;
+      return dst-512;
+    start:
+      dst=I16_MIN;
+      for(idx=0;idx!=floor->linedef_cnt;idx++) {
+        if((sd=floor->linedefs[idx]->front)&&sd->sector!=floor) {
+        } else
+	  sd=floor->linedefs[idx]->back;
+        if(sd&&sd->sector!=floor&&sd->sector->ceil_height>dst)
+	  dst=sd->sector->ceil_height;
+      }
+      case FLOOR_DST_HIGHEST_CEIL:
+        break;
+      case FLOOR_DST_HIGHEST_CEIL_ADD_8:
+        dst+=8.;
+        break;
+    end:
+      break;
+    start:
+      dst=I16_MIN;
+      for(idx=0;idx!=floor->linedef_cnt;idx++) {
+        if((sd=floor->linedefs[idx]->front)&&sd->sector!=floor) {
+        } else
+	  sd=floor->linedefs[idx]->back;
+        if(sd&&sd->sector!=floor&&sd->sector->floor_height>dst)
+	  dst=sd->sector->floor_height;
+      }
+      case FLOOR_DST_HIGHEST_FLOOR:
+        break;
+      case FLOOR_DST_HIGHEST_FLOOR_ADD_8:
+        dst+=8.;
+        break;
+    end:
+      break;
+    start:
+      dst=I16_MAX;
+      for(idx=0;idx!=floor->linedef_cnt;idx++) {
+        if((sd=floor->linedefs[idx]->front)&&sd->sector!=floor) {
+        } else
+	  sd=floor->linedefs[idx]->back;
+        if(sd&&sd->sector!=floor&&sd->sector->ceil_height<dst)
+	  dst=sd->sector->ceil_height;
+      }
+      case FLOOR_DST_LOWEST_CEIL:
+        break;
+      case FLOOR_DST_LOWEST_CEIL_SUB_8:
+        dst-=8.;
+        break;
+    end:
+      break;
+    start:
+      dst=I16_MAX;
+      for(idx=0;idx!=floor->linedef_cnt;idx++) {
+        if((sd=floor->linedefs[idx]->front)&&sd->sector!=floor) {
+        } else
+	  sd=floor->linedefs[idx]->back;
+        if(sd&&sd->sector!=floor&&sd->sector->floor_height<dst)
+	  dst=sd->sector->floor_height;
+      }
+      case FLOOR_DST_LOWEST_FLOOR:
+        break; case FLOOR_DST_LOWEST_FLOOR_SUB_8:
+        dst-=8.;
+        break;
+    end:
+      break; case FLOOR_DST_NEXT_FLOOR:
+      if(up) {
+        dst=floor->ceil_height;
+        for(idx=0;idx!=floor->linedef_cnt;idx++) {
+	  if((sd=floor->linedefs[idx]->front)&&sd->sector!=floor) {
+	  } else
+	    sd=floor->linedefs[idx]->back;
+	  if(sd&&sd->sector!=floor) {
+	    if(sd->sector->floor_height<dst) {
+	      diff=sd->sector->floor_height-floor->floor_height;
+	      if(diff<dst-floor->floor_height)
+	        dst=sd->sector->floor_height;
+	    }
+	  }
+        }
+      } else {
+        dst=I16_MIN;
+        for(idx=0;idx!=floor->linedef_cnt;idx++) {
+	  if((sd=floor->linedefs[idx]->front)&&sd->sector!=floor) {
+	  } else
+	    sd=floor->linedefs[idx]->back;
+	  if(sd&&sd->sector!=floor) {
+	    if(sd->sector->floor_height>dst) {
+	      diff=sd->sector->floor_height-dst;
+	      if(diff<floor->floor_height-dst)
+	        dst=sd->sector->floor_height;
+	    }
+	  }
+        }
+      }
+      break;
+  }
+  return dst;
+}
+
+U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags) {
   CDoomActionSector *type;
-  CDoomSector *s;
+  CDoomFloor *fl;
   CDoomDoor *door;
+  F64 dst;
   if(ld) {
-    if((s=ld->tagged_sector)&&(type=ld->special_type)) {
-      if(type->type=='Door') {
+    if((type=ld->special_type)) {
+      if(type->type=='Floor') {
+        PrintI("fllor",1);
+        fl=type;
+        switch(fl->trigger) {
+	    break; case 'P1':
+	    if(!(flags&WACTIVATE_PUSH)) return;
+factivate1:
+
+	    if(s->activated) return;
+	    s->activated=TRUE;
+factivate:
+	    PrintF("fg",s->floor_height);
+	    dst=GetTargetFloorHeight(s,fl->target,fl->direction==FLOOR_DIR_UP);
+	    if(fl->direction==FLOOR_DIR_UP&&s->going_up) return;
+	    if(fl->direction==FLOOR_DIR_DOWN&&s->going_down) return;
+	    PrintF("u",fl->direction==FLOOR_DIR_UP);
+	    if(fl->direction==FLOOR_DIR_UP)
+	      s->going_up=TRUE;
+	    PrintF("d",dst);
+	    PrintF("fg",s->floor_height);
+	    if(fl->direction==FLOOR_DIR_DOWN)
+	      s->going_down=TRUE;
+	    s->target_start=s->floor_height;
+	    PrintF("s",s->floor_height);
+	    s->target_end=dst;
+	    s->start_tS=tS;
+	    s->speed=fl->speed;
+	    s->cur_action_linedef=ld;
+	    break; case 'S1':
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto factivate1;
+	    break; case 'G1':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto factivate1;
+	    break; case 'W1':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto factivate1;
+	    break; case 'PR':
+	    if(!(flags&WACTIVATE_PUSH)) return;
+	    goto factivate;
+	    break; case 'SR':
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto factivate;
+	    break; case 'GR':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto factivate;
+	    break; case 'WR':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto factivate;
+        }
+      } else if(type->type=='Door') {
         door=type;
         switch(door->trigger) {
 	  case 'P1':
 	    s=ld->back->sector;
-	    if(s->activated) return;
 	    if(!(flags&WACTIVATE_PUSH)) return;
 activate1:
+	    if(s->activated) return;
 	    s->activated=TRUE;
 activate:
 //Check for keys
@@ -971,6 +1153,17 @@ activate:
         }
       }
     }
+  }
+}
+U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
+  CDoomSector *sector,*head=&l->sectors;
+  if(!ld->special_type) return;
+  if(ld->special_type->type=='Door') 
+    _TriggerLinedef(l,ld->back->sector,ld,flags);
+//Some doors dont have use for tagged sector
+  for(sector=head->next;sector!=head;sector=sector->next) {
+    if(sector->tag_number==ld->sector_tag)
+      _TriggerLinedef(l,sector,ld,flags);
   }
 }
 

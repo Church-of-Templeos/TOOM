@@ -27,7 +27,7 @@
 84	Reg	WR	Dn	Slow	TxTy	Num	No	No	Lowest Neighbor Floor
 37	Reg	W1	Dn	Slow	TxTy	Num	No	No	Lowest Neighbor Floor
 65	Reg	SR	Up	Slow	None	--	No	Yes	Lowest Neighbor Ceiling - 8
-55	Reg	S1	Up	Slow	None	--	No	Yes	Lowest Neighbor Ceiling - 8
+55	Reg	S1	Up	Slow	None	--	No	Yes	Lowest Neighbor Ceiling - 8
 94	Reg	WR	Up	Slow	None	--	No	Yes	Lowest Neighbor Ceiling - 8
 56	Reg	W1	Up	Slow	None	--	No	Yes	Lowest Neighbor Ceiling - 8
 64	Reg	SR	Up	Slow	None	--	No	No	Lowest Neighbor Ceiling
@@ -58,4 +58,4 @@
 176	Ext	SR	Up	Slow	None	--	No	No	Abs Shortest Lower Texture
 158	Ext	S1	Up	Slow	None	--	No	No	Abs Shortest Lower Texture
 96	Reg	WR	Up	Slow	None	--	No	No	Abs Shortest Lower Texture
-30	Reg	W1	Up	Slow	None	--	No	No	Abs Shortest Lower Texture
+30	Reg	W1	Up	Slow	None	--	No	No	Abs Shortest Lower Texture

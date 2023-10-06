@@ -162,10 +162,7 @@ class CDoomLinedef:CQue {
   CD2 *start,*end;
   CDoomSidedef *front;
   CDoomSidedef *back;
-  union {
-    I64 sector_tag;
-    CDoomSector *tagged_sector;
-  }
+  I64 sector_tag;
   I16 flags;
   CDoomActionSector *special_type;
   I16 pad[2];
@@ -203,6 +200,7 @@ class CDoomSector:CQue {
   F64 base_floor_height;
   F64 base_light_level,cur_light_level;
   I64 special_type;
+  I64 tag_number;
   I64 linedef_cnt;
   CDoomLinedef **linedefs;
 //Private
@@ -211,10 +209,11 @@ class CDoomSector:CQue {
   F64 shape_start_x,shape_start_y;
   CDC *shape_dc;
   CDoomLinedef *cur_action_linedef;
-  Bool drawn,closing,opening,activated,waiting,pad[3];
   F64 wait_time;
   F64 speed;
-  F64 start_tS,door_height_offset;
+  F64 start_tS,door_height_offset;
+  F64 target_end,target_start;
+  Bool drawn,closing,opening,activated,waiting,going_up,going_down,pad[1];
 };
 
 
@@ -1022,6 +1021,7 @@ found:
     dsect->base_light_level=wsect->light_level;
     dsect->cur_light_level=wsect->light_level;
 //    dsect->special_type=action_sector_types[wsect->special_type];
+    dsect->tag_number=wsect->tag_number;
     dsect_list[idx]=dsect;
     wsect++;
   }
@@ -1038,7 +1038,7 @@ found:
   if(StrCmp8("LINEDEFS",wad_dir[1].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
     if(dlinedef_list[idx]->front) {
-      AddLinedefToSector(
+      AddLinedefToSector(
 	    dlinedef_list[idx],
 	    dlinedef_list[idx]->front->sector,
 	    );
@@ -1049,8 +1049,6 @@ found:
 	    dlinedef_list[idx]->back->sector,
 	    );
     }
-    if(dlinedef_list[idx]->sector_tag!=0xffff)
-      dlinedef_list[idx]->sector_tag=dsect_list[dlinedef_list[idx]->sector_tag];
   }
 //SECTORS(4) Generate sectors shapes
   cnt=wad_dir[7].lump_size/sizeof(CWadSector);

@@ -21,7 +21,7 @@ U0 PlayerUse(CDoomLevel *l,CDoomPlayer *p) {
 U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 speed=GRID_SZ/4) {
   CFifoI64 *crossed_f=FifoI64New(16);
   CDoomLinedef *crossed;
-  CDoomLinedef *hit=MoveInLevel(l,&p->position,p->angle,speed,16,p->height);
+  CDoomLinedef *hit=MoveInLevel(l,&p->position,p->angle,speed,16,p->height,,crossed_f);
   while(FifoI64Rem(crossed_f,&crossed)) {
     TriggerLinedef(l,crossed,WACTIVATE_WALK);
   }

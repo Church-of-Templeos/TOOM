@@ -44,7 +44,7 @@ Bool AdjustForRadius(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 rad
       dist=radius-DistFromLine(point,ld->start,ld->end);
       MoveInLevel(l,point,ld_normal2,-dist,radius,cur_h,0);
       angle2=ld_normal2-angle;
-      x=-to_travel*FSin(angle2);
+      x=-to_travel*FSin(angle2);
       MoveInLevel(l,point,ld_normal2+pi/2,x,radius,cur_h,0);
       return TRUE;
     }
@@ -99,7 +99,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
       } else{
 //opposite side
         if(vector->data[0]*dummy.y-vector->data[1]*dummy.x<0.) {
-	  floor_height=lds[0]->back->sector->floor_height;
+	  floor_height=lds[0]->back->sector->floor_height;
 	  ceil_height=lds[0]->back->sector->ceil_height;
         } else {
 	  floor_height=lds[0]->front->sector->floor_height;
@@ -120,7 +120,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
       } else {
 //W1/WR
         if(lds[0]->special_type) {
-	  if(lds[0]->special_type->type=='Door') {
+	  if(lds[0]->special_type->type=='Door'||lds[0]->special_type->type=='Floor') {
 	    if(walked_over_idx<64) {
 	      if(PlaneIntersect(result,&move1,&move2,lds[0]->start,lds[0]->end))  {
 	        walked_over_dists[walked_over_idx]=Sqrt(Sqr(result->x-move1.x)+Sqr(result->y-move1.y));

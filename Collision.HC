@@ -99,7 +99,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
       } else{
 //opposite side
         if(vector->data[0]*dummy.y-vector->data[1]*dummy.x<0.) {
-	  floor_height=lds[0]->back->sector->floor_height;
+	  floor_height=lds[0]->back->sector->floor_height;
 	  ceil_height=lds[0]->back->sector->ceil_height;
         } else {
 	  floor_height=lds[0]->front->sector->floor_height;
@@ -149,13 +149,14 @@ skip:;
   result->y=move1.y+sin*(dist-radius);
 fin:
   if(!best&&walked_over_hot) {
-    min_dist=dist-radius;
+    min_dist=I16_MAX;
     goto look_for_hot;
   } else if(best&&walked_over_hot) {
 look_for_hot:
     while(--walked_over_idx>=0) {
-      if(walked_over_dists[walked_over_idx]<min_dist)
+      if(walked_over_dists[walked_over_idx]<min_dist) {
         FifoI64Ins(walked_over_hot,walked_over[walked_over_idx]);
+      }
     }
   }
   if(flags&COLLISF_CENTER_RADIUS) {

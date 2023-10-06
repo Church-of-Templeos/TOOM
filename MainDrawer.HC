@@ -353,12 +353,12 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    } else {
 	      if(floor) {
 	        if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
-		  ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)+(ceilh-level)*2)%texture->height;
+		  ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)+2*ToI64(ceilh-flrh))%texture->height;
 	        } else {
-		  ty=((level-flrh)*2+ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)-(level-flrh)*2)%texture->height;
+		  ty=ToI64(ToI64(ih2*ratio)*2+yoff*2)%texture->height;
 	        }
 	      } else{
-	        if(ld->flags&WAD_LINEDEFF_UPPER_UNPEGGED) {
+	        if(!(ld->flags&WAD_LINEDEFF_UPPER_UNPEGGED)) {
 		  ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2))%texture->height;
 	        } else {
 		  ty=(ToI64(ih2*ratio)*2+yoff*2)%texture->height;
@@ -519,14 +519,7 @@ F64 CeilDepress(CDoomLinedef *l,CDoomSector *sector) {
 
 F64 HighestCeil(CDoomLinedef *l,CDoomSector *sector) {
   F64 ret=sector->ceil_height;
-  if(l->back^^l->front) {
-    if(l->back) return Max(ret,l->back->sector->ceil_height);
-    if(l->front) return Max(ret,l->front->sector->ceil_height);
-    return ret;
-  }
-  return Max(l->front->sector->ceil_height,Max(
-	l->back->sector->ceil_height,ret
-	));
+  return ret;
 }
 
 I64 FrameCnt(CDC **arr) {
@@ -1010,7 +1003,6 @@ U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags) {
   if(ld) {
     if((type=ld->special_type)) {
       if(type->type=='Floor') {
-        PrintI("fllor",1);
         fl=type;
         switch(fl->trigger) {
 	    break; case 'P1':
@@ -1020,19 +1012,14 @@ factivate1:
 	    if(s->activated) return;
 	    s->activated=TRUE;
 factivate:
-	    PrintF("fg",s->floor_height);
 	    dst=GetTargetFloorHeight(s,fl->target,fl->direction==FLOOR_DIR_UP);
 	    if(fl->direction==FLOOR_DIR_UP&&s->going_up) return;
 	    if(fl->direction==FLOOR_DIR_DOWN&&s->going_down) return;
-	    PrintF("u",fl->direction==FLOOR_DIR_UP);
 	    if(fl->direction==FLOOR_DIR_UP)
 	      s->going_up=TRUE;
-	    PrintF("d",dst);
-	    PrintF("fg",s->floor_height);
 	    if(fl->direction==FLOOR_DIR_DOWN)
 	      s->going_down=TRUE;
 	    s->target_start=s->floor_height;
-	    PrintF("s",s->floor_height);
 	    s->target_end=dst;
 	    s->start_tS=tS;
 	    s->speed=fl->speed;
@@ -1145,7 +1132,7 @@ activate:
 U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
   CDoomSector *sector,*head=&l->sectors;
   if(!ld->special_type) return;
-  if(ld->special_type->type=='Door') 
+  if(ld->special_type->type=='Door') 
     _TriggerLinedef(l,ld->back->sector,ld,flags);
 //Some doors dont have use for tagged sector
   for(sector=head->next;sector!=head;sector=sector->next) {
@@ -1271,7 +1258,7 @@ while(TRUE) {
      play_weap=4;
      SwapWeapon(4);
   }
-  if(Bt(kbd.down_bitmap,Char2ScanCode('6'))) {
+  if(Bt(kbd.down_bitmap,Char2ScanCode('6'))) {
      play_weap=5;
      SwapWeapon(5);
   }

@@ -298,6 +298,7 @@ U0 ST_refreshBackground(CDC*dc)
     {
         if(weapons.data>0)
         {//draw weapons flash
+         I16 xmodify=0;
          if(weapons.inum<10&&weapons.inum>3)//pistol
          {
          GrBlot(gr.dc,weapons.x+62,weapons.y-24,
@@ -306,6 +307,30 @@ U0 ST_refreshBackground(CDC*dc)
          if(weapons.inum>=10&&weapons.inum<16)//shotgun
          {
          GrBlot(gr.dc,weapons.x+38,weapons.y-32,
+                     weapons.p[weapons.data]);
+         }
+         if(weapons.inum>=16&&weapons.inum<20&&weapons.on==TRUE)//chaingun
+         {
+         GrBlot(gr.dc,weapons.x+32,weapons.y-32,
+                     weapons.p[weapons.data]);
+         }
+         if(weapons.inum>=20&&weapons.inum<26)//missile launcher 1
+         {
+          if(weapons.data>22)
+             xmodify=-16;
+          if(weapons.data>23)
+             xmodify=-28;
+          if(weapons.data>24)
+             xmodify=-38;  
+         GrBlot(gr.dc,weapons.x+42+xmodify,weapons.y-32+xmodify,
+                     weapons.p[weapons.data]);
+         }
+         if(weapons.inum>=34&&weapons.inum<38)//bfg
+         {
+          if(weapons.data==38)
+             xmodify=-54;
+          
+         GrBlot(gr.dc,weapons.x+72+xmodify,weapons.y-16+xmodify,
                      weapons.p[weapons.data]);
          }
         }
@@ -642,7 +667,7 @@ U0 AnimateFire(I16 weapon)
 	  case 3:
            weapons.oldinum=4;
            weapons.data=9;
-           Play("B#");
+           Play("tttB#...");
            weapons.inum=8;
            break;
 	  case 4:
@@ -686,7 +711,7 @@ U0 AnimateFire(I16 weapon)
            weapons.data=15;
            weapons.oldinum=1;
            weapons.inum=10;
-           Play("1A#");
+           Play("tttA#...");
            break;
 	  case 1:
            weapons.data=14;
@@ -694,8 +719,7 @@ U0 AnimateFire(I16 weapon)
            weapons.inum=10;
            //Play("1A");
            break;
-	  case 2: 
-           
+	  case 2:            
            weapons.data=0;
            weapons.oldinum=3;
            weapons.inum=10;
@@ -710,13 +734,13 @@ U0 AnimateFire(I16 weapon)
 	  case 4:
            weapons.oldinum=5;
            weapons.inum=12;
-           Play("1G#");
+           Play("tttG#...");
 	   Sleep(40);
            break;
  	  case 5:
            weapons.oldinum=6; 
            weapons.inum=13;
-           Play("1G");
+           Play("tttG...");
            Sleep(40);
            break;
 	  case 6:
@@ -727,21 +751,189 @@ U0 AnimateFire(I16 weapon)
 	  case 7:
            weapons.x=SCREENWIDTH/2.5;
            weapons.y=SCREENHEIGHT-184;
-           
            weapons.oldinum=8;
 	   weapons.inum=11;
            Sleep(40);
            break;	 
 	  case 8:
-           
            weapons.oldinum=0;
            weapons.inum=10;
            weapons.on=FALSE;
            break;
 
         }
- 
      break;
+     case 3://chaingun
+       switch(weapons.oldinum)
+        {
+          case -1:
+            //weapons.x=
+            weapons.oldinum=0;
+            weapons.data=19;
+            weapons.inum=17;
+            Play("tttC#...");
+            Sleep(5);
+            break;
+          case 0:
+            weapons.oldinum=0;
+            weapons.data=18;
+            weapons.inum=16;
+            Play("tttC...");
+            //Sleep(5);
+            weapons.on=FALSE;
+            break;
+        }
+     break;
+     case 4://missile launcher
+       switch(weapons.oldinum)
+        {
+          case -1:
+            weapons.oldinum=0;
+            weapons.inum=21;
+            weapons.data=22;
+            weapons.y=weapons.y+25;
+            Sleep(5);
+            Play("tttF#...");
+            break;
+          case 0:
+            weapons.oldinum=1;
+            weapons.data=23;
+            Sleep(5);
+            Play("tttF...");
+            break;
+          case 1:
+            weapons.oldinum=2;
+            weapons.data=24;
+            weapons.y=weapons.y-15;
+            Sleep(5);
+            Play("tttE#...");
+            break;
+          case 2:
+            weapons.oldinum=3;
+            weapons.data=25;
+            weapons.y=weapons.y-5;
+            Sleep(5);
+            Play("tttE...");
+            break;
+          case 3:
+            weapons.oldinum=0;
+            weapons.data=0;
+            weapons.y=weapons.y-5;
+            weapons.inum=20;
+            Sleep(5);
+            Play("tttD#...");
+            weapons.on=FALSE;
+            break;
+             
+        }
+     break;
+     case 5://chainsaw
+       switch(weapons.oldinum)
+        {
+          case -1:
+            weapons.oldinum=0;
+            weapons.inum=27;
+            Play("tttA...");
+            break;
+          case 0:
+            weapons.oldinum=1;
+            weapons.inum=28;
+            weapons.y=weapons.y-86;
+            Play("tttA#...");
+            break;
+          case 1:
+            weapons.oldinum=2;
+            weapons.inum=29;
+            Play("tttA#...");
+            break;
+          case 2:
+            weapons.oldinum=3;
+            weapons.inum=28;
+            Play("tttA#...");
+            break;
+          case 3:
+            weapons.oldinum=0;
+            weapons.y=weapons.y+86;
+            weapons.inum=27;
+            Play("tttA#...");
+            weapons.on=FALSE;
+            break;
+        }
+     break;
+     case 6://plasma gun
+       switch(weapons.oldinum)
+        {
+          case -1:
+            weapons.oldinum=0;
+            weapons.inum=32;
+            //weapons.data=32;
+            Sleep(20);
+            Play("tttG...");
+            break;
+          case 0:
+            weapons.oldinum=1;
+            weapons.inum=33;
+             Sleep(20);
+            //weapons.data=33;
+            Play("tttG#...");
+            break;
+          case 1:
+            weapons.oldinum=2;
+            weapons.x=weapons.x-86;
+            weapons.y=weapons.y-92;
+            weapons.inum=31;
+            Sleep(240);
+            //weapons.data=33;
+            //Play("tttG#...");
+            break;
+          case 2:
+            weapons.oldinum=0;
+            weapons.inum=30;
+            weapons.data=0;
+            weapons.x=weapons.x+86;
+            weapons.y=weapons.y+92;
+            weapons.on=FALSE;
+            break;
+        }
+     break;
+     case 7://BFG
+       switch(weapons.oldinum)
+        {
+          case -1:
+            weapons.oldinum=0;
+            weapons.inum=35;
+            //weapons.data=32;
+            Sleep(20);
+            Play("tttB...");
+            break;
+          case 0:
+            weapons.oldinum=1;
+            weapons.inum=36;
+            weapons.data=37;
+            Sleep(20);
+            //weapons.data=33;
+            Play("tttF...");
+            break;
+          case 1:
+            weapons.oldinum=2;
+            //weapons.x=weapons.x-86;
+            //weapons.y=weapons.y-92;
+            weapons.data=38;
+            Sleep(60);
+            //weapons.data=33;
+            Play("tttG...");
+            break;
+          case 2:
+            weapons.oldinum=0;
+            weapons.inum=35;
+            weapons.data=0;
+            //weapons.x=weapons.x+86;
+            //weapons.y=weapons.y+92;
+            weapons.on=FALSE;
+            break;
+        }
+     break;
+
     }
    }
 }
@@ -786,70 +978,66 @@ U0 SwapWeapon(I64 weapon)
     break;
    case 3:
     //weapons.on=TRUE;
-    weapons.x=SCREENWIDTH/2.5;
-    weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
+    weapons.x=SCREENWIDTH/3;
+    weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$//chaingun
     weapons.data=0;
-    weapons.inum=12;
+    weapons.inum=17;
     Sleep(20);
-    weapons.inum=11;
-    Sleep(20);    
-    weapons.inum=10;//chaingun
+    weapons.inum=16;
     Sleep(20);
     weapons.on=FALSE;
     
     break;
    case 4:
     //weapons.on=TRUE;
-    weapons.x=SCREENWIDTH/2.5;
+    weapons.x=SCREENWIDTH/2.75;
     weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
     weapons.data=0;
-    weapons.inum=12;//missile launcher
+    weapons.inum=21;//missile launcher
     Sleep(20);
-    weapons.inum=11;
+    weapons.inum=20;
     Sleep(20);    
-    weapons.inum=10;
-    Sleep(20);
     weapons.on=FALSE;
     
     break;
    case 5:
     //weapons.on=TRUE;
-    weapons.x=SCREENWIDTH/2.5;
-    weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
+    weapons.x=SCREENWIDTH/3.5;
+    weapons.y=SCREENHEIGHT-146;$IV,1$$IV,0$
     weapons.data=0;
-    weapons.inum=12;//chainsaw
-    Sleep(20);
-    weapons.inum=11;
-    Sleep(20);    
-    weapons.inum=10;
+    //weapons.inum=29;//chainsaw
+    //Sleep(20);
+    //weapons.inum=28;
+    //Sleep(20);
+    //weapons.inum=27;
+    //Sleep(20);        
+    weapons.inum=26;
     Sleep(20);
     weapons.on=FALSE;
     
     break;
    case 6:
     //weapons.on=TRUE;
-    weapons.x=SCREENWIDTH/2.5;
+    weapons.x=SCREENWIDTH/2.75;
     weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
     weapons.data=0;
-    weapons.inum=12;//plasma gun
+    weapons.inum=31;//plasma gun
     Sleep(20);
-    weapons.inum=11;
+    weapons.inum=30;
     Sleep(20);    
-    weapons.inum=10;
-    Sleep(20);
     weapons.on=FALSE;
     
     break;
    case 7:
     //weapons.on=TRUE;
-    weapons.x=SCREENWIDTH/2.5;
+    weapons.x=SCREENWIDTH/4;
     weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
     weapons.data=0;
-    weapons.inum=12;//BFG
+    weapons.inum=36;//BFG
     Sleep(20);
-    weapons.inum=11;
+    weapons.inum=35;
     Sleep(20);    
-    weapons.inum=10;
+    weapons.inum=34;
     Sleep(20);
     weapons.on=FALSE;
     

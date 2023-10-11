@@ -1132,7 +1132,7 @@ activate:
 U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
   CDoomSector *sector,*head=&l->sectors;
   if(!ld->special_type) return;
-  if(ld->special_type->type=='Door') 
+  if(ld->special_type->type=='Door') 
     _TriggerLinedef(l,ld->back->sector,ld,flags);
 //Some doors dont have use for tagged sector
   for(sector=head->next;sector!=head;sector=sector->next) {
@@ -1153,18 +1153,6 @@ U0 UpdateLevel(CDoomLevel *l) {
 #include "Player.HC";
 #include "ST.HC";
 
-//temp variable
-I64 play_weap=0;
-
-U0 AnimateTask(I64)
-{
-  while(TRUE)
-  {   
-   AnimateFire(play_weap);
-   Sleep(60);  
-  }
-  
-}
 
 U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
   cam->h=p->height+48;
@@ -1176,6 +1164,16 @@ U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
 
 CDoomPlayer *p=PlayerNew(l);
 PlayerMove(l,p,0);
+
+U0 AnimateTask(I64)
+{
+  while(TRUE)
+  {   
+   AnimateFire(p);
+   Sleep(60);  
+  }
+  
+}
 Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
 
 while(TRUE) {
@@ -1232,42 +1230,34 @@ while(TRUE) {
       p->angle+=pi/16.;
      ST_Key(1);
   }
-  if(!Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)&&!Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
+  if(!Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)&&!Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
      ST_Key(0);
   }
   if(ms.lb) {
      ST_Fire();
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('1'))) {
-     play_weap=0;
      SwapWeapon(0);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('2'))) {
-     play_weap=1;
      SwapWeapon(1);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('3'))) {
-     play_weap=2;
      SwapWeapon(2);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('4'))) {
-     play_weap=3;
      SwapWeapon(3);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('5'))) {
-     play_weap=4;
      SwapWeapon(4);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('6'))) {
-     play_weap=5;
      SwapWeapon(5);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('7'))) {
-     play_weap=6;
      SwapWeapon(6);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('8'))) {
-     play_weap=7;
      SwapWeapon(7);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode(' ')&0xff)) {

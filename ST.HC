@@ -29,8 +29,8 @@
 static Bool st_firsttime = FALSE;
 // whether left-side main status bar is active
 static Bool st_statusbaron;
-// main bar left
-static CDoomImage *sbar;
+//used to change display of ammo left
+I16 weaponIndex =0;
 
 
 /*
@@ -39,41 +39,6 @@ static CDoomImage *sbar;
 **
 */
 
-
-class STNum 
-{
-    // upper right-hand corner
-    //  of the number (right-justified)
-    I64	x;
-    I64 y;
-
-    // max # of digits in number
-    I64 width;    
-
-    // last number value
-    I64 oldnum;
-    
-    // pointer to current value
-    I64 num;
-
-    // pointer to boolean stating
-    //  whether to update number
-    Bool on;
-
-    // list of patches for 0-9
-    CDoomImage**	p;
-
-    // user data
-    I64 data;    
-};
-
-class PercentWidget
-{
-    //number information
-    STNum n;
-    //percent graphic
-    CDoomImage *p;
-};
 
 
 // Multiple Icon widget
@@ -104,31 +69,6 @@ class MultiIcon
 
 
 
-// Binary Icon widget
-
-class BinaryIcon
-{
-    // center-justified location of icon
-    I64 x;
-    I64 y;
-
-    // last icon value
-    I64 oldval;
-
-    // pointer to current icon status
-    Bool *val;
-
-    // pointer to boolean
-    //  stating whether to update icon
-    Bool *on;  
-
-
-    CDoomImage* p;	// icon
-    I64 data;   // user data
-    
-};
-
-
 /*
 **
 ** 	WIDGETS
@@ -136,20 +76,9 @@ class BinaryIcon
 */
 
 
-// health widget
-static PercentWidget	w_health;
-// arms background
-static BinaryIcon	w_armsbg; 
+
 // face status widget
-static MultiIcon	toom_faces; 
-// armor widget
-static PercentWidget	w_armor;
-// ammo widgets
-static STNum		w_ammo[4];
-// max ammo widgets
-static STNum		w_maxammo[4]; 
-// holds key-type for each key box on bar
-static I64 		keyboxes[3]; 
+static MultiIcon	toom_faces;  
 // weapon anims
 static MultiIcon	weapons;
 
@@ -212,6 +141,18 @@ static CDC*		FACE40;
 static CDC*		FACE4L;
 static CDC*		FACE4R;
 
+//numbers
+static CDC*		NUM0;
+static CDC*		NUM1;
+static CDC*		NUM2;
+static CDC*		NUM3;
+static CDC*		NUM4;
+static CDC*		NUM5;
+static CDC*		NUM6;
+static CDC*		NUM7;
+static CDC*		NUM8;
+static CDC*		NUM9;
+static CDC*		NUMPCT;
 
 static Bool st_stopped = TRUE;
 
@@ -290,12 +231,57 @@ U0 CopyPatch(CDC *to_dc,CDC*texture, I64 sx, I64 sy, I64 ex, I64 ey)
   }
 }
 
+CDC*ReturnSprite(U16 value)
+{
+  switch(value)
+  {
+   case 0:
+     return NUM0;
+     break;
+   case 1:
+     return NUM1;
+     break;
+   case 2:
+     return NUM2;
+     break;
+   case 3:
+     return NUM3;
+     break;
+   case 4:
+     return NUM4;
+     break;
+   case 5:
+     return NUM5;
+     break;
+   case 6:
+     return NUM6;
+     break;
+   case 7:
+     return NUM7;
+     break;
+   case 8:
+     return NUM8;
+     break;
+   case 9:
+     return NUM9;
+     break;
+   default:
+     return NUM0;
+     break;
 
-U0 ST_refreshBackground(CDC*dc)
+  }
+}
+
+
+U0 ST_refreshBackground(CDC*dc, CDoomPlayer *p)
 {
     CDoomImageCol *curr = NULL;
     if (st_statusbaron)
     {
+       //
+       //WEAPONS
+       //
+
         if(weapons.data>0)
         {//draw weapons flash
          I16 xmodify=0;
@@ -340,20 +326,43 @@ U0 ST_refreshBackground(CDC*dc)
                      weapons.p[weapons.inum]);//weapon
         
 
-        
+       //STATUSBAR
         
         GrBlot(gr.dc,0,SCREENHEIGHT-64,ST); //Read the ST
         GrBlot(gr.dc,SCREENWIDTH/2-25,SCREENHEIGHT-64,
                       toom_faces.p[toom_faces.inum]);//faces
         
-	//V_CopyRect(ST_X, 0, BG, ST_WIDTH, ST_HEIGHT, ST_X, ST_Y, FG);
+        
+        U64 ammoNum = p->arsenal[weaponIndex]->load->ammo;
+        U16 hundreds = ammoNum/100;
+        U16 remainder = ammoNum%100;
+        U16 tens = remainder/10;
+        U16 ones = remainder%10;
+        
+        if(hundreds>0)
+        {
+         GrBlot(gr.dc,SCREENWIDTH/60,SCREENHEIGHT-52,ReturnSprite(hundreds));
+         GrBlot(gr.dc,SCREENWIDTH/18,SCREENHEIGHT-52,ReturnSprite(tens));
+         GrBlot(gr.dc,SCREENWIDTH/10,SCREENHEIGHT-52,ReturnSprite(ones));
+        }
+        else
+        {
+         if(tens>0)
+         {
+          GrBlot(gr.dc,SCREENWIDTH/45,SCREENHEIGHT-52,ReturnSprite(tens));
+          GrBlot(gr.dc,SCREENWIDTH/15,SCREENHEIGHT-52,ReturnSprite(ones));
+         }
+         else
+         {
+          GrBlot(gr.dc,SCREENWIDTH/20,SCREENHEIGHT-52,ReturnSprite(ones));
+         }
+        }          
     }
-
 }
 
-U0 ST_refresh(CDC*dc)
+U0 ST_refresh(CDC*dc,CDoomPlayer *p)
 {
-  ST_refreshBackground(dc);
+  ST_refreshBackground(dc,p);
 }
 
 U0 InitWidgets()
@@ -384,6 +393,41 @@ U0 ST_ReadOnce(CDC*dc)
      wad_dir+=W_CheckNumForName("STBAR",wad);  //Get the index and add it to the pointer
      ST = ReadDoomImage(wad->body+wad_dir->ptr); 
  
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STTNUM0",wad);  
+     NUM0 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STTNUM1",wad);  
+     NUM1 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STTNUM2",wad);  
+     NUM2 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STTNUM3",wad);  
+     NUM3 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STTNUM4",wad);  
+     NUM4 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STTNUM5",wad);  
+     NUM5 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STTNUM6",wad);  
+     NUM6 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STTNUM7",wad);  
+     NUM7 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STTNUM8",wad);  
+     NUM8 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STTNUM9",wad);  
+     NUM9 = ReadDoomImage(wad->body+wad_dir->ptr); 
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STTPRCNT",wad);  
+     NUMPCT = ReadDoomImage(wad->body+wad_dir->ptr); 
+    
+     
      //FACES
      wad_dir=wad->body+wad->directory_ptr;  //Wads have a base pointer where the "directories" are stored
      wad_dir+=W_CheckNumForName("STFST01T",wad);  //Get the index and add it to the pointer
@@ -600,12 +644,14 @@ U0 ST_ReadOnce(CDC*dc)
   
 }
 
-U0 AnimateFire(I16 weapon)
+U0 AnimateFire(CDoomPlayer *p)
 {
    if(weapons.on)
    {
-    switch(weapon)
+    if(p->arsenal[weaponIndex]->load->ammo>0||weaponIndex==0||weaponIndex==5)
     {
+     switch(weaponIndex)
+     {
      case 0://punch
         switch(weapons.oldinum)
         {
@@ -640,8 +686,8 @@ U0 AnimateFire(I16 weapon)
            break;
 
         }
-     break;
-     case 1://pistol
+        break;
+      case 1://pistol
        switch(weapons.oldinum)
         {
           case -1:
@@ -658,15 +704,13 @@ U0 AnimateFire(I16 weapon)
            weapons.inum=7;
            break;
 	  case 2:
-           
            weapons.oldinum=3;
-           //weapons.x=SCREENWIDTH/2;
-           //weapons.y=SCREENHEIGHT/2;
            weapons.inum=8;
            break;
 	  case 3:
            weapons.oldinum=4;
            weapons.data=9;
+           p->arsenal[weaponIndex]->load->ammo--;
            Play("tttB#...");
            weapons.inum=8;
            break;
@@ -695,9 +739,8 @@ U0 AnimateFire(I16 weapon)
            break;
 
         }
- 
-     break;
-     case 2://shotgun
+        break;
+      case 2://shotgun
        switch(weapons.oldinum)
         {
           case -1:
@@ -711,6 +754,7 @@ U0 AnimateFire(I16 weapon)
            weapons.data=15;
            weapons.oldinum=1;
            weapons.inum=10;
+           p->arsenal[weaponIndex]->load->ammo--;
            Play("tttA#...");
            break;
 	  case 1:
@@ -762,8 +806,8 @@ U0 AnimateFire(I16 weapon)
            break;
 
         }
-     break;
-     case 3://chaingun
+        break;
+      case 3://chaingun
        switch(weapons.oldinum)
         {
           case -1:
@@ -771,20 +815,22 @@ U0 AnimateFire(I16 weapon)
             weapons.oldinum=0;
             weapons.data=19;
             weapons.inum=17;
+            p->arsenal[weaponIndex]->load->ammo--;
             Play("tttC#...");
             Sleep(5);
             break;
           case 0:
             weapons.oldinum=0;
             weapons.data=18;
+            p->arsenal[weaponIndex]->load->ammo--; 
             weapons.inum=16;
             Play("tttC...");
             //Sleep(5);
             weapons.on=FALSE;
             break;
         }
-     break;
-     case 4://missile launcher
+        break;
+      case 4://missile launcher
        switch(weapons.oldinum)
         {
           case -1:
@@ -792,6 +838,7 @@ U0 AnimateFire(I16 weapon)
             weapons.inum=21;
             weapons.data=22;
             weapons.y=weapons.y+25;
+            p->arsenal[weaponIndex]->load->ammo--;
             Sleep(5);
             Play("tttF#...");
             break;
@@ -826,8 +873,8 @@ U0 AnimateFire(I16 weapon)
             break;
              
         }
-     break;
-     case 5://chainsaw
+        break;
+      case 5://chainsaw
        switch(weapons.oldinum)
         {
           case -1:
@@ -859,8 +906,8 @@ U0 AnimateFire(I16 weapon)
             weapons.on=FALSE;
             break;
         }
-     break;
-     case 6://plasma gun
+        break;
+      case 6://plasma gun
        switch(weapons.oldinum)
         {
           case -1:
@@ -873,7 +920,8 @@ U0 AnimateFire(I16 weapon)
           case 0:
             weapons.oldinum=1;
             weapons.inum=33;
-             Sleep(20);
+            p->arsenal[weaponIndex]->load->ammo--;
+            Sleep(20);
             //weapons.data=33;
             Play("tttG#...");
             break;
@@ -883,8 +931,6 @@ U0 AnimateFire(I16 weapon)
             weapons.y=weapons.y-92;
             weapons.inum=31;
             Sleep(240);
-            //weapons.data=33;
-            //Play("tttG#...");
             break;
           case 2:
             weapons.oldinum=0;
@@ -895,8 +941,8 @@ U0 AnimateFire(I16 weapon)
             weapons.on=FALSE;
             break;
         }
-     break;
-     case 7://BFG
+        break;
+      case 7://BFG
        switch(weapons.oldinum)
         {
           case -1:
@@ -916,30 +962,40 @@ U0 AnimateFire(I16 weapon)
             break;
           case 1:
             weapons.oldinum=2;
-            //weapons.x=weapons.x-86;
-            //weapons.y=weapons.y-92;
             weapons.data=38;
-            Sleep(60);
+            Sleep(60);
             //weapons.data=33;
             Play("tttG...");
+            p->arsenal[weaponIndex]->load->ammo--;
             break;
           case 2:
             weapons.oldinum=0;
             weapons.inum=35;
             weapons.data=0;
-            //weapons.x=weapons.x+86;
-            //weapons.y=weapons.y+92;
             weapons.on=FALSE;
             break;
         }
-     break;
-
+        break;
+     }
     }
+    else
+    {
+     Play("tttE...");
+     Sleep(5);
+     weapons.oldinum=0;
+     //weapons.inum=0;
+     weapons.on=FALSE;
+     weapons.data=0;      
+    }
+
    }
 }
 
 U0 SwapWeapon(I64 weapon)
 {
+  if(!weapons.on)
+  {
+  weaponIndex = weapon;
   switch(weapon)
   {
    case 0:
@@ -954,7 +1010,7 @@ U0 SwapWeapon(I64 weapon)
     weapons.x=SCREENWIDTH/2.5;
     weapons.y=SCREENHEIGHT-186;$IV,1$$IV,0$
     weapons.data=0;
-    weapons.inum=8;//pistol
+    weapons.inum=8;//pistol 
     Sleep(20);
     weapons.inum=5;
     Sleep(20);   
@@ -1043,7 +1099,7 @@ U0 SwapWeapon(I64 weapon)
     
     break;
    
-   break;
+   }
   }
 }
 
@@ -1075,11 +1131,11 @@ U0 ST_Key(U16 val)
 
 }
 
-U0 ST_Start(CDC*dc, CDoomPlayer p)
+U0 ST_Start(CDC*dc, CDoomPlayer *p)
 {
     st_statusbaron=TRUE;
     ST_ReadOnce(dc);
-    ST_refresh(dc);
+    ST_refresh(dc,p);
     //ST_createWidgets();
     //ST_refresh();
 

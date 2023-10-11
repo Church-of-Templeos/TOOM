@@ -1,6 +1,6 @@
 class AmmoType{
-  I64 ammo;
-  I64 baseDamage;
+  U64 ammo;
+  I16 baseDamage;
 
   Bool splash;
   
@@ -47,10 +47,73 @@ U0 PlayerLook(CDoomPlayer *p,F64 angle) {
   p->angle=angle;
 }
 
+AmmoType *CreateAmmoType(U64 ammo, I16 baseDamage,Bool splash)
+{
+  AmmoType *at = CAlloc(sizeof(AmmoType));
+  at->ammo = ammo;
+  at->baseDamage=baseDamage;
+  at->splash = splash;
+  return at;
+}
 
 CDoomPlayer *PlayerNew(CDoomLevel *l) {
-  CDoomPlayer *p=CAlloc(sizeof CDoomPlayer);
-  p->arsenal=CAlloc(sizeof(GunAvail)*8);
+  U16 gunsInit=0;
+  CDoomPlayer *p=CAlloc(sizeof(CDoomPlayer));
+  p->arsenal=CAlloc(sizeof(GunAvail*)*8);  
+  for(gunsInit=0;gunsInit<8;gunsInit++)
+  {
+    p->arsenal[gunsInit] = CAlloc(sizeof(GunAvail));
+    p->arsenal[gunsInit]->available = TRUE;//all guns enabled
+    p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));
+    //p->arsenal[gunsInit]->load->ammo=999;
+    //p->arsenal[gunsInit]->load->baseDamage=2;
+    //p->arsenal[gunsInit]->load->splash=FALSE;   
+            
+    switch(gunsInit)
+    {
+      case 0://fists
+        p->arsenal[gunsInit]->load->ammo=0;
+        p->arsenal[gunsInit]->load->baseDamage=2;
+        p->arsenal[gunsInit]->load->splash=FALSE;   
+        break;
+      case 1://pistol
+        p->arsenal[gunsInit]->load->ammo=9;
+        p->arsenal[gunsInit]->load->baseDamage=4;
+        p->arsenal[gunsInit]->load->splash=FALSE;   
+        break;
+      case 2://shotgun
+        p->arsenal[gunsInit]->load->ammo=99;
+        p->arsenal[gunsInit]->load->baseDamage=4;
+        p->arsenal[gunsInit]->load->splash=FALSE;   
+        break;
+      case 3://chaingun
+        p->arsenal[gunsInit]->load->ammo=999;
+        p->arsenal[gunsInit]->load->baseDamage=4;
+        p->arsenal[gunsInit]->load->splash=FALSE;
+        break;
+      case 4://rocket launcher
+        p->arsenal[gunsInit]->load->ammo=9;
+        p->arsenal[gunsInit]->load->baseDamage=20;
+        p->arsenal[gunsInit]->load->splash=TRUE;
+        break;
+      case 5://chainsaw
+        p->arsenal[gunsInit]->load->ammo=0;
+        p->arsenal[gunsInit]->load->baseDamage=3;
+        p->arsenal[gunsInit]->load->splash=FALSE;
+        break;
+      case 6://plasma
+        p->arsenal[gunsInit]->load->ammo=99;
+        p->arsenal[gunsInit]->load->baseDamage=5;
+        p->arsenal[gunsInit]->load->splash=FALSE;
+        break;
+      case 7://bfg
+        p->arsenal[gunsInit]->load->ammo=999;
+        p->arsenal[gunsInit]->load->baseDamage=100;
+        p->arsenal[gunsInit]->load->splash=FALSE;
+        break;
+    }
+
+  }
   CDoomThing *t,*head=&l->things;
   for(t=head->next;t!=head;t=t->next) {
 //https://doomwiki.org/wiki/Thing_types#Other

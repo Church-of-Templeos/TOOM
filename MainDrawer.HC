@@ -332,7 +332,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
         }
         ih2+=2;
         while((ih2-=2)>=0) {
-	  if(!(cam->ceil_heights[ix/2]<=iy+ih2<=cam->floor_heights[ix/2]-2)) {
+	  if(!(cam->ceil_heights[ix/2]<=iy+ih2<=cam->floor_heights[ix/2]-2)) {
 	    if(iy+ih2<cam->ceil_heights[ix/2])
 	      break;
 //GR_HEIGHT-2>iy+ih2;
@@ -1181,7 +1181,7 @@ while(TRUE) {
   UpdateLevel(l);
   UpdateCameraFromPlayer(&cam,p);
   DrawDoomWorld(&cam,l,gr.dc);
-  ST_Start(gr.dc,p);
+  ST_Start(p);
 
 //mouse camera pan.
   cursor_x=ms.pos.x;
@@ -1230,7 +1230,7 @@ while(TRUE) {
       p->angle+=pi/16.;
      ST_Key(1);
   }
-  if(!Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)&&!Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
+  if(!Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)&&!Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
      ST_Key(0);
   }
   if(ms.lb) {

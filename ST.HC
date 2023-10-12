@@ -31,7 +31,10 @@ static Bool st_firsttime = FALSE;
 static Bool st_statusbaron;
 //used to change display of ammo left
 I16 weaponIndex =0;
-
+I32 maxBullets = 200;
+I32 maxShells = 50;
+I32 maxRockets = 50;
+I32 maxCells = 300;
 
 /*
 **
@@ -154,6 +157,17 @@ static CDC*		NUM8;
 static CDC*		NUM9;
 static CDC*		NUMPCT;
 
+static CDC*		NUMS0;
+static CDC*		NUMS1;
+static CDC*		NUMS2;
+static CDC*		NUMS3;
+static CDC*		NUMS4;
+static CDC*		NUMS5;
+static CDC*		NUMS6;
+static CDC*		NUMS7;
+static CDC*		NUMS8;
+static CDC*		NUMS9;
+
 static Bool st_stopped = TRUE;
 
 /*
@@ -231,8 +245,10 @@ U0 CopyPatch(CDC *to_dc,CDC*texture, I64 sx, I64 sy, I64 ex, I64 ey)
   }
 }
 
-CDC*ReturnSprite(U16 value)
+CDC*ReturnSprite(U16 value,Bool large)
 {
+ if(large)
+ {
   switch(value)
   {
    case 0:
@@ -270,10 +286,143 @@ CDC*ReturnSprite(U16 value)
      break;
 
   }
+ }
+ else
+ {
+  switch(value)
+  {
+   case 0:
+     return NUMS0;
+     break;
+   case 1:
+     return NUMS1;
+     break;
+   case 2:
+     return NUMS2;
+     break;
+   case 3:
+     return NUMS3;
+     break;
+   case 4:
+     return NUMS4;
+     break;
+   case 5:
+     return NUMS5;
+     break;
+   case 6:
+     return NUMS6;
+     break;
+   case 7:
+     return NUMS7;
+     break;
+   case 8:
+     return NUMS8;
+     break;
+   case 9:
+     return NUMS9;
+     break;
+   default:
+     return NUMS0;
+     break;
+
+  }
+ 
+ }
+}
+
+U0 DrawNumber(CDoomPlayer *p, U32 x, U32 y,U32 xInc, U16 weapon,Bool small)
+{
+    //bullets
+
+    U64 ammoNum;
+    if(weapon>=8)
+    {
+      switch(weapon)
+      {
+       case 8:
+        ammoNum=maxBullets;
+        break;
+
+       case 9:
+        ammoNum=maxShells;
+        break;
+
+       case 10:
+        ammoNum=maxRockets;
+        break;
+
+       case 11:
+        ammoNum=maxCells;
+        break;
+       case 12: //health
+        ammoNum=p->health;
+        break;
+       case 13: //armor
+        ammoNum=p->armor;
+        break;
+      }
+    }
+    else
+    {
+      ammoNum = p->arsenal[weapon]->load->ammo;
+    }
+
+    U16 hundreds = ammoNum/100;
+    U16 remainder = ammoNum%100;
+    U16 tens = remainder/10;
+    U16 ones = remainder%10;
+        
+    if(hundreds>0)
+    {
+     GrBlot(gr.dc,x,y,ReturnSprite(hundreds,small));
+     GrBlot(gr.dc,x+xInc,y,ReturnSprite(tens,small));
+     GrBlot(gr.dc,x+xInc+xInc,y,ReturnSprite(ones,small));
+
+     if(weapon>=12)
+     {
+       GrBlot(gr.dc,x+xInc+xInc+xInc,y,NUMPCT);
+
+     }
+    }
+    else
+    {
+     if(tens>0)
+     {
+      if(!small){
+        GrBlot(gr.dc,x,y,ReturnSprite(tens,small));
+        GrBlot(gr.dc,x+xInc,y,ReturnSprite(ones,small));
+      }
+      else
+      {
+        GrBlot(gr.dc,x+(xInc/2),y,ReturnSprite(tens,small));
+        GrBlot(gr.dc,x+xInc+(xInc/2),y,ReturnSprite(ones,small));
+        if(weapon>=12)
+        {
+         GrBlot(gr.dc,x+xInc+xInc+(xInc/2),y,NUMPCT);
+
+        }
+      }
+     }
+     else
+     {
+      if(!small){
+        GrBlot(gr.dc,x,y,ReturnSprite(ones,small));
+      }
+      else
+      {
+        GrBlot(gr.dc,x+xInc,y,ReturnSprite(ones,small));
+        if(weapon>=12)
+        {
+         GrBlot(gr.dc,x+xInc+xInc,y,NUMPCT);
+ 
+        } 
+      }
+     }
+    }
 }
 
 
-U0 ST_refreshBackground(CDC*dc, CDoomPlayer *p)
+U0 ST_refreshBackground(CDoomPlayer *p)
 {
     CDoomImageCol *curr = NULL;
     if (st_statusbaron)
@@ -332,37 +481,31 @@ U0 ST_refreshBackground(CDC*dc, CDoomPlayer *p)
         GrBlot(gr.dc,SCREENWIDTH/2-25,SCREENHEIGHT-64,
                       toom_faces.p[toom_faces.inum]);//faces
         
+        //bullets max
+        DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-55,10,8,FALSE);
+        DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-43,10,9,FALSE);        
+        DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-30,10,10,FALSE);
+        DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-18,10,11,FALSE);
         
-        U64 ammoNum = p->arsenal[weaponIndex]->load->ammo;
-        U16 hundreds = ammoNum/100;
-        U16 remainder = ammoNum%100;
-        U16 tens = remainder/10;
-        U16 ones = remainder%10;
+        //current ammo
+        DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-55,10,1,FALSE);
+        DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-43,10,2,FALSE);        
+        DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-30,10,4,FALSE);
+        DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-18,10,6,FALSE);
         
-        if(hundreds>0)
-        {
-         GrBlot(gr.dc,SCREENWIDTH/60,SCREENHEIGHT-52,ReturnSprite(hundreds));
-         GrBlot(gr.dc,SCREENWIDTH/18,SCREENHEIGHT-52,ReturnSprite(tens));
-         GrBlot(gr.dc,SCREENWIDTH/10,SCREENHEIGHT-52,ReturnSprite(ones));
-        }
-        else
-        {
-         if(tens>0)
-         {
-          GrBlot(gr.dc,SCREENWIDTH/45,SCREENHEIGHT-52,ReturnSprite(tens));
-          GrBlot(gr.dc,SCREENWIDTH/15,SCREENHEIGHT-52,ReturnSprite(ones));
-         }
-         else
-         {
-          GrBlot(gr.dc,SCREENWIDTH/20,SCREENHEIGHT-52,ReturnSprite(ones));
-         }
-        }          
+        //current ammo large
+        DrawNumber(p,8,SCREENHEIGHT-52,28,weaponIndex,TRUE);
+        //current health
+        DrawNumber(p,SCREENWIDTH-542,SCREENHEIGHT-52,28,12,TRUE);
+        //current armor
+        DrawNumber(p,SCREENWIDTH-282,SCREENHEIGHT-52,28,13,TRUE);
+    
     }
 }
 
-U0 ST_refresh(CDC*dc,CDoomPlayer *p)
+U0 ST_refresh(CDoomPlayer *p)
 {
-  ST_refreshBackground(dc,p);
+  ST_refreshBackground(p);
 }
 
 U0 InitWidgets()
@@ -380,7 +523,7 @@ U0 InitWidgets()
 
 }
 
-U0 ST_ReadOnce(CDC*dc)
+U0 ST_ReadOnce()
 {
    if(st_firsttime ==FALSE)
    {
@@ -426,6 +569,37 @@ U0 ST_ReadOnce(CDC*dc)
      wad_dir=wad->body+wad->directory_ptr;  
      wad_dir+=W_CheckNumForName("STTPRCNT",wad);  
      NUMPCT = ReadDoomImage(wad->body+wad_dir->ptr); 
+
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STYSNUM0",wad);  
+     NUMS0 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STYSNUM1",wad);  
+     NUMS1 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STYSNUM2",wad);  
+     NUMS2 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STYSNUM3",wad);  
+     NUMS3 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STYSNUM4",wad);  
+     NUMS4 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STYSNUM5",wad);  
+     NUMS5 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STYSNUM6",wad);  
+     NUMS6 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STYSNUM7",wad);  
+     NUMS7 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STYSNUM8",wad);  
+     NUMS8 = ReadDoomImage(wad->body+wad_dir->ptr);     
+     wad_dir=wad->body+wad->directory_ptr;  
+     wad_dir+=W_CheckNumForName("STYSNUM9",wad);  
+     NUMS9 = ReadDoomImage(wad->body+wad_dir->ptr); 
     
      
      //FACES
@@ -985,7 +1159,7 @@ U0 AnimateFire(CDoomPlayer *p)
      weapons.oldinum=0;
      //weapons.inum=0;
      weapons.on=FALSE;
-     weapons.data=0;      
+     weapons.data=0;      
     }
 
    }
@@ -1131,11 +1305,11 @@ U0 ST_Key(U16 val)
 
 }
 
-U0 ST_Start(CDC*dc, CDoomPlayer *p)
+U0 ST_Start(CDoomPlayer *p)
 {
     st_statusbaron=TRUE;
-    ST_ReadOnce(dc);
-    ST_refresh(dc,p);
+    ST_ReadOnce();
+    ST_refresh(p);
     //ST_createWidgets();
     //ST_refresh();
 

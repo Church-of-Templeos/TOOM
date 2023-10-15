@@ -807,7 +807,7 @@ cam.fov=pi/4;
 //cam.angle=-pi;
 cam.h=0;
 DocClear;
-Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
+Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
 
 F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
   F64 lowest=floor->floor_height,highest=floor->floor_height,diff;
@@ -1336,16 +1336,13 @@ U0 UpdateLevel(CDoomLevel *l) {
 #include "Collision.HC";
 #include "Player.HC";
 #include "ST.HC";
-
-
-//temp variable
-I64 play_weap=0;
+CDoomPlayer *p=PlayerNew(l);
 
 U0 AnimateTask(I64)
 {
   while(TRUE)
   {   
-   AnimateFire(play_weap);
+   AnimateFire(p);
    Sleep(60);  
   }
   
@@ -1359,15 +1356,19 @@ U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
 }
 
 
-CDoomPlayer *p=PlayerNew(l);
 PlayerMove(l,p,0);
 
 Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
+WinMax;
 
 while(TRUE) {
+  
   DCFill;
   UpdateLevel(l);
   UpdateCameraFromPlayer(&cam,p);
+  gr.dc->color=BLACK;
+  GrRect3(gr.dc,0,0,0,gr.dc->width,gr.dc->height);
+
   DrawDoomWorld(&cam,l,gr.dc);
   ST_Start(p);
 

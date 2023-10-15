@@ -5,4 +5,4 @@
 259	Ext	SR	Up	Fast	16	No	No
 127	Reg	S1	Up	Fast	16	No	No
 257	Ext	WR	Up	Fast	16	No	No
-100	Reg	W1	Up	Fast	16	No	No
+100	Reg	W1	Up	Fast	16	No	No

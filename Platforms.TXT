@@ -28,4 +28,4 @@
 120	Reg	WR	3s	Fast	None	--	No	Lowest Neighbor Floor (lift)
 121	Reg	W1	3s	Fast	None	--	No	Lowest Neighbor Floor (lift)
 211	Ext	SR	--	Inst	None	--	No	Ceiling (toggle)
-212	Ext	WR	--	Inst	None	--	No	Ceiling (toggle)
+212	Ext	WR	--	Inst	None	--	No	Ceiling (toggle)

@@ -13,4 +13,4 @@
 188	Ext	SR	----	--	--	Stop
 168	Ext	S1	----	--	--	Stop
 74	Reg	WR	----	--	--	Stop
-57	Reg	W1	----	--	--	Stop
+57	Reg	W1	----	--	--	Stop

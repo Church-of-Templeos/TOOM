@@ -812,7 +812,7 @@ Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
 F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
   F64 lowest=floor->floor_height,highest=floor->floor_height,diff;
   I64 idx,idx2;
-  CDoomSector *sd;
+  CDoomSidedef *sd;
   Bool up;
   switch(type) {
     case LIFT_STOP:
@@ -821,10 +821,10 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
       for(idx=0;idx!=floor->linedef_cnt;idx++) {
         sd=floor->linedefs[idx]->front;
         if(sd&&sd!=floor)
-	  lowest=Min(lowest,sd->floor_height);
+	  lowest=Min(lowest,sd->sector->floor_height);
         sd=floor->linedefs[idx]->back;
         if(sd&&sd!=floor)
-	  lowest=Min(lowest,sd->floor_height);
+	  lowest=Min(lowest,sd->sector->floor_height);
       }
       up=floor->floor_height==lowest;
       if(up) return floor->base_floor_height;
@@ -848,8 +848,8 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
 	  else
 	    sd=floor->linedefs[idx]->back;
 	  if(sd&&sd!=floor)
-	    if(sd->floor_height>floor->floor_height)
-	      diff=Max(diff,sd->floor_height-floor->floor_height);
+	    if(sd->sector->floor_height>floor->floor_height)
+	      diff=Max(diff,sd->sector->floor_height-floor->floor_height);
         }
         if(diff==0.)
           return floor->base_floor_height;
@@ -863,10 +863,10 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
         for(idx=0;idx!=floor->linedef_cnt;idx++) {
 	  sd=floor->linedefs[idx]->front;
 	  if(sd&&sd!=floor)
-	    highest=Max(highest,sd->floor_height);
+	    highest=Max(highest,sd->sector->floor_height);
 	  sd=floor->linedefs[idx]->back;
 	  if(sd&&sd!=floor)
-	    highest=Max(highest,sd->floor_height);
+	    highest=Max(highest,sd->sector->floor_height);
         }
 	return highest;
       } else {
@@ -875,10 +875,10 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
         for(idx=0;idx!=floor->linedef_cnt;idx++) {
 	  sd=floor->linedefs[idx]->front;
 	  if(sd&&sd!=floor)
-	    lowest=Min(lowest,sd->floor_height);
+	    lowest=Min(lowest,sd->sector->floor_height);
 	  sd=floor->linedefs[idx]->back;
 	  if(sd&&sd!=floor)
-	    lowest=Min(lowest,sd->floor_height);
+	    lowest=Min(lowest,sd->sector->floor_height);
         }
         return lowest;
       }
@@ -901,7 +901,6 @@ U0 UpdateSector(CDoomSector *s) {
   CDoomLinedef *ld=s->cur_action_linedef;
   if(!ld) return;
   if(ld->special_type->type=='Lift') {
-DbgPrint("lift\n");
     if(ld->special_type(CDoomLift*)->target==LIFT_LOW_HIGH_REPEAT) {
       percent=(time-s->start_tS)/s->speed;
       s->floor_height=percent*(s->target_end-s->target_start)+s->target_start;
@@ -918,8 +917,13 @@ lift_again:
 	  goto lift_again;
         }
       }
-    } else 
+    } else  {
+      if(s->target_end>s->floor_height)
+        s->going_up=TRUE,s->going_down=FALSE;
+      else
+        s->going_down=TRUE,s->going_up=FALSE;
       goto floor_defacto;
+    }
   } else if(ld->special_type->type=='Door') {
 //A door is fully open when its ceiling height is 4 less than the lowest neighbor ceiling adjacent to it
     for(idx=0;idx!=s->linedef_cnt;idx++) {
@@ -941,7 +945,6 @@ lift_again:
 	  }
 	  if(s->wait_time+s->start_tS>time) return;
 	  s->waiting=FALSE;
-
 	  s->start_tS=tS;
 	  s->opening=FALSE;
 	  s->closing=TRUE;
@@ -983,13 +986,31 @@ floor_defacto:
       if(s->floor_height>s->target_end) {
         s->floor_height=s->target_end;
         s->going_up=FALSE;
-        s->cur_action_linedef=NULL;
+floor_en:
+        if(ld->special_type->type=='Lift'&&!s->reverting) {
+	  if(!s->waiting) {
+	    s->waiting=TRUE;
+	    s->start_tS=tS;
+	  }
+	  if(s->wait_time+s->start_tS>time) {
+	    return;
+	  }
+	  s->waiting=FALSE;
+	  s->start_tS=tS;
+	  s->reverting=TRUE;
+	  s->target_start=s->floor_height;
+	  s->target_end=s->base_floor_height;
+        } else {
+	  s->reverting=FALSE;
+	  s->cur_action_linedef=NULL;
+	  s->going_up=FALSE,s->going_down=FALSE;
+        }
       }
     } else if(s->going_down) {
       if(s->floor_height<s->target_end) {
         s->floor_height=s->target_end;
         s->going_down=FALSE;
-        s->cur_action_linedef=NULL;
+        goto floor_en;
       }
     }
   }
@@ -1002,6 +1023,14 @@ F64 GetTargetFloorHeight(CDoomSector *floor,I64 type,Bool up) {
   I64 idx;
   switch(type) {
       break; case FLOOR_DST_LOWEST:
+      dst=I16_MAX;
+      for(idx=0;idx!=floor->linedef_cnt;idx++) {
+        if((sd=floor->linedefs[idx]->front)&&sd->sector!=floor) {
+        } else
+	  sd=floor->linedefs[idx]->back;
+        if(sd&&sd->sector!=floor&&sd->sector->floor_height<dst)
+	  dst=sd->sector->floor_height;
+      }
       break; case FLOOR_ABS_24:
       dst=floor->base_floor_height;
       if(up)
@@ -1119,19 +1148,22 @@ U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags) {
     if((type=ld->special_type)) {
       if(type->type=='Lift') {
         lift=type;
-        switch(fl->trigger) {
+        switch(lift->trigger) {
 	    break; case 'P1':
 	    if(!(flags&WACTIVATE_PUSH)) return;
 lactivate1:          
 	    if(s->activated) return;
 	    s->activated=TRUE;
 lactivate:
+	    if(s->cur_action_linedef)
+	      return;
 	    dst=GetTargetLiftHeight(s,lift->target);
 	    s->target_start=s->floor_height;
 	    s->target_end=dst;
 	    s->start_tS=tS;
 	    s->speed=lift->speed;
 	    s->cur_action_linedef=ld;
+	    s->wait_time=lift->delay;
 	    break; case 'S1':
 	    if(!(flags&WACTIVATE_SWITCH)) return;
 	    goto lactivate1;

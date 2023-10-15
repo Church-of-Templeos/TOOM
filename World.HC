@@ -133,7 +133,7 @@ U0 LoadLifts() {
   fptr=optr;
   while(ln=ReadALine(&fptr)) {
     if(*ln=='#') goto skip;
-    StrScan(ln,"%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+    StrScan(ln,"%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 	&num,
 	&cls_ptr,
 	&trig_ptr,

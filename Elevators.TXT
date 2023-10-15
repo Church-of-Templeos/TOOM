@@ -9,4 +9,4 @@
 238	Ext	SR	Fast	Current Floor
 237	Ext	S1	Fast	Current Floor
 236	Ext	WR	Fast	Current Floor
-235	Ext	W1	Fast	Current Floor
+235	Ext	W1	Fast	Current Floor

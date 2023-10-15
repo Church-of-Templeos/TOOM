@@ -213,7 +213,7 @@ class CDoomSector:CQue {
   F64 speed;
   F64 start_tS,door_height_offset;
   F64 target_end,target_start;
-  Bool drawn,closing,opening,activated,waiting,going_up,going_down,pad[1];
+  Bool drawn,closing,opening,activated,waiting,going_up,going_down,reverting;
 };
 
 

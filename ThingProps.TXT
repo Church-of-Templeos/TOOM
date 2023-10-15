@@ -68,7 +68,7 @@
 2015	7DF	S	20	16	BON2	ABCDCB	AP	Armor bonus
 2023	7E7	R	20	16	PSTR	A	AP	Berserk
 2026	7EA	S	20	16	PMAP	ABCDCB	AP1	Computer area map
-2014	7DE	S	20	16	BON1	ABCDCB	AP	Health bonus
+2014	7DE	S	20	16	BON1	ABCDCB	AP	Health bonus
 2022	7E6	R	20	16	PINV	ABCD	AP	Invulnerability
 2045	7FD	S	20	16	PVIS	AB	AP	Light amplification visor
 83	53	2	20	16	MEGA	ABCD	AP	Megasphere

@@ -1,4 +1,4 @@
-11	Reg	S1	Normal
+11	Reg	S1	Normal
 52	Reg	W1	Normal
 197	Ext	G1	Normal
 51	Reg	S1	Secret

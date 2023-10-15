@@ -111,7 +111,7 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
   CDoomThing *t,*head=&l->things;
   for(t=head->next;t!=head;t=t->next) {
 //https://doomwiki.org/wiki/Thing_types#Other
-    if(t->thing_type==1) {
+    if(t->thing_type==1) {
       p->position.x=t->x+10;
       p->position.y=t->y;
       p->angle=t->angle;

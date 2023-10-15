@@ -1038,7 +1038,7 @@ found:
   if(StrCmp8("LINEDEFS",wad_dir[1].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
     if(dlinedef_list[idx]->front) {
-      AddLinedefToSector(
+      AddLinedefToSector(
 	    dlinedef_list[idx],
 	    dlinedef_list[idx]->front->sector,
 	    );

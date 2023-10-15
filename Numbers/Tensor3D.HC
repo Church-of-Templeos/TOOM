@@ -287,7 +287,7 @@ U0 MainTensor()
   SetTensorVector(t1,v2,0,1);
   SetTensorVector(t1,v2,0,2);
   SetTensorVector(t1,v2,1,0);
-  SetTensorVector(t1,v2,1,1);
+  SetTensorVector(t1,v2,1,1);
   SetTensorVector(t1,v2,1,2);
 
   DestroyVector(v2);

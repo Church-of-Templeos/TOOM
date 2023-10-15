@@ -179,7 +179,7 @@ static CDoomAnimationFrame *GenerateCacheFrames(CDoomThingTemplate *t,U8 *frames
     if(!Bt(char_bmp_alpha,frames[idx]))
       break;
     ret[idx].chr=frames[idx];
-    for(angle=-2.*pi/8.,face=0;angle<=2*pi+.1;angle+=2*pi/8.,face++) {
+    for(angle=-2.*pi/8.,face=0;angle<=2*pi+.1;angle+=2*pi/8.,face++) {
       last_dc=_GetThingFaceSprite(t,angle,frames[idx],&ret[idx].reflect[face]);
       ret[idx].faces[face]=last_dc;
     }

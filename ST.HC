@@ -498,7 +498,7 @@ U0 ST_refreshBackground(CDoomPlayer *p)
         //current health
         DrawNumber(p,SCREENWIDTH-542,SCREENHEIGHT-52,28,12,TRUE);
         //current armor
-        DrawNumber(p,SCREENWIDTH-282,SCREENHEIGHT-52,28,13,TRUE);
+        DrawNumber(p,SCREENWIDTH-282,SCREENHEIGHT-52,28,13,TRUE);
     
     }
 }

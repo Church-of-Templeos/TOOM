@@ -1,4 +1,4 @@
-`//Author Austin Sierra
+`//Author Austin Sierra
 //Last Change June 15, 2023 
 //for Church of AI Christ
 //Subject to Creative Commons BY-NC 4.0

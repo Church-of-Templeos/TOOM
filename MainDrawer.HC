@@ -332,7 +332,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
         }
         ih2+=2;
         while((ih2-=2)>=0) {
-	  if(!(cam->ceil_heights[ix/2]<=iy+ih2<=cam->floor_heights[ix/2]-2)) {
+	  if(!(cam->ceil_heights[ix/2]<=iy+ih2<=cam->floor_heights[ix/2]-2)) {
 	    if(iy+ih2<cam->ceil_heights[ix/2])
 	      break;
 //GR_HEIGHT-2>iy+ih2;
@@ -348,20 +348,20 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	      if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
 	        ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2))%texture->height;
 	      } else {
-	        ty=(ToI64(ih2*ratio)*2+yoff*2-ratio*sd->sector->door_height_offset*2)%texture->height;
+	        ty=(ToI64(ih2*ratio)*2+yoff*2-sd->sector->door_height_offset*2)%texture->height;
 	      }
 	    } else {
 	      if(floor) {
 	        if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
 		  ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)+2*ToI64(ceilh-flrh))%texture->height;
 	        } else {
-		  ty=ToI64(ToI64(ih2*ratio)*2+yoff*2)%texture->height;
+		  ty=ToI64(ToI64(ih2*ratio)*2+yoff*2-ToI64(sd->sector->door_height_offset)*2)%texture->height;
 	        }
 	      } else{
 	        if(!(ld->flags&WAD_LINEDEFF_UPPER_UNPEGGED)) {
-		  ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2))%texture->height;
+		  ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)-ToI64(sd->sector->door_height_offset)*2)%texture->height;
 	        } else {
-		  ty=(ToI64(ih2*ratio)*2+yoff*2)%texture->height;
+		  ty=(ToI64(ih2*ratio)*2+yoff*2-ToI64(sd->sector->door_height_offset)*2)%texture->height;
 	        }
 	      }
 	    }
@@ -370,7 +370,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  }
 	  //Doors raise the ceiling but the texture needs to move along with it
 	  if(opposite)
-            ty=ToI64(ty+opposite->sector->door_height_offset*2)%texture->height;
+            ty=ToI64(ty)%texture->height;
 	  tx=AbsI64(tx);
 	  ty=AbsI64(ty);
 	  ty=ClampI64(ty,0,texture->height-2);
@@ -809,6 +809,87 @@ cam.h=0;
 DocClear;
 Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
 
+F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
+  F64 lowest=floor->floor_height,highest=floor->floor_height,diff;
+  I64 idx,idx2;
+  CDoomSector *sd;
+  Bool up;
+  switch(type) {
+    case LIFT_STOP:
+      return floor->floor_height;
+    case LIFT_LOWEST_FLOOR:
+      for(idx=0;idx!=floor->linedef_cnt;idx++) {
+        sd=floor->linedefs[idx]->front;
+        if(sd&&sd!=floor)
+	  lowest=Min(lowest,sd->floor_height);
+        sd=floor->linedefs[idx]->back;
+        if(sd&&sd!=floor)
+	  lowest=Min(lowest,sd->floor_height);
+      }
+      up=floor->floor_height==lowest;
+      if(up) return floor->base_floor_height;
+      return lowest;
+    case LIFT_RAISE_32:
+      up=floor->base_floor_height+32<floor->floor_height;
+      if(up)
+        return floor->base_floor_height+32;
+      return floor->base_floor_height;
+    case LIFT_RAISE_24:
+      up=floor->base_floor_height+24<floor->floor_height;
+      if(up)
+        return floor->base_floor_height+24;
+      return floor->base_floor_height;
+    case LIFT_RAISE_NEXT_FLOOR:
+      diff=0.;
+      for(idx=0;idx!=floor->linedef_cnt;idx++) {
+        for(idx2=0;idx2!=2;idx2++) {
+	  if(idx2)
+	    sd=floor->linedefs[idx]->front;
+	  else
+	    sd=floor->linedefs[idx]->back;
+	  if(sd&&sd!=floor)
+	    if(sd->floor_height>floor->floor_height)
+	      diff=Max(diff,sd->floor_height-floor->floor_height);
+        }
+        if(diff==0.)
+          return floor->base_floor_height;
+        return diff+floor->floor_height;
+      }
+      return lowest;     
+    case LIFT_LOW_HIGH_REPEAT:
+      if(!floor->going_down) {
+	floor->going_up=TRUE;
+	floor->going_down=FALSE;
+        for(idx=0;idx!=floor->linedef_cnt;idx++) {
+	  sd=floor->linedefs[idx]->front;
+	  if(sd&&sd!=floor)
+	    highest=Max(highest,sd->floor_height);
+	  sd=floor->linedefs[idx]->back;
+	  if(sd&&sd!=floor)
+	    highest=Max(highest,sd->floor_height);
+        }
+	return highest;
+      } else {
+	floor->going_up=FALSE;
+	floor->going_down=TRUE;
+        for(idx=0;idx!=floor->linedef_cnt;idx++) {
+	  sd=floor->linedefs[idx]->front;
+	  if(sd&&sd!=floor)
+	    lowest=Min(lowest,sd->floor_height);
+	  sd=floor->linedefs[idx]->back;
+	  if(sd&&sd!=floor)
+	    lowest=Min(lowest,sd->floor_height);
+        }
+        return lowest;
+      }
+    case LIFT_CEIL_TOGGLE:
+      if(floor->base_floor_height==floor->floor_height)
+	return floor->base_ceil_height;
+      return floor->base_floor_height;
+  }
+}
+
+
 #define WACTIVATE_PUSH 1
 #define WACTIVATE_SHOOT 2
 #define WACTIVATE_SWITCH 4
@@ -817,8 +898,29 @@ Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
 U0 UpdateSector(CDoomSector *s) {
   F64 percent,time=tS,ceil=I16_MAX;
   I64 idx;
-  if(!s->cur_action_linedef) return;
-  if(s->cur_action_linedef->special_type->type=='Door') {
+  CDoomLinedef *ld=s->cur_action_linedef;
+  if(!ld) return;
+  if(ld->special_type->type=='Lift') {
+DbgPrint("lift\n");
+    if(ld->special_type(CDoomLift*)->target==LIFT_LOW_HIGH_REPEAT) {
+      percent=(time-s->start_tS)/s->speed;
+      s->floor_height=percent*(s->target_end-s->target_start)+s->target_start;
+      if(s->going_up) {
+        if(s->floor_height>s->target_end) {
+	  s->floor_height=s->target_end;
+lift_again:
+	  s->start_tS=tS;
+	  s->target_end=GetTargetLiftHeight(s,ld);
+        }
+      } else if(s->going_down) {
+        if(s->floor_height<s->target_end) {
+	  s->floor_height=s->target_end;
+	  goto lift_again;
+        }
+      }
+    } else 
+      goto floor_defacto;
+  } else if(ld->special_type->type=='Door') {
 //A door is fully open when its ceiling height is 4 less than the lowest neighbor ceiling adjacent to it
     for(idx=0;idx!=s->linedef_cnt;idx++) {
       if(s->linedefs[idx]->back&&s->linedefs[idx]->back->sector!=s)
@@ -828,12 +930,18 @@ U0 UpdateSector(CDoomSector *s) {
     }
     if(s->opening) {
       percent=(time-s->start_tS)/s->speed;
-      if(percent>=1.) {
+      if(percent>=1.||s->waiting) {
         s->ceil_height=ceil;
 //-1 for never close/open again
         if(s->wait_time>=0.) {
 //close again
-	  if(s->wait_time+s->start_tS<time) return;
+	  if(!s->waiting) {
+	    s->waiting=TRUE;
+	    s->start_tS=tS;
+	  }
+	  if(s->wait_time+s->start_tS>time) return;
+	  s->waiting=FALSE;
+
 	  s->start_tS=tS;
 	  s->opening=FALSE;
 	  s->closing=TRUE;
@@ -845,11 +953,16 @@ U0 UpdateSector(CDoomSector *s) {
       }
     } else if(s->closing) {
       percent=(time-s->start_tS)/s->speed;
-      if(percent>=1.) {
+      if(percent>=1.||s->waiting) {
         s->ceil_height=s->base_floor_height;
 //-1 for never close/open again
         if(s->wait_time>=0.) {
-	  if(s->wait_time+s->start_tS<time) return;
+	  if(!s->waiting) {
+	    s->waiting=TRUE;
+	    s->start_tS=tS;
+	  }
+	  if(s->wait_time+s->start_tS>time) return;
+	  s->waiting=FALSE;
 //open again
 	  s->start_tS=tS;
 	  s->opening=TRUE;
@@ -862,26 +975,27 @@ U0 UpdateSector(CDoomSector *s) {
       }
     }
     s->door_height_offset=s->ceil_height-s->base_floor_height;
-  } else if(s->cur_action_linedef->special_type->type=='Floor') {
+  } else if(ld->special_type->type=='Floor') {
+floor_defacto:
     percent=(time-s->start_tS)/s->speed;
     s->floor_height=percent*(s->target_end-s->target_start)+s->target_start;
     if(s->going_up) {
       if(s->floor_height>s->target_end) {
-	s->floor_height=s->target_end;
-	s->going_up=FALSE;
-	s->cur_action_linedef=NULL;
+        s->floor_height=s->target_end;
+        s->going_up=FALSE;
+        s->cur_action_linedef=NULL;
       }
     } else if(s->going_down) {
       if(s->floor_height<s->target_end) {
-	s->floor_height=s->target_end;
-	s->going_down=FALSE;
-	s->cur_action_linedef=NULL;
+        s->floor_height=s->target_end;
+        s->going_down=FALSE;
+        s->cur_action_linedef=NULL;
       }
     }
   }
 }
 
-F64 GetTargetFloorHeight(CDoomSector *floor,I64 type,I64 up=FALSE) {
+F64 GetTargetFloorHeight(CDoomSector *floor,I64 type,Bool up) {
   F64 dst;
   F64 diff;
   CDoomSidedef *sd;
@@ -889,12 +1003,12 @@ F64 GetTargetFloorHeight(CDoomSector *floor,I64 type,I64 up=FALSE) {
   switch(type) {
       break; case FLOOR_DST_LOWEST:
       break; case FLOOR_ABS_24:
-      dst=floor->floor_height;
+      dst=floor->base_floor_height;
       if(up)
         return dst+24;
       return dst-24;
       break; case FLOOR_ABS_512:
-      dst=floor->floor_height;
+      dst=floor->base_floor_height;
       if(up)
         return dst+512;
       return dst-512;
@@ -999,10 +1113,48 @@ U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags) {
   CDoomActionSector *type;
   CDoomFloor *fl;
   CDoomDoor *door;
+  CDoomLift *lift;
   F64 dst;
   if(ld) {
     if((type=ld->special_type)) {
-      if(type->type=='Floor') {
+      if(type->type=='Lift') {
+        lift=type;
+        switch(fl->trigger) {
+	    break; case 'P1':
+	    if(!(flags&WACTIVATE_PUSH)) return;
+lactivate1:          
+	    if(s->activated) return;
+	    s->activated=TRUE;
+lactivate:
+	    dst=GetTargetLiftHeight(s,lift->target);
+	    s->target_start=s->floor_height;
+	    s->target_end=dst;
+	    s->start_tS=tS;
+	    s->speed=lift->speed;
+	    s->cur_action_linedef=ld;
+	    break; case 'S1':
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto lactivate1;
+	    break; case 'W1':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto lactivate1;
+	    break; case 'G1':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto lactivate1;
+	    break; case 'PR':
+	    if(!(flags&WACTIVATE_PUSH)) return;
+	    goto lactivate;
+	    break; case 'SR':
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto lactivate;
+	    break; case 'GR':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto lactivate;
+	    break; case 'WR':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto lactivate;
+        }
+      } else if(type->type=='Floor') {
         fl=type;
         switch(fl->trigger) {
 	    break; case 'P1':
@@ -1154,6 +1306,19 @@ U0 UpdateLevel(CDoomLevel *l) {
 #include "ST.HC";
 
 
+//temp variable
+I64 play_weap=0;
+
+U0 AnimateTask(I64)
+{
+  while(TRUE)
+  {   
+   AnimateFire(play_weap);
+   Sleep(60);  
+  }
+  
+}
+
 U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
   cam->h=p->height+48;
   cam->x=p->position.x;
@@ -1165,15 +1330,6 @@ U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
 CDoomPlayer *p=PlayerNew(l);
 PlayerMove(l,p,0);
 
-U0 AnimateTask(I64)
-{
-  while(TRUE)
-  {   
-   AnimateFire(p);
-   Sleep(60);  
-  }
-  
-}
 Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
 
 while(TRUE) {

@@ -32,13 +32,33 @@ class CDoomDoor {
   I64 action;
 };
 
+#define LIFT_STOP 1
+#define LIFT_RAISE_NEXT_FLOOR 2
+#define LIFT_RAISE_32 3
+#define LIFT_RAISE_24 4
+#define LIFT_LOWEST_FLOOR 5
+#define LIFT_LOW_HIGH_REPEAT 6
+#define LIFT_CEIL_TOGGLE 7
+class CDoomLift {
+  U64 type;
+  U64 trigger;
+  I64 target;
+  I64 model;
+  F64 delay;
+  F64 speed;
+  U8 zero_type;
+  U8 texture_change;
+  U8 type_change;
+  U8 monster;
+};
+
 #define FLOOR_DST_LOWEST 1
 #define FLOOR_ABS_24 2
 #define FLOOR_ABS_512 3
 #define FLOOR_DST_HIGHEST_CEIL 4
 #define FLOOR_DST_HIGHEST_CEIL_ADD_8 5
 #define FLOOR_DST_HIGHEST_FLOOR 6
-#define FLOOR_DST_HIGHEST_FLOOR_ADD_8 7
+#define FLOOR_DST_HIGHEST_FLOOR_ADD_8 7
 #define FLOOR_DST_LOWEST_CEIL 8
 #define FLOOR_DST_LOWEST_CEIL_SUB_8 9
 #define FLOOR_DST_LOWEST_FLOOR 10
@@ -95,6 +115,100 @@ U8 *ReadALine(U8 **fbuf) {
   return StrNew(st);
 }
 
+#define DOOM_LIFTS_FILE "Platforms.TXT"
+
+U0 LoadLifts() {
+  U8 *optr=FileRead(DOOM_LIFTS_FILE),*fptr,*ln;
+  U8 cls[STR_LEN],*cls_ptr=cls;
+  U8 trig[STR_LEN],*trig_ptr=trig;
+  U8 speed[STR_LEN],*speed_ptr=speed;
+  U8 change[STR_LEN],*change_ptr=change;
+  U8 model[STR_LEN],*model_ptr=model;
+  U8 monster[STR_LEN],*monster_ptr=monster;
+  U8 target[STR_LEN],*target_ptr=target;
+  U8 delays[STR_LEN],*delay_ptr=delays;
+  F64 delay;
+  I64 num;
+  CDoomLift *lift;
+  fptr=optr;
+  while(ln=ReadALine(&fptr)) {
+    if(*ln=='#') goto skip;
+    StrScan(ln,"%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+	&num,
+	&cls_ptr,
+	&trig_ptr,
+	&delay_ptr,
+	&speed_ptr,
+	&change_ptr,
+	&model_ptr,
+	&monster_ptr,
+	&target_ptr
+    );
+    lift=CAlloc(sizeof CDoomLift);
+    lift->type='Lift';
+    action_sector_types[num]=lift;
+    lift->trigger=trig[0](U16);
+    if(*delays!='-')
+      lift->delay=Str2F64(delays);
+    if(*speed!='-') {
+      if(!StrCmp("Slow",speed))
+      lift->speed=DOOR_SPEED_SLOW;
+      else if(!StrCmp("Normal",speed))
+      lift->speed=DOOR_SPEED_NORMAL;
+      else if(!StrCmp("Fast",speed))
+      lift->speed=DOOR_SPEED_FAST;
+      else if(!StrCmp("Turbo",speed))
+      lift->speed=DOOR_SPEED_TURBO;
+      else if(!StrCmp("Inst",speed))
+      lift->speed=1000.;
+      else throw('Doom');
+    }
+    if(*change!='-') {
+      if(!StrCmp("Tx",change))
+	lift->texture_change=TRUE;
+      else if(!StrCmp("Tx0",change))
+	lift->texture_change=lift->zero_type=TRUE;
+      else if(!StrCmp("TxTy",change))
+	lift->texture_change=TRUE,lift->type_change=TRUE;
+      else if(!StrCmp("None",change))
+	;
+      else
+        throw('Doom');
+    }
+    if(*model!='-') {
+      if(!StrCmp("Trg",model))
+        lift->model=FLOOR_MODEL_TRIGGER;
+      else if(!StrCmp("Num",model))
+        lift->model=FLOOR_MODEL_NUMBERED;
+      else
+	throw('Doom');
+    } else
+      lift->model=FLOOR_MODEL_NONE;
+    if(*monster!='-') {
+      if(!StrCmp("Yes",monster))
+        lift->monster=TRUE;
+      else if(!StrCmp("No",monster))
+        lift->monster=FALSE;     
+    }
+    if(!StrCmp("Raise 24 Units",target)) {
+      lift->target=LIFT_RAISE_24;
+    } else if(!StrCmp("Raise 32 Units",target)) {
+      lift->target=LIFT_RAISE_32;
+    } else if(!StrCmp("Raise Next Floor",target)) {
+      lift->target=LIFT_RAISE_NEXT_FLOOR;
+    } else if(!StrCmp("Lowest and Highest Floor (perpetual)",target)) {
+      lift->target=LIFT_LOW_HIGH_REPEAT;
+    } else if(!StrCmp("Stop",target)) {
+      lift->target=LIFT_STOP;
+    } else if(!StrCmp("Lowest Neighbor Floor (lift)",target)) {
+      lift->target=LIFT_LOWEST_FLOOR;
+    } else if(!StrCmp(" Ceiling (toggle)",target)) {
+      lift->target=LIFT_CEIL_TOGGLE;
+    }
+skip:;
+  }
+  Free(optr);
+}
 U0 LoadFloors() {
   U8 *optr=FileRead(DOOM_FLOORS_FILE),*fptr,*ln;
   I64 num;
@@ -302,4 +416,5 @@ skip:
 }
 LoadDoors;
 LoadFloors;
+LoadLifts;
 #endif

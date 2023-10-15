@@ -25,7 +25,7 @@ F64 FSin(F64 a) {
   return sin_table[mul];
 }
 
-//https://math.stackexchange.com/questions/1098487/atan2-faster-approximation
+//https://math.stackexchange.com/questions/1098487/atan2-faster-approximation
 F64 FArg(F64 x,F64 y) {
   F64 ax=x,ay=y,a,s,r;
   if(ax<0.) ax=-ax;

@@ -141,4 +141,4 @@ weaponinfo_t	weaponinfo[NUMWEAPONS] =
     },	
 }
 
-*/
+*/

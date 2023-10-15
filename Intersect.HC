@@ -17,7 +17,7 @@ Check for intersection basically.
   /
  /
 */
-  F64 slope1,slope2,off1,off2;
+  F64 slope1,slope2,off1,off2;
   CD2 dummy;
   if(!dst) dst=&dummy;
 //If the line points straight up,we can check to see if the other

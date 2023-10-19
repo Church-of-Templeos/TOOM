@@ -122,7 +122,8 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
         if(lds[0]->special_type) {
 	  if(lds[0]->special_type->type=='Door'
 		||lds[0]->special_type->type=='Floor'
-		||lds[0]->special_type->type=='Lift') {
+		||lds[0]->special_type->type=='Lift'
+		||lds[0]->special_type->type=='Ceil') {
 	    if(walked_over_idx<64) {
 	      if(PlaneIntersect(result,&move1,&move2,lds[0]->start,lds[0]->end))  {
 	        walked_over_dists[walked_over_idx]=Sqrt(Sqr(result->x-move1.x)+Sqr(result->y-move1.y));

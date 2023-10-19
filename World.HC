@@ -90,6 +90,20 @@ class CDoomFloor {
   I64 target
 };
 
+#define CEIL_DST_FLOOR 1
+#define CEIL_DST_HIGHEST_CEIL 2
+#define CEIL_DST_FLOOR8 3
+#define CEIL_DST_LOWEST_CEIL 4
+#define CEIL_DST_HIGHEST_FLOOR 5
+
+class CDoomCeil {
+  U64 type;
+  U64 trigger;
+  U64 direction;
+  F64 speed;
+  I64 target;
+};
+
 
 union CDoomActionSector {
   U64 type;
@@ -98,6 +112,7 @@ union CDoomActionSector {
 
 CDoomActionSector *action_sector_types[0x10000];
 MemSet(action_sector_types,0,0x10000*8);
+
 
 #define DOOM_DOORS_FILE "Doors.TXT"
 #define DOOM_FLOORS_FILE "Floors.TXT"
@@ -115,10 +130,86 @@ U8 *ReadALine(U8 **fbuf) {
   return StrNew(st);
 }
 
+#define DOOM_CEILS_FILE "Ceils.TXT"
+U0 LoadCeils() {
+  CDoomCeil *ceil;
+  U8 *optr=FileRead(DOOM_CEILS_FILE),*fptr,*ln;
+  StrUtil(optr,SUF_REM_CTRL_CHARS);
+  U8 cls[STR_LEN],*cls_ptr=cls;
+  U8 trig[STR_LEN],*trig_ptr=trig;
+  U8 dir[STR_LEN],*dir_ptr=dir;
+  U8 speed[STR_LEN],*speed_ptr=speed;
+  U8 change[STR_LEN],*change_ptr=change;
+  U8 model[STR_LEN],*model_ptr=model;
+  U8 monster[STR_LEN],*monster_ptr=monster;
+  U8 crush[STR_LEN],*crush_ptr=crush;
+  U8 dst[STR_LEN],*dst_ptr=dst;
+  I64 num;
+  fptr=optr;
+  while(ln=ReadALine(&fptr)) {
+    if(*ln=='#'||*ln==0)
+      goto skip;
+    StrScan(ln,"%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+	  &num,
+	  &cls_ptr,
+	  &trig_ptr,
+	  &dir_ptr,
+	  &speed_ptr,
+	  &change_ptr,
+	  &model_ptr,
+	  &monster_ptr,
+	  &crush_ptr,
+	  &dst_ptr
+	  );
+    ceil=CAlloc(sizeof CDoomLift);
+    ceil->type='Ceil';
+    action_sector_types[num]=ceil;
+    ceil->trigger=trig[0](U16);
+
+    if(!StrCmp(dir,"Up"))
+      ceil->direction=FLOOR_DIR_UP;
+    else if(!StrCmp(dir,"Dn"))
+      ceil->direction=FLOOR_DIR_DOWN;
+    else
+      throw('Doom');
+
+    if(!StrCmp("Slow",speed))
+      ceil->speed=DOOR_SPEED_SLOW;
+    else if(!StrCmp("Normal",speed))
+      ceil->speed=DOOR_SPEED_NORMAL;
+    else if(!StrCmp("Fast",speed))
+      ceil->speed=DOOR_SPEED_FAST;
+    else if(!StrCmp("Turbo",speed))
+      ceil->speed=DOOR_SPEED_TURBO;
+    else if(!StrCmp("Inst",speed))
+      ceil->speed=1000.;
+    else throw('Doom');
+
+      //All these are unused(change,model,monseter,crush)?
+    if(!StrCmp("Floor",dst))
+      ceil->target=CEIL_DST_FLOOR;
+    else if(!StrCmp("Highest Neighbor Ceiling",dst))
+      ceil->target=CEIL_DST_HIGHEST_CEIL;
+    else if(!StrCmp("8 Above Floor",dst))
+      ceil->target=CEIL_DST_FLOOR8;
+    else if(!StrCmp("Lowest Neighbor Ceiling",dst))
+      ceil->target=CEIL_DST_LOWEST_CEIL;
+    else if(!StrCmp("Highest Neighbor Floor",dst))
+      ceil->target=CEIL_DST_HIGHEST_FLOOR;
+    else
+      throw('Doom');
+skip:      
+    Free(ln);
+  }
+  Free(optr);
+}
+
+
 #define DOOM_LIFTS_FILE "Platforms.TXT"
 
 U0 LoadLifts() {
   U8 *optr=FileRead(DOOM_LIFTS_FILE),*fptr,*ln;
+  StrUtil(optr,SUF_REM_CTRL_CHARS);
   U8 cls[STR_LEN],*cls_ptr=cls;
   U8 trig[STR_LEN],*trig_ptr=trig;
   U8 speed[STR_LEN],*speed_ptr=speed;
@@ -417,4 +508,5 @@ skip:
 LoadDoors;
 LoadFloors;
 LoadLifts;
+LoadCeils;
 #endif

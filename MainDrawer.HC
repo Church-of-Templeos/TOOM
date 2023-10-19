@@ -807,7 +807,7 @@ cam.fov=pi/4;
 //cam.angle=-pi;
 cam.h=0;
 DocClear;
-Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
+Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
 
 F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
   F64 lowest=floor->floor_height,highest=floor->floor_height,diff;
@@ -900,7 +900,25 @@ U0 UpdateSector(CDoomSector *s) {
   I64 idx;
   CDoomLinedef *ld=s->cur_action_linedef;
   if(!ld) return;
-  if(ld->special_type->type=='Lift') {
+  if(ld->special_type->type=='Ceil') {
+    if(!s->going_up&&!s->going_down) {
+    if(s->target_end>s->ceil_height)
+	s->going_up=TRUE,s->going_down=FALSE;
+    else
+	s->going_down=TRUE,s->going_up=FALSE;
+    }
+    percent=(time-s->start_tS)/s->speed;
+    s->ceil_height=percent*(s->target_end-s->target_start)+s->target_start;
+    if(s->going_up&&s->ceil_height>s->target_end) {
+      s->ceil_height=s->target_end;
+      s->going_up=FALSE;
+      s->cur_action_linedef=NULL;
+    } else if(s->going_down&&s->ceil_height<s->target_end) {
+      s->ceil_height=s->target_end;
+      s->going_down=FALSE;
+      s->cur_action_linedef=NULL;
+    }
+  } else if(ld->special_type->type=='Lift') {
     if(ld->special_type(CDoomLift*)->target==LIFT_LOW_HIGH_REPEAT) {
       percent=(time-s->start_tS)/s->speed;
       s->floor_height=percent*(s->target_end-s->target_start)+s->target_start;
@@ -1137,16 +1155,102 @@ F64 GetTargetFloorHeight(CDoomSector *floor,I64 type,Bool up) {
   }
   return dst;
 }
-
+F64 GetTargetCeilHeight(CDoomSector *s,I64 target) {
+  I64 idx;
+  CDoomSector *other;
+  F64 to=s->ceil_height;
+  switch(target) {
+    case CEIL_DST_FLOOR:
+      return s->floor_height;
+    case CEIL_DST_HIGHEST_CEIL:
+      for(idx=0;idx!=s->linedef_cnt;idx++) {
+	if(s->linedefs[idx]->back&&s!=s->linedefs[idx]->back->sector) {
+	  other=s->linedefs[idx]->back->sector;
+        } else if(s->linedefs[idx]->front&&s!=s->linedefs[idx]->front->sector) {
+	  other=s->linedefs[idx]->front->sector;
+	}
+	if(other)
+	  to=Max(to,other->ceil_height);
+      }
+      return to;
+    case CEIL_DST_FLOOR8:
+      return s->floor_height+8;
+    case CEIL_DST_LOWEST_CEIL:
+      for(idx=0;idx!=s->linedef_cnt;idx++) {
+	if(s->linedefs[idx]->back&&s!=s->linedefs[idx]->back->sector) {
+	  other=s->linedefs[idx]->back->sector;
+        } else if(s->linedefs[idx]->front&&s!=s->linedefs[idx]->front->sector) {
+	  other=s->linedefs[idx]->front->sector;
+	}
+	if(other)
+	  to=Min(to,other->ceil_height);
+      }
+      return to;
+    case CEIL_DST_HIGHEST_FLOOR:
+      to=s->floor_height;
+      for(idx=0;idx!=s->linedef_cnt;idx++) {
+	if(s->linedefs[idx]->back&&s!=s->linedefs[idx]->back->sector) {
+	  other=s->linedefs[idx]->back->sector;
+        } else if(s->linedefs[idx]->front&&s!=s->linedefs[idx]->front->sector) {
+	  other=s->linedefs[idx]->front->sector;
+	}
+	if(other)
+	  to=Min(to,other->floor_height);
+      }
+      return to;
+  }
+}
 U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags) {
   CDoomActionSector *type;
   CDoomFloor *fl;
   CDoomDoor *door;
   CDoomLift *lift;
+  CDoomCeil *ceil;
+  I64 idx;
+  CDoomLinedef *ld2;
   F64 dst;
   if(ld) {
     if((type=ld->special_type)) {
-      if(type->type=='Lift') {
+      if(type->type=='Ceil') {
+	ceil=type;
+        switch(ceil->trigger) {
+	    break; case 'P1':
+	    if(!(flags&WACTIVATE_PUSH)) return;
+cactivate1:          
+	    if(s->activated) return;
+	    s->activated=TRUE;
+cactivate:
+	    if(s->cur_action_linedef)
+	      return;
+	    dst=GetTargetLiftHeight(s,ceil->target);
+	    s->target_start=s->floor_height;
+	    s->target_end=dst;
+	    s->start_tS=tS;
+	    s->speed=ceil->speed;
+	    s->cur_action_linedef=ld;
+	    break; case 'S1':
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto cactivate1;
+	    break; case 'W1':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto cactivate1;
+	    break; case 'G1':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto cactivate1;
+	    break; case 'PR':
+	    if(!(flags&WACTIVATE_PUSH)) return;
+	    goto cactivate;
+	    break; case 'SR':
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto cactivate;
+	    break; case 'GR':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto cactivate;
+	    break; case 'WR':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto cactivate;
+        }
+      } else if(type->type=='Lift') {
         lift=type;
         switch(lift->trigger) {
 	    break; case 'P1':
@@ -1208,6 +1312,36 @@ factivate:
 	    s->start_tS=tS;
 	    s->speed=fl->speed;
 	    s->cur_action_linedef=ld;
+//Account for texture/type change
+	    if(fl->texture_change||fl->type_change) {
+	      if(fl->model==FLOOR_MODEL_NUMBERED) {
+//See EV_DoFloor in doom3do source code
+	        for(idx=0;idx!=s->linedef_cnt;idx++) {
+		  ld2=s->linedefs[idx];
+		  if(ld2->front&&ld2->back) {
+		    if(ld2->front->sector!=s) {
+		      if(fl->texture_change)
+		        MemCpy(s->floor_dc,ld2->front->sector->floor_dc,8*4);
+		      if(fl->type_change)
+		        s->special_type=ld2->front->sector->special_type;
+		      break;
+		    }
+		    if(ld2->back->sector!=s) {
+		      if(fl->texture_change)
+		        MemCpy(s->floor_dc,ld2->back->sector->floor_dc,8*4);
+		      if(fl->type_change)
+		        s->special_type=ld2->back->sector->special_type;
+		      break;
+		    }
+		  }
+	        }
+	      } else if(fl->model==FLOOR_MODEL_TRIGGER) {
+	        if(fl->texture_change)
+		  MemCpy(s->floor_dc,ld->front->sector->floor_dc,8*4);
+	        if(fl->type_change)
+		  s->special_type=ld->front->sector->special_type;
+	      }
+	    }
 	    break; case 'S1':
 	    if(!(flags&WACTIVATE_SWITCH)) return;
 	    goto factivate1;
@@ -1247,36 +1381,36 @@ activate:
 //Do the door action
 	    switch(door->action) {
 	      case DOOR_ACTION_OPEN_WAIT_CLOSE:
-		if(s->opening) return;
-		s->cur_action_linedef=ld;
-		s->opening=TRUE;
-		s->start_tS=tS;
-		s->speed=door->speed;
-		s->wait_time=door->wait;
+	        if(s->opening) return;
+	        s->cur_action_linedef=ld;
+	        s->opening=TRUE;
+	        s->start_tS=tS;
+	        s->speed=door->speed;
+	        s->wait_time=door->wait;
 	        break;
 	      case DOOR_ACTION_CLOSE_WAIT_OPEN:
-		if(s->closing) return;
-		s->cur_action_linedef=ld;
-		s->closing=TRUE;
-		s->start_tS=tS;
-		s->speed=door->speed;
-		s->wait_time=door->wait;
+	        if(s->closing) return;
+	        s->cur_action_linedef=ld;
+	        s->closing=TRUE;
+	        s->start_tS=tS;
+	        s->speed=door->speed;
+	        s->wait_time=door->wait;
 	        break;
 	      case DOOR_ACTION_CLOSE:
-		if(s->closing) return;
-		s->cur_action_linedef=ld;
-		s->closing=TRUE;
-		s->start_tS=tS;
-		s->speed=door->speed;
-		s->wait_time=-1.;
+	        if(s->closing) return;
+	        s->cur_action_linedef=ld;
+	        s->closing=TRUE;
+	        s->start_tS=tS;
+	        s->speed=door->speed;
+	        s->wait_time=-1.;
 	        break;
 	      case DOOR_ACTION_OPEN:
-		if(s->opening) return;
-		s->cur_action_linedef=ld;
-		s->opening=TRUE;
-		s->start_tS=tS;
-		s->speed=door->speed;
-		s->wait_time=-1.;
+	        if(s->opening) return;
+	        s->cur_action_linedef=ld;
+	        s->opening=TRUE;
+	        s->start_tS=tS;
+	        s->speed=door->speed;
+	        s->wait_time=-1.;
 	        break;
 	    }
 	    break;

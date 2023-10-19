@@ -1,4 +1,4 @@
-43	Reg	SR	Dn	Fast	None	--	No	No	Floor
+43	Reg	SR	Dn	Fast	None	--	No	No	Floor
 41	Reg	S1	Dn	Fast	None	--	No	No	Floor
 152	Ext	WR	Dn	Fast	None	--	No	No	Floor
 145	Ext	W1	Dn	Fast	None	--	No	No	Floor

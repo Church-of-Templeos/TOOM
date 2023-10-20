@@ -14,9 +14,9 @@ CWad *LoadWad(U8 *filename) {
 
 static CWad *wad=LoadWad("DOOM.WAD");
 
+#include "FastTrig.HC";
 #include "Wad.HC";
 //#include "Weapons.HC";
-#include "FastTrig.HC";
 
 //IMPORTANT
 CacheAnimationFrames;
@@ -902,7 +902,7 @@ U0 UpdateSector(CDoomSector *s) {
   if(!ld) return;
   if(ld->special_type->type=='Ceil') {
     if(!s->going_up&&!s->going_down) {
-    if(s->target_end>s->ceil_height)
+    if(s->target_end>s->ceil_height)
 	s->going_up=TRUE,s->going_down=FALSE;
     else
 	s->going_down=TRUE,s->going_up=FALSE;
@@ -1500,8 +1500,6 @@ while(TRUE) {
   DCFill;
   UpdateLevel(l);
   UpdateCameraFromPlayer(&cam,p);
-  gr.dc->color=BLACK;
-  GrRect3(gr.dc,0,0,0,gr.dc->width,gr.dc->height);
 
   DrawDoomWorld(&cam,l,gr.dc);
   ST_Start(p);

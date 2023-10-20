@@ -149,7 +149,7 @@ U0 LoadCeils() {
   while(ln=ReadALine(&fptr)) {
     if(*ln=='#'||*ln==0)
       goto skip;
-    StrScan(ln,"%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+    StrScan(ln,"%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 	  &num,
 	  &cls_ptr,
 	  &trig_ptr,

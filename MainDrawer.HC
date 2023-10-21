@@ -1562,13 +1562,14 @@ U0 AddButtonThinker(CDoomLevel *l,CDoomSidedef *s,I64 which_part,Bool repeat=TRU
 U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
   CDoomSector *sector,*head=&l->sectors;
   if(!ld->special_type) return;
-  if(ld->special_type->type=='Door') 
+//Push operators on the linedef that called it
+  if(ld->special_type(CDoomDoor*)->trigger.u8[0]=='P') {
     _TriggerLinedef(l,ld->back->sector,ld,flags);
-//Some doors dont have use for tagged sector
-  for(sector=head->next;sector!=head;sector=sector->next) {
-    if(sector->tag_number==ld->sector_tag)
-      _TriggerLinedef(l,sector,ld,flags);
-  }
+  } else
+    for(sector=head->next;sector!=head;sector=sector->next) {
+      if(sector->tag_number==ld->sector_tag)
+        _TriggerLinedef(l,sector,ld,flags);
+    }
 }
 
 

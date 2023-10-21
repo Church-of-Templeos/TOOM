@@ -222,6 +222,7 @@ class CDoomLevel {
   CQue things,sidedefs;
   CQue subsectors;
   CQue bsp_nodes;
+  CQue thinkers;
   CDoomBSPSeg *segs;
   CQue sectors;
   CDoomBSPNode *root_node;
@@ -753,6 +754,7 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
   CDoomSidedef *dside,**dside_list;
   CWadBlockMapHeader *wbmh;
   QueInit(&level->sidedefs);
+  QueInit(&level->thinkers);
   QueInit(&level->sectors);
   QueInit(&level->things);
   QueInit(&level->linedefs);

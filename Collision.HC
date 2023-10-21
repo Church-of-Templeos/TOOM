@@ -143,7 +143,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
 	      if(lds[0]->front^^lds[0]->back) {
 		ceil_height=I16_MAX;
 		floor_height=I16_MAX;
-	      } else{
+	      } else {
 		  floor_height=Max(lds[0]->back->sector->floor_height,
 			lds[0]->front->sector->floor_height);
 		  ceil_height=Min(lds[0]->back->sector->ceil_height,

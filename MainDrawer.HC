@@ -16,6 +16,7 @@ static CWad *wad=LoadWad("DOOM.WAD");
 
 #include "FastTrig.HC";
 #include "Wad.HC";
+#include "Thinker.HC";
 //#include "Weapons.HC";
 
 //IMPORTANT
@@ -1447,6 +1448,117 @@ activate:
     }
   }
 }
+CDC *AltSwitchTexture(U8 *txt,Bool on=FALSE) {
+  static U8 *switch_textures[40]={
+  "SW1BLUE",
+        "SW1BRCOM", 
+        "SW1BRI",
+        "SW1BRN1",
+        "SW1BRN2",
+        "SW1BRNGN", 
+        "SW1BROWN", 
+        "SW1CMT", 
+        "SW1COMM", 
+        "SW1COMP", 
+        "SW1DIRT", 
+        "SW1EXIT", 
+        "SW1GARG", 
+        "SW1GRAY", 
+        "SW1GRAY1", 
+        "SW1GSTON", 
+        "SW1HOT", 
+        "SW1LION", 
+        "SW1MARB", 
+        "SW1MET2", 
+        "SW1METAL", 
+        "SW1MOD1", 
+        "SW1PANEL", 
+        "SW1PIPE", 
+        "SW1ROCK", 
+        "SW1SATYR", 
+        "SW1SKIN", 
+        "SW1SKULL", 
+        "SW1SLAD", 
+        "SW1STARG",
+        "SW1STON1", 
+        "SW1STON2", 
+        "SW1STON6", 
+        "SW1STONE", 
+        "SW1STRTN", 
+        "SW1TEK",
+        "SW1VINE", 
+        "SW1WDMET", 
+        "SW1WOOD",
+        "SW1ZIM"
+        };
+  U8 buf[STR_LEN];
+  I64 idx=40;
+  while(idx--) {
+    StrCpy(buf,switch_textures[idx]);
+    if(!FramePtr(buf))
+     goto skip;
+    if(FramePtr(buf)==txt&&!on) {
+      buf[2]='2';
+      return FramePtr(buf);
+    }
+    if(on) {
+      buf[2]='2';       
+      if(FramePtr(buf)==txt) {
+        buf[2]='1';
+        return FramePtr(buf);
+      }
+    }
+skip:;
+  }
+  return NULL;
+}
+
+U0 ButtonThinker(CDoomLevel *l,CDoomThinker *t) {
+  CDoomSidedef *sd=t->user_data1;
+  Bool repeat=t->user_data2;
+  F64 reset_time=t->user_data3(F64);
+  I64 which_texture=t->user_data4;
+  U8 on_off_idx='2'; 
+  CDC *dc;
+  if(!repeat) {
+    on_off_idx='2';
+    Free(t);
+    QueRem(t);
+    goto set_and_ret;
+  }
+  if(reset_time>tS) {
+    on_off_idx='2';
+set_and_ret:
+      switch(which_texture) {
+        case 2: 
+	  if(dc=AltSwitchTexture(sd->upper_texture[0],on_off_idx!='2'))
+	  sd->upper_texture[0]=dc;
+	  break;
+        case 1: 
+	  if(dc=AltSwitchTexture(sd->middle_texture[0],on_off_idx!='2'))
+	  sd->middle_texture[0]=dc;
+	  break;
+        case 0: 
+	  if(dc=AltSwitchTexture(sd->lower_texture[0],on_off_idx!='2')) {
+	  sd->lower_texture[0]=dc;
+	  }
+	  break;
+      }
+    return;
+  }
+  on_off_idx='1';
+  Free(t);
+  QueRem(t);
+  goto set_and_ret;
+}
+U0 AddButtonThinker(CDoomLevel *l,CDoomSidedef *s,I64 which_part,Bool repeat=TRUE) {
+  CDoomThinker *t=AddThinker(l,&ButtonThinker);
+  t->user_data1=s;
+  t->user_data2=repeat;
+  t->user_data3(F64)=tS+2.;
+  t->user_data4=which_part;
+}
+
 U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
   CDoomSector *sector,*head=&l->sectors;
   if(!ld->special_type) return;
@@ -1462,14 +1574,89 @@ U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
 
 U0 UpdateLevel(CDoomLevel *l) {
   CDoomSector *sector,*head=&l->sectors;
-  for(sector=head->next;sector!=head;sector=sector->next)
+  UpdateThinkers(l);
+  for(sector=head->next;sector!=head;sector=sector->next) {
     UpdateSector(sector);
+  }
 }
 
 
 #include "Collision.HC";
 #include "Player.HC";
 #include "ST.HC";
+
+U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
+  CD2 dummy;
+  F64 floor,floor2,ceil,ceil2;
+  I64 which_texture=0;
+  Bool repeat=FALSE;
+  U64 trigger;
+  CDoomLinedef *ld;
+  CDoomSidedef *sd;
+  Vector *ldv;
+  dummy.x=where->x;
+  dummy.y=where->y;
+  ld=MoveInLevel(l,&dummy,angle,64.,1.,height,0);
+  if(ld) {
+    if(ld->front^^ld->back) {
+      which_texture=0;
+      if(ld->front) sd=ld->front;
+      if(ld->back) sd=ld->front;
+    } else {
+	ldv=CreateVector(2);
+	ldv->data[0]=ld->end->x-ld->start->x;
+	ldv->data[1]=ld->end->y-ld->start->y;
+	dummy.x=where->x-ld->start->x;
+	dummy.y=where->y-ld->start->y;
+	if(!IsFrontSideOfVector2D(ldv,&dummy)) {
+	   sd=ld->front;
+	   floor=ld->front->sector->floor_height;
+	   floor2=FloorRaise(ld,ld->front->sector);
+	   ceil=ld->front->sector->ceil_height;
+	   ceil2=CeilDepress(ld,ld->front->sector);
+	} else {
+	   sd=ld->back;
+	   floor=ld->back->sector->floor_height;
+	   floor2=FloorRaise(ld,ld->back->sector);
+	   ceil=ld->back->sector->ceil_height;
+	   ceil2=CeilDepress(ld,ld->back->sector);
+	}
+	if(height<floor2) which_texture=0;
+	else if(floor2<=height<=ceil2) which_texture=1;
+	else which_texture=2;
+        DestroyVector(ldv);
+    }
+    switch(which_texture) {
+      case 2:
+	if(AltSwitchTexture(sd->upper_texture[0])) {
+pass:
+	  if(ld->special_type->type=='Door')
+	    trigger=ld->special_type(CDoomDoor*)->trigger;
+	  else if(ld->special_type->type=='Ceil')
+	    trigger=ld->special_type(CDoomCeil*)->trigger;
+	  else if(ld->special_type->type=='Floor')
+	    trigger=ld->special_type(CDoomFloor*)->trigger;
+	  else if(ld->special_type->type=='Lift')
+	    trigger=ld->special_type(CDoomLift*)->trigger;
+	  if(trigger.u8[1]=='P')
+            TriggerLinedef(l,ld,WACTIVATE_PUSH);
+	  else
+            TriggerLinedef(l,ld,WACTIVATE_SWITCH);
+	  AddButtonThinker(l,sd,which_texture,trigger.u8[1]!='1');
+	}
+	break;
+      case 1:
+	if(AltSwitchTexture(sd->middle_texture[0]))
+	  goto pass;
+	break;
+      case 0:
+	if(AltSwitchTexture(sd->lower_texture[0]))
+	  goto pass;
+	break;
+    }
+  }
+}
+
 CDoomPlayer *p=PlayerNew(l);
 
 U0 AnimateTask(I64)
@@ -1582,7 +1769,7 @@ while(TRUE) {
      SwapWeapon(7);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode(' ')&0xff)) {
-    PlayerUse(l,p);
+    PressAWall(l,&p->position,p->angle,p->height);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('\n')&0xff)) {
      DCFill;

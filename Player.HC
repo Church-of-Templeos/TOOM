@@ -19,15 +19,6 @@ class CDoomPlayer {
   Bool running;
 };
 
-U0 PlayerUse(CDoomLevel *l,CDoomPlayer *p) {
-  CD2 dummy;
-  CDoomLinedef *ld;
-  dummy.x=p->position.x;
-  dummy.y=p->position.y;
-  if(ld=MoveInLevel(l,&dummy,p->angle,64.,1.,p->height,0)) {
-     TriggerLinedef(l,ld,WACTIVATE_SWITCH);
-  }
-}
 
 U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 speed=GRID_SZ/4) {
   CFifoI64 *crossed_f=FifoI64New(16);

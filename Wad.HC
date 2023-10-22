@@ -2,6 +2,8 @@
 #define DOOM_WAD" Whats Poppin"
 #define DEBUG 1
 
+#define TICK_TIME (1/30.)
+
 #include "DoomGr.HC";
 #include "Numbers/Vector.HC";
 #include "World.HC";
@@ -99,7 +101,7 @@ class CWadSubsector {
 }; 
 
 class CDoomThing:CQue {
-  F64 x,y,angle,height;
+  F64 x,y,angle,height,health;
   I16 thing_type,flags,pad[2];
   CDoomThingTemplate *template;
 };

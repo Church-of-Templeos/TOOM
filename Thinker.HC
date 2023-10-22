@@ -1,6 +1,9 @@
 #ifndef THINKER_H
 #define THINKER_H "BigBrain"
-class CDoomThinker:CQue {
+class CDoomThinkerBase:CQue {
+  U8 (*fun_ptr)(CDoomLevel *,CDoomThinkerBase *);
+};
+class CDoomThinker:CDoomThinkerBase {
   I64 user_data1;
   I64 user_data2;
   I64 user_data3;
@@ -11,7 +14,6 @@ class CDoomThinker:CQue {
   I64 user_data8;
   I64 user_data9;
   I64 user_data10;
-  U8 (*fun_ptr)(CDoomLevel *,CDoomThinker *);
 };
 U0 UpdateThinkers(CDoomLevel *l) {
   CDoomThinker *head=&l->thinkers,*cur,*next;
@@ -20,8 +22,8 @@ U0 UpdateThinkers(CDoomLevel *l) {
     (*cur->fun_ptr)(l,cur);
   }
 }
-CDoomThinker *AddThinker(CDoomLevel *l,U8 (*fun_ptr)(CDoomLevel *,CDoomThinker *)) {
-  CDoomThinker *t=CAlloc(sizeof(CDoomThinker));
+CDoomThinker *AddThinker(CDoomLevel *l,U8 (*fun_ptr)(CDoomLevel *,CDoomThinker *),I64 sz=sizeof(CDoomThinker)) {
+  CDoomThinker *t=CAlloc(sz);
   QueIns(t,l->thinkers.next);
   t->fun_ptr=fun_ptr;
   return t;

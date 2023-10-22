@@ -3,7 +3,7 @@
 //Returns TRUE on collision
 #define STEP_HEIGHT 24.
 #define COLLISF_SLIDE 1
-
+#define COLLISF_NO_DROP 2
 extern Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=0,CFifoI64 *walked_over_hot=NULL);
 //https://stackoverflow.com/questions/14176776/find-out-if-2-lines-intersect
 Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
@@ -12,12 +12,7 @@ Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
   st.y=ld->start->y;
   en.x=ld->end->x;
   en.y=ld->end->y;
-//I am going to grow the edges by 16 to avoid corner creeping
   F64 angle=FArg(en.x-st.x,en.y-st.y);
-  st.x-=8.*FCos(angle);  
-  st.y-=8.*FSin(angle);  
-  en.x+=8.*FCos(angle);  
-  en.y+=8.*FSin(angle);
   F64 bbl_t=Max(a->y,b->y)+1.;
   F64 bbl_b=Min(a->y,b->y)-1.;
   F64 bbl_r=Max(a->x,b->x)+1.;
@@ -57,8 +52,7 @@ F64 IntersectDist(CDoomLinedef *ld,CD2 *a,CD2 *b) {
   num=(a->x-ld->start->x)*dy2;
   num+=(a->y-ld->start->y)*dx2;
   return num/den;
-/*
-  F64 d1=DistFromLine(a,ld->start,ld->end),final;
+  /*F64 d1=DistFromLine(a,ld->start,ld->end),final;
   F64 angle_ld=FArg(ld->end->x-ld->start->x,ld->end->y-ld->start->y);
   F64 angle_move=FArg(b->x-a->x,b->y-a->y);
   F64 angle;
@@ -68,8 +62,7 @@ F64 IntersectDist(CDoomLinedef *ld,CD2 *a,CD2 *b) {
   } else {
     angle=angle_move-(angle_ld+pi/2); //Other Normal of vector
   }
-  return d1/FCos(angle);
-*/
+  return d1/FCos(angle);*/
 }
 
 Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F64 cur_h,F64 to_travel) {
@@ -85,14 +78,20 @@ Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F6
   rel_point.y=point->y-ld->start->y;
   ld_normal1=FArg(ld->end->x-ld->start->x,ld->end->y-ld->start->y)+pi/2;
   ld_normal2=FArg(ld->end->x-ld->start->x,ld->end->y-ld->start->y)-pi/2;
+PrintF("wall",FArg(ld->end->x-ld->start->x,ld->end->y-ld->start->y)*180./pi);
+PrintF("point",angle*180./pi);
   if(IsFrontSideOfVector2D(v,&rel_point)) {
     angle2=ld_normal1-angle;
     x=-to_travel*FSin(angle2);
+PrintF("dist",x);
+PrintF("normal",(ld_normal1+pi/2)*180./pi);
     MoveInLevel(l,point,ld_normal1+pi/2,x,radius,cur_h,0);
   } else{
     dist=radius-DistFromLine(point,ld->start,ld->end);
     angle2=ld_normal2-angle;
     x=-to_travel*FSin(angle2);
+PrintF("dist2",x);
+PrintF("normal2",(ld_normal2+pi/2)*180./pi);
     MoveInLevel(l,point,ld_normal2+pi/2,x,radius,cur_h,0);
   }
   DestroyVector(v);
@@ -124,6 +123,8 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
   move2.x=at->x+dist*cos,move2.y=at->y+dist*sin;
   dist+=radius;
   move_fat.x=at->x+dist*cos,move_fat.y=at->y+dist*sin;
+  cur_pos.x=move1.x;
+  cur_pos.y=move1.y;
   while(dist2<=dist+128) {
     for(xoff=-1;xoff<=1;xoff++)
       for(yoff=-1;yoff<=1;yoff++)
@@ -151,17 +152,28 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
 	      }
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
 	      if(floor_height-STEP_HEIGHT>cur_height||ceil_height-56.<=cur_height||floor_height==ceil_height) {
+fail_walk:
 	        if(wall_idx<64)
 		  walls[wall_idx++]=*lds;
 	        if(CrosesLine(lds[0],&move1,&move_fat)&&CrosesLine(lds[0],&move1,&move2)) {
-		  tmp=IntersectDist(lds[0],&move1,&move2);
-		  if(tmp<=dist)
-		    if(dist<min_dist) {
+		    tmp=IntersectDist(lds[0],&move1,&move2);
+		    if(tmp<min_dist) {
 		      best=lds[0];
-		      min_dist=0;
+		      min_dist=tmp;
 		    }
 	        }
 	      } else {
+//If we must not fall off the wall,we gunna check if we not fallin off a walk
+                if(flags&COLLISF_NO_DROP&&(lds[0]->back&&lds[0]->front)) {
+		  dummy.x=cur_pos.x-lds[0]->start->x;
+		  dummy.y=cur_pos.y-lds[0]->start->y;
+		  if(IsFrontSideOfVector2D(vector,&dummy)) {
+		    floor_height=lds[0]->back->sector->floor_height;
+		  } else
+		    floor_height=lds[0]->front->sector->floor_height;
+		  if(floor_height+STEP_HEIGHT<cur_height)
+		    goto fail_walk;
+	        }
 //W1/WR
 	        if(lds[0]->special_type) {
 		  if(lds[0]->special_type->type=='Door'
@@ -184,8 +196,6 @@ skip:;
     dist2+=64;
     cur_pos.x=move1.x+cos*dist2;
     cur_pos.y=move1.y+sin*dist2;
-//    if(CloseToWall(l,&cur_pos,5.,cur_height))
-    //	break;
     blockx=(dist2*cos+move1.x-l->block_map_x_off)/128;
     blocky=(dist2*sin+move1.y-l->block_map_y_off)/128;
   }

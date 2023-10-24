@@ -102,8 +102,11 @@ class CWadSubsector {
 
 class CDoomThing:CQue {
   F64 x,y,angle,height,health;
-  I16 thing_type,flags,pad[2];
+  F64 momx,momy,momz; //Move momentum
+  I16 thing_type,pad[3];
   CDoomThingTemplate *template;
+  I64 flags;
+  Bool solid,pad[7];
 };
 extern class CDoomSector;
 

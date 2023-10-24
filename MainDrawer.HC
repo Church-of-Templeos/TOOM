@@ -1670,6 +1670,8 @@ U0 AnimateTask(I64)
   
 }
 
+#include "Enemy.HC";
+
 U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
   cam->h=p->height+48;
   cam->x=p->position.x;

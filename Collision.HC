@@ -78,23 +78,122 @@ Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F6
   rel_point.y=point->y-ld->start->y;
   ld_normal1=FArg(ld->end->x-ld->start->x,ld->end->y-ld->start->y)+pi/2;
   ld_normal2=FArg(ld->end->x-ld->start->x,ld->end->y-ld->start->y)-pi/2;
-PrintF("wall",FArg(ld->end->x-ld->start->x,ld->end->y-ld->start->y)*180./pi);
-PrintF("point",angle*180./pi);
   if(IsFrontSideOfVector2D(v,&rel_point)) {
     angle2=ld_normal1-angle;
     x=-to_travel*FSin(angle2);
-PrintF("dist",x);
-PrintF("normal",(ld_normal1+pi/2)*180./pi);
     MoveInLevel(l,point,ld_normal1+pi/2,x,radius,cur_h,0);
   } else{
     dist=radius-DistFromLine(point,ld->start,ld->end);
     angle2=ld_normal2-angle;
     x=-to_travel*FSin(angle2);
-PrintF("dist2",x);
-PrintF("normal2",(ld_normal2+pi/2)*180./pi);
     MoveInLevel(l,point,ld_normal2+pi/2,x,radius,cur_h,0);
   }
   DestroyVector(v);
+}
+
+
+//Make sure no walls in way of the Glizzy shot
+
+
+
+
+
+
+
+
+$SP,"<1>",BI=1$
+
+
+//Returns apporixmate (wall) hit distance,or -1. if the shoot Pushin-P Pwned the target
+F64 ValidateLineOfSightShot(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 source_h,F64 target_h) {
+  CD2 dummy;
+  Bool hit_wall=FALSE;
+  I64 blockx,blocky;
+  CDoomLinedef **lds;
+  F64 dist2=0.,sin=Sin(angle),cos=Cos(angle);
+  F64 vslope=Tan((target_h-source_h)/dist);
+  F64 ceil_height,floor_height;
+  dummy.x=at->x,dummy.y=at->y;
+  while(dist2<=dist) {
+    blocky=(dummy.y-l->block_map_y_off)/128;
+    blockx=(dummy.x-l->block_map_x_off)/128;
+    dist2+=16.; //Smallest radius??>
+    source_h+=16.*vslope;
+    dummy.x+=16.*cos;   
+    dummy.y+=16.*sin;
+    if(dist2>dist)
+      dist2=dist;
+    lds=l->block_map_data+l->block_map_offsets[
+	  blockx+
+	  blocky*l->block_map_cols];
+    for(;*lds;lds++) {
+      if(lds[0]->front^^lds[0]->back) {
+        ceil_height=I16_MAX;
+        floor_height=I16_MAX;
+      } else {
+        floor_height=Max(lds[0]->back->sector->floor_height,
+	      lds[0]->front->sector->floor_height);
+        ceil_height=Min(lds[0]->back->sector->ceil_height,
+	      lds[0]->front->sector->ceil_height);
+      }
+      if(!(floor_height<=source_h<=ceil_height))
+        while(CrosesLine(*lds,at,&dummy)&&dist2>0.) {
+	  hit_wall=TRUE;
+//get a more "precise" wall hit positon,homie
+	  dummy.x=at->x+dist2*cos;
+	  dummy.y=at->y+dist2*sin;
+	  dist2-=1.;;
+        }
+    }
+    if(hit_wall)
+      return dist2;
+  }
+  return -1.;
+}
+
+
+
+//
+// Shoot_h  MUST BE OFF THE GROUND,it is the height the shot is fired out
+// 
+
+CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_h) {
+  if(dist<0) {
+    dist=-dist;
+    angle+=pi;
+  }
+  CDoomThing *head=&l->things,*cur;
+  CD2 dummy;
+  I64 blockx,blocky;
+  CDoomLinedef **lds;
+  F64 wall_dist;
+  F64 dist2=0.,sin=Sin(angle),cos=Cos(angle);
+  F64 bbt_l,bbt_r,bbt_t,bbt_b,ceil_height,floor_height;
+  dummy.x=at->x,dummy.y=at->y;
+  while(dist2<=dist) {
+    blocky=(dummy.y-l->block_map_y_off)/128;
+    blockx=(dummy.x-l->block_map_x_off)/128;
+    dist2+=16.; //Smallest radius??>
+    dummy.x+=16.*cos;   
+    dummy.y+=16.*sin;
+    for(cur=head->next;cur!=head;cur=cur->next) {
+      bbt_l=cur->x-cur->template->radius/2.;
+      bbt_r=cur->x+cur->template->radius/2.;
+      bbt_b=cur->y-cur->template->radius/2.;
+      bbt_t=cur->y+cur->template->radius/2.;
+      if(bbt_l<=dummy.x<=bbt_r)
+        if(bbt_b<=dummy.y<=bbt_t) {
+	  wall_dist=ValidateLineOfSightShot(l,at,angle,
+	        Sqrt(Sqr(cur->x-at->x)+Sqr(cur->y-at->y)),
+	        shoot_h,
+	        cur->height+cur->template->height/2.
+	        );
+	  if(wall_dist<0.)
+	    return cur;
+        }
+    }
+  }
+  return NULL;
 }
 //walked_over_hot is "hot" linedefs that have a walkover action on them
 CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=COLLISF_SLIDE,CFifoI64 *walked_over_hot=NULL) {
@@ -227,3 +326,4 @@ look_for_hot:
   return best;
 }
 #endif
+        0                    "      '         !      !   õÿÿÿ   .   ÷ÿÿÿ   ÷ÿÿÿ   ,      ³   ×ÿÿÿ   -   ûÿÿÿ.   ñÿÿÿ;   ñÿÿÿ   ¨   áÿÿÿ¦      º      µ   Üÿÿÿ§   áÿÿÿ   º   ÜÿÿÿÃ   ÓÿÿÿÈ   Ûÿÿÿ   Á   ÒÿÿÿÁ   Äÿÿÿ   Ê   Èÿÿÿ¶   Çÿÿÿ   ¹   ÁÿÿÿÌ   ÅÿÿÿÌ   »ÿÿÿ¶   ¹ÿÿÿº   Áÿÿÿ   êÿÿÿ    

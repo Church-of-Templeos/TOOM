@@ -21,6 +21,7 @@ class CDoomThingTemplate {
 #define TF_OBSTACLE 0x10
 #define TF_SHOOTABLE 0x20
 #define TF_FLOATING 0x40
+#define TF_MISSILE 0x80
   I64 flags;
 } *doom_thing_types[0x10000];
 

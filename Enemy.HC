@@ -563,3 +563,179 @@ U0 SkullHit(CDoomLevel *l,CMonsterThinker *t,CDoomThing *hit_thang) {
   self->momz=0.;
   SetState(l,t,t->info_ptr->spawn_state);
 }
+
+//Yvng Poop toad here(Nrootconauto)
+//I am NOT messing around with the C sprite names(they dont map to real sprite names)
+CDoomThingTemplate *imp_fireball;
+CDoomThingTemplate *baron_fireball;
+CDoomThingTemplate *cacodemon_fireball;
+CDoomThingTemplate *rocket;
+U0 LoadMonsterInfo() {
+  CDoomProjectileTemplate *p;
+  //https://doomwiki.org/wiki/Imp
+  CDoomMonsterTemplate *t=doom_thing_types[0xbb9];
+  t->_idle_frames=GenerateCacheFrames(t,"AB");
+  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
+  t->_melee_frames=GenerateCacheFrames(t,"EFG");
+  t->_attack_frames=GenerateCacheFrames(t,"EFG");
+  t->_hurt_frames=GenerateCacheFrames(t,"HH");
+  t->_dying_frames=GenerateCacheFrames(t,"IJKLM");
+  t->_gib_frames=GenerateCacheFrames(t,"NOPQRSTU");
+  t->health=60;
+  t->speed=8.;
+  t->damage=3;
+  t->pain_chance=200./255;
+//Fireball and I aint talkin alchohol
+  p=imp_fireball=CAlloc(sizeof CDoomProjectileTemplate);
+  p->damage=9;
+  p->radius=6.;
+  p->height=8.;
+  StrCpy(p->spr_base_name,"BAL1");
+  p->flags=TF_MISSILE;
+  p->_idle_frames=GenerateCacheFrames(p,"AB");
+  p->_hit_frames=GenerateCacheFrames(p,"CDE");
+//https://doomwiki.org/wiki/Baron_of_Hell
+  t=doom_thing_types[0xbbb];
+  t->health=1000;
+  t->damage=10;
+  t->pain_chance=16.8/100.;
+  t->speed=8.; //TODO check it
+  t->mass=1000.;
+  t->_idle_frames=GenerateCacheFrames(t,"AB");
+  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
+  t->_melee_frames=GenerateCacheFrames(t,"EFG");
+  t->_attack_frames=GenerateCacheFrames(t,"EFG");
+  t->_hurt_frames=GenerateCacheFrames(t,"HH");
+  t->_dying_frames=GenerateCacheFrames(t,"IJKLM");
+  t->_gib_frames=GenerateCacheFrames(t,"NOPQRSTU");
+//Booger ball
+  p=baron_fireball=CAlloc(sizeof CDoomProjectileTemplate);
+  p->damage=8;
+  p->radius=6.;
+  p->height=8.;
+  StrCpy(p->spr_base_name,"BAL7");
+  p->flags=TF_MISSILE;
+  p->_idle_frames=GenerateCacheFrames(p,"AB");
+  p->_hit_frames=GenerateCacheFrames(p,"CDE");
+//Flying meatball
+  t=doom_thing_types[0xbbd];
+  t->health=400.;
+  t->speed=8.;
+  t->pain_chance=.50;
+  t->_idle_frames=GenerateCacheFrames(t,"A");
+  t->_chase_frames=GenerateCacheFrames(t,"A");
+  t->_melee_frames=GenerateCacheFrames(t,"BCD");
+  t->_attack_frames=GenerateCacheFrames(t,"BCD");
+  t->_hurt_frames=GenerateCacheFrames(t,"BCD");
+  t->_dying_frames=GenerateCacheFrames(t,"GHIJKL");
+//Cacodemon ball
+  p=cacodemon_fireball=CAlloc(sizeof CDoomProjectileTemplate);
+  p->damage=5;
+  p->radius=6.;
+  p->height=8.;
+  StrCpy(p->spr_base_name,"BAL2");
+  p->flags=TF_MISSILE;
+  p->_idle_frames=GenerateCacheFrames(p,"AB");
+  p->_hit_frames=GenerateCacheFrames(p,"CDE");
+//Cyber demon
+  t=doom_thing_types[0x10];
+  t->health=4000.;
+  t->speed=16.;
+  t->mass=1000;
+  t->pain_chance=20./255;
+  t->_idle_frames=GenerateCacheFrames(t,"AB");
+  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
+  t->_melee_frames=GenerateCacheFrames(t,"EFEFEF");
+  t->_attack_frames=GenerateCacheFrames(t,"EFEFEF");
+  t->_hurt_frames=GenerateCacheFrames(t,"G");
+  t->_dying_frames=GenerateCacheFrames(t,"HIJKLMNOPP");
+//Rocket
+  p=rocket=CAlloc(sizeof CDoomProjectileTemplate);
+  p->damage=20.;
+  p->radius=11.;
+  p->height=8.;
+  StrCpy(p->spr_base_name,"MISL");
+  p->flags=TF_MISSILE;
+  p->_idle_frames=GenerateCacheFrames(p,"A");
+  p->_hit_frames=GenerateCacheFrames(p,"BCD");
+//Pink demon
+  t=doom_thing_types[0xbba];
+  t->health=150.;
+  t->speed=10.;
+  t->mass=400.;
+  t->damage=4;
+  t->pain_chance=180./255.;
+  t->_idle_frames=GenerateCacheFrames(t,"AB");
+  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
+  t->_melee_frames=GenerateCacheFrames(t,"EFG");
+  t->_attack_frames=GenerateCacheFrames(t,"EFG");
+  t->_hurt_frames=GenerateCacheFrames(t,"HH");
+  t->_dying_frames=GenerateCacheFrames(t,"IJKLMN");
+//Skull demon
+  t=doom_thing_types[0xbbe];
+  t->health=100.;
+  t->speed=8.;
+  t->skull_attack_speed=20.;
+  t->mass=50.;
+  t->pain_chance=1;
+  t->damage=3.;
+  t->_idle_frames=GenerateCacheFrames(t,"AB");
+  t->_chase_frames=GenerateCacheFrames(t,"AB");
+  t->_melee_frames=GenerateCacheFrames(t,"CDCD");
+  t->_attack_frames=GenerateCacheFrames(t,"CDCD");
+  t->_hurt_frames=GenerateCacheFrames(t,"EE");
+  t->_dying_frames=GenerateCacheFrames(t,"FGHIJK");
+//Shotgun guy
+  t=doom_thing_types[9];
+  t->health=30;
+  t->speed=8;
+  t->mass=100;
+  t->damage=3;
+  t->pain_chance=170./255.;
+  t->_idle_frames=GenerateCacheFrames(t,"AB");
+  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
+  t->_melee_frames=GenerateCacheFrames(t,"EFE");
+  t->_attack_frames=GenerateCacheFrames(t,"EFE");
+  t->_dying_frames=GenerateCacheFrames(t,"HIJKL");
+  t->_hurt_frames=GenerateCacheFrames(t,"GG");
+  t->_gib_frames=GenerateCacheFrames(t,"MNOPQRSTU");
+//Transparent demon
+  t=doom_thing_types[0x3a];
+  t->health=150;
+  t->speed=10;
+  t->mass=400.;
+  t->pain_chance=180./255.;
+  t->damage=4.;
+  t->_idle_frames=GenerateCacheFrames(t,"AB");
+  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
+  t->_melee_frames=GenerateCacheFrames(t,"EFG");
+  t->_attack_frames=GenerateCacheFrames(t,"EFG");
+  t->_hurt_frames=GenerateCacheFrames(t,"HH");
+  t->_dying_frames=GenerateCacheFrames(t,"IJKLMN");
+//Scrotum spider
+  t=doom_thing_types[0x7];
+  t->health=3000;
+  t->speed=12;
+  t->mass=1000;
+  t->pain_chance=40/255.;
+  t->damage=3;
+  t->_idle_frames=GenerateCacheFrames(t,"AB");
+  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDDEEFF");
+  t->_melee_frames=GenerateCacheFrames(t,"GHH");
+  t->_attack_frames=GenerateCacheFrames(t,"GHHH");
+  t->_hurt_frames=GenerateCacheFrames(t,"II");
+  t->_dying_frames=GenerateCacheFrames(t,"JKLMNOPQRSS");
+//Zombieman
+  t=doom_thing_types[0xbbc];
+  t->health=20;
+  t->speed=8;
+  t->pain_chance=200/255.;
+  t->_idle_frames=GenerateCacheFrames(t,"AB");
+  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
+  t->_melee_frames=GenerateCacheFrames(t,"EFE");
+  t->_attack_frames=GenerateCacheFrames(t,"EFE");
+  t->_hurt_frames=GenerateCacheFrames(t,"GG");
+  t->_dying_frames=GenerateCacheFrames(t,"HIJKL");
+  t->_gib_frames=GenerateCacheFrames(t,"MNOPQRSTU");
+};
+LoadMonsterInfo;

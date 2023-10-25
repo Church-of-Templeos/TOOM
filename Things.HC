@@ -25,23 +25,26 @@ class CDoomThingTemplate {
   I64 flags;
 } *doom_thing_types[0x10000];
 
+class CDoomProjectileTemplate:CDoomThingTemplate {
+  CDoomAnimationFrame *_idle_frames;
+  CDoomAnimationFrame *_hit_frames;
+  F64 damage;
+};
+
 
 class CDoomMonsterTemplate:CDoomThingTemplate {
   I64 code;
   F64 x,y,angle,pain_chance;
-  F64 min_damage,max_damage;
-  I64 hp,speed,mass;
+  F64 damage;
+  F64 health,speed,mass,skull_attack_speed;
 //These are NULL terminated
   CDoomAnimationFrame *_idle_frames;
   CDoomAnimationFrame *_chase_frames;
   CDoomAnimationFrame *_attack_frames;
+  CDoomAnimationFrame *_melee_frames;
   CDoomAnimationFrame *_hurt_frames;
   CDoomAnimationFrame *_dying_frames;
-  U8 *idle_frames;
-  U8 *chase_frames;
-  U8 *attack_frames;
-  U8 *hurt_frames;
-  U8 *dying_frames;
+  CDoomAnimationFrame *_gib_frames;
 };
 
 U8 *ReadALine(U8 **fbuf) {
@@ -88,7 +91,7 @@ U0 ParseThingProps() {
 	  );
     if(StrOcc(version,'2'))
       goto skip;
-    template=CAlloc(sizeof CDoomThingTemplate);
+    template=CAlloc(sizeof CDoomMonsterTemplate);
     MemCpy(template->spr_base_name,sprite,4);
     template->radius=radius;
     template->height=height;
@@ -128,7 +131,7 @@ skip:
 CDC *_GetThingFaceSprite(CDoomThingTemplate *template,F64 angle,U8 ani_frame='A',Bool *reflect=NULL) {
   I64 face=1,try_face;
   F64 gap_inc=2.*pi/8.,gap;
-  CDC *ret;
+  CDC *ret=NULL;
   angle=Wrap(angle,0);
   if(reflect) *reflect=FALSE;
   for(gap=-gap_inc/2;gap<=2*pi;gap+=gap_inc) {

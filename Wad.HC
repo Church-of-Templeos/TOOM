@@ -110,7 +110,7 @@ class CDoomThing:CQue {
   I16 thing_type,pad[3];
   CDoomThingTemplate *template;
   I64 flags;
-  Bool solid,pad[7];
+  Bool solid,anim_no_repeat,pad[6];
 };
 extern class CDoomSector;
 

@@ -210,6 +210,14 @@ skip:;
 DbgPutS(frames);
   return ret;
 }
+F64 AnimationTime(CDoomAnimationFrame *f) {
+  if(!f) return 0.;
+  I64 frame_cnt=0;
+  while(f[frame_cnt].chr)
+    frame_cnt++;
+  return frame_cnt*1/4.;
+}
+
 U0 _CacheAnimationFrames(CDoomThingTemplate *t) {
   t->_animation=GenerateCacheFrames(t,t->animation);
 }

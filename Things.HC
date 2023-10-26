@@ -22,6 +22,7 @@ class CDoomThingTemplate {
 #define TF_SHOOTABLE 0x20
 #define TF_FLOATING 0x40
 #define TF_MISSILE 0x80
+  I64 code;
   I64 flags;
 } *doom_thing_types[0x10000];
 
@@ -33,10 +34,18 @@ class CDoomProjectileTemplate:CDoomThingTemplate {
 
 
 class CDoomMonsterTemplate:CDoomThingTemplate {
-  I64 code;
-  F64 x,y,angle,pain_chance;
+  F64 x,y,angle,pain_chance,pain_time,reaction_time;
   F64 damage;
   F64 health,speed,mass,skull_attack_speed;
+//These P Pushers are used with FramePtr("state name");n
+//See CState Enemy.HC
+  U8 *spawn_state;
+  U8 *see_state;
+  U8 *pain_state;
+  U8 *melee_state;
+  U8 *missile_state;
+  U8 *death_state;
+  U8 *gib_state; 
 //These are NULL terminated
   CDoomAnimationFrame *_idle_frames;
   CDoomAnimationFrame *_chase_frames;
@@ -178,13 +187,13 @@ static CDoomAnimationFrame *GenerateCacheFrames(CDoomThingTemplate *t,U8 *frames
   F64 angle;
   CDC *last_dc;
   Bool last_reflect;
-  I64 face,idx;
-  for(idx=0;idx!=cnt;idx++)  {
-    if(!Bt(char_bmp_alpha,frames[idx]))
-      break;
-    ret[idx].chr=frames[idx];
-    for(angle=-2.*pi/8.,face=0;angle<=2*pi+.1;angle+=2*pi/8.,face++) {
-      last_dc=_GetThingFaceSprite(t,angle,frames[idx],&ret[idx].reflect[face]);
+  I64 face,idx,idx2;
+  for(idx=idx2=0;idx2!=cnt;idx2++)  {
+    if(!Bt(char_bmp_alpha,frames[idx2]))
+      goto skip;
+    ret[idx].chr=frames[idx2];
+    for(angle=-2.*pi/8.,face=0;angle<=2*pi+.1&&face<8;angle+=2*pi/8.,face++) {
+      last_dc=_GetThingFaceSprite(t,angle,frames[idx2],&ret[idx].reflect[face]);
       ret[idx].faces[face]=last_dc;
     }
     //Fill in "missing" faces
@@ -195,7 +204,10 @@ static CDoomAnimationFrame *GenerateCacheFrames(CDoomThingTemplate *t,U8 *frames
       } else
         ret[idx].faces[face]=last_dc,ret[idx].reflect[face]=last_reflect;
     }
+    idx++;
+skip:;
   }
+DbgPutS(frames);
   return ret;
 }
 U0 _CacheAnimationFrames(CDoomThingTemplate *t) {

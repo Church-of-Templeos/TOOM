@@ -469,16 +469,18 @@ CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
 
 U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   if(!thing->template) return; //???
-  I64 anim_frame=tS*4,frame_cnt,face;
+  if(!thing->animation) thing->animation=thing->template->_animation;
+  I64 anim_frame=(tS-thing->anim_start_tS)*4,frame_cnt,face;
   F64 angle,gap;
   CDC *sprite;
   CD2 p;
   Bool reflect;
-  frame_cnt=StrLen(thing->template->animation);
-  if(StrOcc(thing->template->animation,'+'))
-    frame_cnt--; //Last one??? This is temporary so it doesnt mater now
+  frame_cnt=0;
+  while(thing->animation[frame_cnt].chr)
+    frame_cnt++;
+  if(!frame_cnt) return;
   anim_frame%=frame_cnt;
-  angle=Wrap(FArg(cam->x-thing->x,cam->y-thing->y)+cam->angle+thing->angle);
+  angle=Wrap(FArg(cam->x-thing->x,cam->y-thing->y)-cam->angle-thing->angle);
   if(angle<=0.)
     angle+=2.*pi;
   face=1;
@@ -487,8 +489,10 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
       break;
     face++;
   }
-  reflect=thing->template->_animation[anim_frame].reflect[face-1];
-  sprite=thing->template->_animation[anim_frame].faces[face-1];
+  if(face>8)
+    face=8;
+  reflect=thing->animation[anim_frame].reflect[face-1];
+  sprite=thing->animation[anim_frame].faces[face-1];
   p.x=thing->x,p.y=thing->y;
   if(sprite)
     PlotSpriteIn3DSpace(to_dc,sprite,cam,&p,thing->height,reflect);
@@ -1674,8 +1678,8 @@ U0 AnimateTask(I64)
 
 U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
   cam->h=p->height+48;
-  cam->x=p->position.x;
-  cam->y=p->position.y;
+  cam->x=p->x;
+  cam->y=p->y;
   cam->angle=p->angle;
 }
 
@@ -1684,11 +1688,10 @@ PlayerMove(l,p,0);
 
 Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
 WinMax;
-
+InitMonsters(l);
 while(TRUE) {
   
   DCFill;
-  UpdateLevel(l);
   UpdateCameraFromPlayer(&cam,p);
 
   DrawDoomWorld(&cam,l,gr.dc);
@@ -1772,7 +1775,7 @@ while(TRUE) {
      SwapWeapon(7);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode(' ')&0xff)) {
-    PressAWall(l,&p->position,p->angle,p->height);
+    PressAWall(l,&p->x,p->angle,p->height);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('\n')&0xff)) {
      DCFill;

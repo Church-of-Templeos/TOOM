@@ -91,7 +91,6 @@ Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F6
   DestroyVector(v);
 }
 
-
 //Make sure no walls in way of the Glizzy shot
 
 
@@ -121,32 +120,34 @@ F64 ValidateLineOfSightShot(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 source_
     source_h+=16.*vslope;
     dummy.x+=16.*cos;   
     dummy.y+=16.*sin;
-    if(dist2>dist)
-      dist2=dist;
-    lds=l->block_map_data+l->block_map_offsets[
-	  blockx+
-	  blocky*l->block_map_cols];
-    for(;*lds;lds++) {
-      if(lds[0]->front^^lds[0]->back) {
-        ceil_height=I16_MAX;
-        floor_height=I16_MAX;
-      } else {
-        floor_height=Max(lds[0]->back->sector->floor_height,
-	      lds[0]->front->sector->floor_height);
-        ceil_height=Min(lds[0]->back->sector->ceil_height,
-	      lds[0]->front->sector->ceil_height);
-      }
-      if(!(floor_height<=source_h<=ceil_height))
-        while(CrosesLine(*lds,at,&dummy)&&dist2>0.) {
-	  hit_wall=TRUE;
+    if(0<=blockx<l->block_map_cols)
+      if(0<=blocky<l->block_map_rows) {
+        lds=l->block_map_data+l->block_map_offsets[
+	      blockx+
+	      blocky*l->block_map_cols];
+        for(;*lds;lds++) {
+	  if(lds[0]->front^^lds[0]->back) {
+	    ceil_height=I16_MAX;
+	    floor_height=I16_MAX;
+	  } else {
+	    floor_height=Max(lds[0]->back->sector->floor_height,
+		  lds[0]->front->sector->floor_height);
+	    ceil_height=Min(lds[0]->back->sector->ceil_height,
+		  lds[0]->front->sector->ceil_height);
+	  }
+	  if(!(floor_height<=source_h<=ceil_height))
+	    while(CrosesLine(*lds,at,&dummy)&&dist2>0.) {
+	      hit_wall=TRUE;
 //get a more "precise" wall hit positon,homie
-	  dummy.x=at->x+dist2*cos;
-	  dummy.y=at->y+dist2*sin;
-	  dist2-=1.;;
+	      dummy.x=at->x+dist2*cos;
+	      dummy.y=at->y+dist2*sin;
+	      dist2-=1.;;
+	    }
+	    if(hit_wall) {
+	      return dist2;
+	    }
         }
-    }
-    if(hit_wall)
-      return dist2;
+      }
   }
   return -1.;
 }
@@ -241,13 +242,13 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
 	      dummy.x=move1.x-lds[0]->start->x;
 	      dummy.y=move1.y-lds[0]->start->y;
 	      if(lds[0]->front^^lds[0]->back) {
-		ceil_height=I16_MAX;
-		floor_height=I16_MAX;
+	        ceil_height=I16_MAX;
+	        floor_height=I16_MAX;
 	      } else {
-		  floor_height=Max(lds[0]->back->sector->floor_height,
-			lds[0]->front->sector->floor_height);
-		  ceil_height=Min(lds[0]->back->sector->ceil_height,
-			lds[0]->front->sector->ceil_height);
+	        floor_height=Max(lds[0]->back->sector->floor_height,
+		      lds[0]->front->sector->floor_height);
+	        ceil_height=Min(lds[0]->back->sector->ceil_height,
+		      lds[0]->front->sector->ceil_height);
 	      }
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
 	      if(floor_height-STEP_HEIGHT>cur_height||ceil_height-56.<=cur_height||floor_height==ceil_height) {
@@ -255,15 +256,15 @@ fail_walk:
 	        if(wall_idx<64)
 		  walls[wall_idx++]=*lds;
 	        if(CrosesLine(lds[0],&move1,&move_fat)&&CrosesLine(lds[0],&move1,&move2)) {
-		    tmp=IntersectDist(lds[0],&move1,&move2);
-		    if(tmp<min_dist) {
-		      best=lds[0];
-		      min_dist=tmp;
-		    }
+		  tmp=IntersectDist(lds[0],&move1,&move2);
+		  if(tmp<min_dist) {
+		    best=lds[0];
+		    min_dist=tmp;
+		  }
 	        }
 	      } else {
 //If we must not fall off the wall,we gunna check if we not fallin off a walk
-                if(flags&COLLISF_NO_DROP&&(lds[0]->back&&lds[0]->front)) {
+	        if(flags&COLLISF_NO_DROP&&(lds[0]->back&&lds[0]->front)) {
 		  dummy.x=cur_pos.x-lds[0]->start->x;
 		  dummy.y=cur_pos.y-lds[0]->start->y;
 		  if(IsFrontSideOfVector2D(vector,&dummy)) {
@@ -316,11 +317,12 @@ fin:
     goto look_for_hot;
   } else if(best&&walked_over_hot) {
 look_for_hot:
-    while(--walked_over_idx>=0) {
-      if(walked_over_dists[walked_over_idx]<min_dist) {
-        FifoI64Ins(walked_over_hot,walked_over[walked_over_idx]);
+    if(walked_over_hot)
+      while(--walked_over_idx>=0) {
+        if(walked_over_dists[walked_over_idx]<min_dist) {
+	  FifoI64Ins(walked_over_hot,walked_over[walked_over_idx]);
+        }
       }
-    }
   }
   DestroyVector(vector);
   return best;

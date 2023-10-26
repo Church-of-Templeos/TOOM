@@ -100,9 +100,13 @@ class CWadSubsector {
   I16 first;
 }; 
 
+
+//extern class CDoomAnimationFrame;
 class CDoomThing:CQue {
   F64 x,y,angle,height,health;
   F64 momx,momy,momz; //Move momentum
+  F64 anim_start_tS;
+  CDoomAnimationFrame *animation;
   I16 thing_type,pad[3];
   CDoomThingTemplate *template;
   I64 flags;

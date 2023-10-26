@@ -480,8 +480,10 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
     frame_cnt++;
   if(!frame_cnt) return;
   anim_frame%=frame_cnt;
-  angle=Wrap(FArg(cam->x-thing->x,cam->y-thing->y)-cam->angle-thing->angle);
-  if(angle<=0.)
+  angle=cam->angle;
+  angle-=thing->angle;
+  angle=Wrap(angle+pi);
+  if(angle<0.)
     angle+=2.*pi;
   face=1;
   for(gap=-2.*pi/8.;gap<2*pi;gap+=2.*pi/8.) {

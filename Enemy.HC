@@ -224,8 +224,10 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
   angle=FArg(target->x-thing->x,target->y-thing->y)+off;
   dummy.x=thing->x;
   dummy.y=thing->y;
-  if(!MoveInLevel(l,&dummy,angle+off,thing->template->radius,thing->template->radius,thing->height,COLLISF_NO_DROP)) {
-  } else if(!MoveInLevel(l,&dummy,angle-off,thing->template->radius,thing->template->radius,thing->height,COLLISF_NO_DROP)) {
+  if(!MoveInLevel(l,&dummy,angle,thing->template->radius,thing->template->radius,thing->height,COLLISF_NO_DROP)) {
+     thing->angle=angle;
+  } else if(!MoveInLevel(l,&dummy,angle-pi,thing->template->radius,thing->template->radius,thing->height,COLLISF_NO_DROP)) {
+     thing->angle=angle-pi;
   } else {
 //Pushin P path is blocked so random direction
     thing->angle=(Rand-.5)*2.*2.*pi;

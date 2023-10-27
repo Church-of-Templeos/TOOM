@@ -4,7 +4,8 @@
 #define STEP_HEIGHT 24.
 #define COLLISF_SLIDE 1
 #define COLLISF_NO_DROP 2
-extern Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=0,CFifoI64 *walked_over_hot=NULL);
+#define COLLISF_NO_HIT_THING 4
+extern Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=0,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL);
 //https://stackoverflow.com/questions/14176776/find-out-if-2-lines-intersect
 Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
   CD2 st,en;
@@ -91,7 +92,30 @@ Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F6
   DestroyVector(v);
 }
 
+CDoomThing *HitsAThing(CDoomLevel *l,CD2 *dummy,CDoomThing *exclude=NULL) {
+  F64 ceil_height,bbt_l,bbt_r,bbt_t,bbt_b;
+  CDoomThing *cur,*head=&l->things,*max=NULL;
+  F64 min_dist=I16_MAX,dist;
+  for(cur=head->next;cur!=head;cur=cur->next) {
+    bbt_l=cur->x-cur->template->radius;
+    bbt_r=cur->x+cur->template->radius;
+    bbt_b=cur->y-cur->template->radius;
+    bbt_t=cur->y+cur->template->radius;
+    if(exclude!=cur)
+      if(bbt_l<=dummy->x<=bbt_r)
+        if(bbt_b<=dummy->y<=bbt_t) {
+	  dist=Sqrt(Sqr(cur->x-dummy->x)+Sqr(cur->y-dummy->y));
+	  if(dist<min_dist) {
+	    max=cur;
+	    min_dist=dist;
+	  }
+	}
+  }
+  return max;
+}
+
 //Make sure no walls in way of the Glizzy shot
+
 
 
 
@@ -196,8 +220,10 @@ CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_
   }
   return NULL;
 }
+
+
 //walked_over_hot is "hot" linedefs that have a walkover action on them
-CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=COLLISF_SLIDE,CFifoI64 *walked_over_hot=NULL) {
+CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=COLLISF_SLIDE,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL) {
   if(dist<0) {
     dist=-dist;
     angle+=pi;
@@ -217,6 +243,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
   I64 walked_over_idx=0;
   I64 xoff,yoff,try_wall;
   CDoomLinedef **lds,*wall;
+  CDoomThing *hit_thing=NULL;
   vector=CreateVector(2);
   move1.x=at->x,move1.y=at->y;
 //Add dummy length for radius
@@ -293,13 +320,39 @@ fail_walk:
 	    }
 skip:;
 	  }
-    dist2+=64;
+
+//Things take less precednece than walls
+    if(flags&COLLISF_NO_HIT_THING)
+      if(hit_thing=HitsAThing(l,&cur_pos,exclude)) 
+	break;
+    dist2+=24;
     cur_pos.x=move1.x+cos*dist2;
     cur_pos.y=move1.y+sin*dist2;
     blockx=(dist2*cos+move1.x-l->block_map_x_off)/128;
     blocky=(dist2*sin+move1.y-l->block_map_y_off)/128;
   }
   if(best) {
+    dist=0.;
+    result->x=move1.x;
+    result->y=move1.y;
+  } else if(hit_thing) {
+//Make a dummy linedef that will block the things from transgrsseing
+    static CDoomLinedef dummy_ld;
+    static CDoomSidedef dummy_sd;
+    static CD2 dummy_ld_s,dummy_ld_e;
+    MemSet(&dummy_ld,0,sizeof CDoomLinedef);
+    dummy_ld.flags=3; //Block moonsters and players
+PrintI("hit_T",hit_thing);
+    dummy_ld_s.x=hit_thing->x-Cos(angle+pi/4)*hit_thing->template->radius;
+    dummy_ld_s.y=hit_thing->y-Sin(angle+pi/4)*hit_thing->template->radius;
+    dummy_ld_e.x=hit_thing->x+Cos(angle+pi/4)*hit_thing->template->radius;
+    dummy_ld_e.y=hit_thing->y+Sin(angle+pi/4)*hit_thing->template->radius;
+    dummy_ld.start=&dummy_ld_s;
+    dummy_ld.end=&dummy_ld_e;
+    dummy_ld.front=&dummy_sd; //Make a 1 sided(solid) sidedef
+    best=&dummy_ld;
+    min_dist=0;
+
     dist=0.;
     result->x=move1.x;
     result->y=move1.y;

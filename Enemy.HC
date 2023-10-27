@@ -82,7 +82,7 @@ Bool MMove(CDoomLevel *l,CMonsterThinker *m) {
 	self->template(CDoomMonsterTemplate*)->speed*TICK_FPS_SCALE,
 	self->template->radius,
 	self->height,
-	allow_float|COLLISF_SLIDE,
+	allow_float|COLLISF_SLIDE|COLLISF_NO_HIT_THING,
 	crossed
 	);
     self->x=dummy.x;

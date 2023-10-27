@@ -280,6 +280,7 @@ U0 Chase(CDoomLevel *l,CMonsterThinker *t) {
   if(t->self->flags&MF_JUST_ATTACKED) {
     t->self->flags&=~MF_JUST_ATTACKED;
     NewChaseDir(l,t);
+    return;
   }
   if(t->self->template(CDoomMonsterTemplate*)->melee_state&&CheckMeleeRange(l,t)) {
     SetState(l,t,t->self->template(CDoomMonsterTemplate*)->melee_state);

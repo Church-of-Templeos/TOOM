@@ -90,18 +90,6 @@ U0 TransformPointToCamera(CDoomCamera *cam,CD2 *p) {
   p->y=dist*FSin(angle);
 }
 
-Bool ScreenCordsToPlaneCoords(CDoomCamera *cam,CD2 *p,F64 level) {
-  F64 angle=(p->x-GR_WIDTH/2)/(GR_WIDTH/2-1)*(cam->fov/2),dist;
-  dist=DIST_SCALE/((p->y-GR_HEIGHT/2)/(cam->h-level))/FCos(angle);
-  p->x=FCos(angle+cam->angle)*dist+cam->x;
-  p->y=FSin(angle+cam->angle)*dist+cam->y;
-  if(dist<0.) return FALSE;
-  if(-cam->fov/2.<angle<cam->fov/2.)
-    return TRUE;
-  return FALSE;
-}
-
-
 Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *out_of_view=NULL) {
   CD2 s,e,at,*ptr,debug;
   I64 cnt,fail_cnt;
@@ -141,10 +129,12 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
   I64 x,y;
   I64 w=sector->shape_dc->width*2,h=sector->shape_dc->height*2;
   I64 floorx,floory;
-  I32 *db_z,dist;
+  I32 *db_z;
   U16 *dst,color;
-  F64 maxx=I16_MIN,maxy=I16_MIN;
-  F64 minx=I16_MAX,miny=I16_MAX,angle;
+  I64 maxx=I16_MIN,maxy=I16_MIN;
+  I64 minx=I16_MAX,miny=I16_MAX;
+  F64 angle,dist;
+  F64 cos,sin,cos2;
   CD2 point,point2,point3,point4;
   point.x=sector->shape_start_x;
   point.y=sector->shape_start_y;
@@ -158,26 +148,26 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
   point4.x=sector->shape_start_x+w;
   point4.y=sector->shape_start_y+h;
   if(ClipLineToScrenCoords(cam,&point3,&point4,at)) {
-    maxx=Max(maxx,point3.x);
-    maxy=Max(maxy,point3.y);
-    maxx=Max(maxx,point4.x);
-    maxy=Max(maxy,point4.y);
+    maxx=MaxI64(maxx,point3.x);
+    maxy=MaxI64(maxy,point3.y);
+    maxx=MaxI64(maxx,point4.x);
+    maxy=MaxI64(maxy,point4.y);
 
-    minx=Min(minx,point3.x);
-    miny=Min(miny,point3.y);
-    minx=Min(minx,point4.x);
-    miny=Min(miny,point4.y);
+    minx=MinI64(minx,point3.x);
+    miny=MinI64(miny,point3.y);
+    minx=MinI64(minx,point4.x);
+    miny=MinI64(miny,point4.y);
   }
   if(ClipLineToScrenCoords(cam,&point,&point2,at)) {
-    maxx=Max(maxx,point2.x);
-    maxy=Max(maxy,point2.y);
-    maxx=Max(maxx,point.x);
-    maxy=Max(maxy,point.y);
+    maxx=MaxI64(maxx,point2.x);
+    maxy=MaxI64(maxy,point2.y);
+    maxx=MaxI64(maxx,point.x);
+    maxy=MaxI64(maxy,point.y);
 
-    minx=Min(minx,point2.x);
-    miny=Min(miny,point2.y);
-    minx=Min(minx,point.x);
-    miny=Min(miny,point.y);
+    minx=MinI64(minx,point2.x);
+    miny=MinI64(miny,point2.y);
+    minx=MinI64(minx,point.x);
+    miny=MinI64(miny,point.y);
   }
 
   point.x=sector->shape_start_x;
@@ -194,44 +184,46 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
 
 
   if(ClipLineToScrenCoords(cam,&point2,&point4,at)) {
-    maxx=Max(maxx,point2.x);
-    maxy=Max(maxy,point2.y);
-    maxx=Max(maxx,point4.x);
-    maxy=Max(maxy,point4.y);
+    maxx=MaxI64(maxx,point2.x);
+    maxy=MaxI64(maxy,point2.y);
+    maxx=MaxI64(maxx,point4.x);
+    maxy=MaxI64(maxy,point4.y);
 
-    minx=Min(minx,point2.x);
-    miny=Min(miny,point2.y);
-    minx=Min(minx,point4.x);
-    miny=Min(miny,point4.y);
+    minx=MinI64(minx,point2.x);
+    miny=MinI64(miny,point2.y);
+    minx=MinI64(minx,point4.x);
+    miny=MinI64(miny,point4.y);
   }
   if(ClipLineToScrenCoords(cam,&point,&point3,at)) {
-    maxx=Max(maxx,point3.x);
-    maxy=Max(maxy,point3.y);
-    maxx=Max(maxx,point.x);
-    maxy=Max(maxy,point.y);
+    maxx=MaxI64(maxx,point3.x);
+    maxy=MaxI64(maxy,point3.y);
+    maxx=MaxI64(maxx,point.x);
+    maxy=MaxI64(maxy,point.y);
 
     minx=Min(minx,point3.x);
-    miny=Min(miny,point3.y);
-    minx=Min(minx,point.x);
-    miny=Min(miny,point.y);
+    miny=MinI64(miny,point3.y);
+    minx=MinI64(minx,point.x);
+    miny=MinI64(miny,point.y);
   }
 
 
   if(maxx<minx)
     return;
-  minx=Max(0,minx);
-  miny=Max(0,miny);
-  maxx=Min(GR_WIDTH-2,maxx);
-  maxy=Min(GR_HEIGHT-2,maxy);
+  minx=MaxI64(0,minx);
+  miny=MaxI64(0,miny);
+  maxx=MinI64(GR_WIDTH-2,maxx);
+  maxy=MinI64(GR_HEIGHT-2,maxy);
   for(x=minx;x<maxx;x+=2) {
-    angle=(ToF64(x)-GR_WIDTH/2)/(GR_WIDTH/2)*cam->fov/2;
+    angle=(ToF64(x)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
+    cos=FCos(angle+cam->angle);
+    sin=FSin(angle+cam->angle);
+    cos2=FCos(angle);
     for(y=miny;y<maxy;y+=2) {
       if(!GrPeek0(cam->floor_dc,x/2,y/2)) {
-        point.x=x,point.y=y;
-        if(ScreenCordsToPlaneCoords(cam,&point,at)) {
-	  dist=Sqrt(Sqr(point.x-cam->x)+Sqr(point.y-cam->y));
-	  point.x-=sector->shape_start_x;
-	  point.y-=sector->shape_start_y;
+	dist=DIST_SCALE/((ToF64(y)-GR_HEIGHT/2)/(cam->h-at))/cos2;
+	if(dist<0.) goto next;
+        point.x=cam->x+cos*dist-sector->shape_start_x;
+        point.y=cam->y+sin*dist-sector->shape_start_y;
 	  if(0.<=point.x<w)
 	    if(0.<=point.y<h){
 	      db_z=&to_dc->depth_buf[x+y*to_dc->width_internal];
@@ -256,10 +248,9 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
 		  dst(U8*)+=to_dc->width_internal;
 		  color=texture->body[floorx+(1+floory)*texture->width](U16);
 		  *dst=color;
-	        }
-	    }
+	       }
+            }
         }
-      }
 next:;
     }
   }

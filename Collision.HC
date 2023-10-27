@@ -342,7 +342,6 @@ skip:;
     static CD2 dummy_ld_s,dummy_ld_e;
     MemSet(&dummy_ld,0,sizeof CDoomLinedef);
     dummy_ld.flags=3; //Block moonsters and players
-PrintI("hit_T",hit_thing);
     dummy_ld_s.x=hit_thing->x-Cos(angle+pi/4)*hit_thing->template->radius;
     dummy_ld_s.y=hit_thing->y-Sin(angle+pi/4)*hit_thing->template->radius;
     dummy_ld_e.x=hit_thing->x+Cos(angle+pi/4)*hit_thing->template->radius;

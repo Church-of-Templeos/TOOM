@@ -565,7 +565,7 @@ U0 RadiusAttack(CDoomLevel *l,CDoomThing *dik,F64 boom) {
       angle=FArg(cur->x-src.x,cur->y-src.y);
       dummy.x=src.x;
       dummy.y=src.y;
-      if(!MoveInLevel(l,&dummy,angle,dist,dik->template->radius,dik->height,0))
+      if(!MoveInLevel(l,&dummy,angle,dist,dik->template->radius,dik->height,0))
 	DamageMob(l,cur,dik,dist);
     }
   }

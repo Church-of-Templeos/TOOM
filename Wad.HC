@@ -31,7 +31,7 @@ class CWadLinedef {
   I16 start_vertex;
   I16 end_vertex;
 #define WAD_LINEDEFF_WALL 1 //Wall for player and monsters
-#define WAD_LINEDEFF_WALL_MONSTER 2 //Wall for monsters only
+#define WAD_LINEDEFF_WALL_MONSTER 2 //Wall for monsters only
 #define WAD_LINEDEFF_2SIDED 4
 #define WAD_LINEDEFF_UPPER_UNPEGGED 8
 #define WAD_LINEDEFF_LOWER_UNPEGGED 0x10

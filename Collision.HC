@@ -240,6 +240,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
   F64 min_dist=I16_MAX,wall_angle,slope,off,tmp,max_dist,step;
   CDoomLinedef *best=NULL;
   CDoomLinedef *walls[64],*walked_over[64];
+  CDoomSector *s;
   F64 walked_over_dists[64];
   I64 walked_over_idx=0;
   I64 xoff,yoff,try_wall;
@@ -380,6 +381,13 @@ look_for_hot:
 	  FifoI64Ins(walked_over_hot,walked_over[walked_over_idx]);
         }
       }
+  }
+//Final test,ensure the final destination is within step distance
+  if(s=GetSectorForCoord(l,result->x,result->y)) {
+    if(s->floor_height>=cur_height+STEP_HEIGHT) {
+      result->x=move1.x;
+      result->y=move1.y;
+    }
   }
   DestroyVector(vector);
   return best;

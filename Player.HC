@@ -20,17 +20,15 @@ class CDoomPlayer:CDoomThing {
 U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 speed=GRID_SZ/4) {
   CFifoI64 *crossed_f=FifoI64New(16);
   CDoomLinedef *crossed;
-  CDoomLinedef *hit=MoveInLevel(l,&p->x,p->angle,speed,16,p->height,COLLISF_NO_HIT_THING|COLLISF_SLIDE,crossed_f,p);
+  CDoomLinedef *hit=MoveInLevel(l,&p->x,p->angle,speed,16,p->height,COLLISF_NO_HIT_THING|COLLISF_SLIDE,crossed_f,p);
   while(FifoI64Rem(crossed_f,&crossed)) {
     TriggerLinedef(l,crossed,WACTIVATE_WALK);
   }
   if(hit) TriggerLinedef(l,hit,WACTIVATE_PUSH);
   FifoI64Del(crossed_f);
   if(GetSectorForCoord(l,p->x,p->y)) {
-PrintF("f",GetSectorForCoord(l,p->x,p->y)->floor_height);
     p->height=GetSectorForCoord(l,p->x,p->y)->floor_height;
-  } else
-PrintF("f?",0);
+  }
 }
 
 U0 PlayerLook(CDoomPlayer *p,F64 angle) {

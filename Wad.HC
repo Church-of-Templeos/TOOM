@@ -185,12 +185,13 @@ class CDoomBSPSeg {
   CD2 *start,*end;
   CDoomLinedef *linedef;
   I64 size,offset;
-  Bool same_side;
+  Bool back_side;
 };
 
 class CDoomSubsector:CQue {
   U64 signature;
   I64 cnt;
+  CDoomSector *sector;
   CDoomBSPSeg *first;
 };
 
@@ -426,45 +427,28 @@ CDoomBSPNode *DoomWhichBSPNode(F64 x,F64 y,CDoomLevel *level,CDoomSubsector **ss
   while(TRUE) {
     if(!cur_node)
       break;
-    right=left=FALSE;
-    if(BoundBoxF64Inside(x,y,&cur_node->left)) {
-      left=TRUE;
-    }
-    if(BoundBoxF64Inside(x,y,&cur_node->right)) {
-      right=TRUE;
-    }
-    if(!left&&!right) return cur_node;
-    if(left^^right) { //Check for difference
-      if(left) {
-lefts:
-        if(cur_node->left_child->signature!='NODE') {
-	  if(ss) *ss=cur_node->left_child;
-	  return cur_node;
-	}
-        cur_node=cur_node->left_child;
-      } else {
-rights:
-        if(cur_node->right_child->signature!='NODE') {
-	  if(ss) *ss=cur_node->right_child;
-	  return cur_node;
-	}
-        cur_node=cur_node->right_child;
-      }
-    } else if(left&&right) {
 //Check which side of parition line
-      pline=CreateVector(2);
-      dummy.x=x-cur_node->x;
-      dummy.y=y-cur_node->y;
-      SetVector(pline,cur_node->dx,0);
-      SetVector(pline,cur_node->dy,1);
-      if(IsFrontSideOfVector2D(pline,&dummy)) {
-        DestroyVector(pline);
-	goto lefts;
-      } 
-        DestroyVector(pline);
-	goto rights;
-//
+    pline=CreateVector(2);
+    dummy.x=x-cur_node->x;
+    dummy.y=y-cur_node->y;
+    SetVector(pline,cur_node->dx,0);
+    SetVector(pline,cur_node->dy,1);
+    if(IsFrontSideOfVector2D(pline,&dummy)) {
+      DestroyVector(pline);
+      if(cur_node->left_child->signature!='NODE') {
+        if(ss) *ss=cur_node->left_child;
+        return cur_node;
+      }
+      cur_node=cur_node->left_child;
+    }  else {
+      DestroyVector(pline);
+      if(cur_node->right_child->signature!='NODE') {
+        if(ss) *ss=cur_node->right_child;
+        return cur_node;
+      }
+      cur_node=cur_node->right_child;
     }
+//
   }
   return NULL;
 }
@@ -941,7 +925,7 @@ found:
     dseg->end=&level->vertices[wseg->end_vertex];
     dseg->linedef=dlinedef_list[wseg->linedef];
     dseg->offset=wseg->offset;
-    dseg->same_side=!wseg->opposite_side;
+    dseg->back_side=wseg->opposite_side;
     wseg++;
   }  
 // SSECTORS 
@@ -1081,6 +1065,13 @@ found:
       idx=(offs[x+y*wbmh->num_cols]*2-sizeof(CWadBlockMapHeader)-2*cnt)/2;
       level->block_map_offsets[x+y*wbmh->num_cols]=idx;
     }
+  }
+//Assign sectors to subsectors
+   for(dss=level->subsectors.next;dss!=&level->subsectors;dss=dss->next) {
+    if(!dss->first->back_side)
+      dss->sector=dss->first->linedef->front->sector;
+    else
+      dss->sector=dss->first->linedef->back->sector;
   }
   offs+=cnt;
   cnt=(wad_dir[9].lump_size-sizeof(CWadBlockMapHeader)-cnt*sizeof(I16))/sizeof(I16);

@@ -26,8 +26,11 @@ U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 speed=GRID_SZ/4) {
   }
   if(hit) TriggerLinedef(l,hit,WACTIVATE_PUSH);
   FifoI64Del(crossed_f);
-  if(GetSectorForCoord(l,p->x,p->y))
+  if(GetSectorForCoord(l,p->x,p->y)) {
+PrintF("f",GetSectorForCoord(l,p->x,p->y)->floor_height);
     p->height=GetSectorForCoord(l,p->x,p->y)->floor_height;
+  } else
+PrintF("f?",0);
 }
 
 U0 PlayerLook(CDoomPlayer *p,F64 angle) {

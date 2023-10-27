@@ -446,14 +446,10 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,
 }
 
 CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
-  CDoomSector *head=&level->sectors,*s=head->next;
-  while(s!=head) {
-    if(0<=x-s->shape_start_x<=s->shape_dc->width*2)
-      if(0<=y-s->shape_start_y<=s->shape_dc->height*2) {
-        if(GrPeek0(s->shape_dc,(x-s->shape_start_x)/2,(y-s->shape_start_y)/2))
-	  return s;
-      }
-    s=s->next;
+  CDoomSubsector *ss;
+  CDoomBSPNode *node=DoomWhichBSPNode(x,y,level,&ss);
+  if(ss) {
+    return ss->sector;
   }
   return NULL;
 }
@@ -1572,7 +1568,7 @@ U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
 
 U0 UpdateLevel(CDoomLevel *l) {
   CDoomSector *sector,*head=&l->sectors;
-  UpdateThinkers(l);
+  UpdateThinkers(l);
   for(sector=head->next;sector!=head;sector=sector->next) {
     UpdateSector(sector);
   }

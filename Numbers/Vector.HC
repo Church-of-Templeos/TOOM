@@ -200,17 +200,23 @@ U0 DestroyVector(Vector *v)
 // See P_DivlineSide in DOOM
 //
 I64 SideOfVector2D(Vector *v,CD2 *point) {
-  if(!v->data[0]) {
-    if(point->x<=0)
-      return v->data[1]>0;
-    return v->data[1]<0;
+  Bool result=TRUE;
+  F64 dx=v->data[0],dy=v->data[1];
+  if(!dx) {
+    if(point->x<=0.)
+      dy=-dy;
+    if(dy>=0.)
+      result=FALSE;
+    return result;
   }
-  if(!v->data[1]) {
-    if(point->y<=0)
-      return v->data[0]>0;
-    return v->data[0]<0;
+  if(!dx) {
+    if(point->y<=0.)
+      dx=-dx;
+    if(dx>=0.)
+      result=FALSE;
+    return result;
   }
-  F64 left=v->data[1]*point->x,right=v->data[0]*point->y;
+  F64 left=dy*point->x,right=dx*point->y;
   if(right<left)
     return 0;
   return 1;

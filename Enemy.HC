@@ -82,7 +82,7 @@ Bool MMove(CDoomLevel *l,CMonsterThinker *m) {
 	self->template(CDoomMonsterTemplate*)->speed*TICK_FPS_SCALE,
 	self->template->radius,
 	self->height,
-	allow_float|COLLISF_SLIDE|COLLISF_NO_HIT_THING,
+	allow_float|COLLISF_SLIDE|COLLISF_NO_HIT_THING|COLLISF_MONSTER,
 	crossed
 	);
     self->x=dummy.x;
@@ -565,7 +565,7 @@ U0 RadiusAttack(CDoomLevel *l,CDoomThing *dik,F64 boom) {
       angle=FArg(cur->x-src.x,cur->y-src.y);
       dummy.x=src.x;
       dummy.y=src.y;
-      if(!MoveInLevel(l,&dummy,angle,dist,dik->template->radius,dik->height,0))
+      if(!MoveInLevel(l,&dummy,angle,dist,dik->template->radius,dik->height,0))
 	DamageMob(l,cur,dik,dist);
     }
   }

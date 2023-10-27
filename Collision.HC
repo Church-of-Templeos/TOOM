@@ -5,6 +5,7 @@
 #define COLLISF_SLIDE 1
 #define COLLISF_NO_DROP 2
 #define COLLISF_NO_HIT_THING 4
+#define COLLISF_MONSTER 5
 extern Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=0,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL);
 //https://stackoverflow.com/questions/14176776/find-out-if-2-lines-intersect
 Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
@@ -264,6 +265,10 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
 	    wall_idx=0;
 	    for(lds=l->block_map_data+o;*lds;lds++,i++) {
 //TODO ceiling
+	      if(lds[0]->flags&WAD_LINEDEFF_WALL)
+	       goto fail_walk;
+	      if(lds[0]->flags&WAD_LINEDEFF_WALL_MONSTER&&flags&COLLISF_MONSTER)
+	       goto fail_walk;
 	      vector->data[0]=lds[0]->end->x-lds[0]->start->x;
 	      vector->data[1]=lds[0]->end->y-lds[0]->start->y;
 	      dummy.x=move1.x-lds[0]->start->x;

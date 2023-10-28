@@ -104,7 +104,7 @@ class CWadSubsector {
 //extern class CDoomAnimationFrame;
 class CDoomThing:CQue {
   F64 x,y,angle,height,health;
-  F64 momx,momy,momz; //Move momentum
+  F64 mom,momz; //Move momentum
   F64 anim_start_tS;
   CDoomAnimationFrame *animation;
   I16 thing_type,pad[3];
@@ -224,6 +224,7 @@ class CDoomSector:CQue {
   F64 start_tS,door_height_offset;
   F64 target_end,target_start;
   Bool drawn,closing,opening,activated,waiting,going_up,going_down,reverting;
+  Bool paused; //Pause the action on the sector
 };
 
 

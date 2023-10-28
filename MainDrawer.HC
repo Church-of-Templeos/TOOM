@@ -655,7 +655,7 @@ U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
   Vector *vect=CreateVector(2);
   SetVector(vect,node->left_child->dx,0);
   SetVector(vect,node->left_child->dy,1);
-  if(!IsFrontSideOfVector2D(vect,&cam_cord)) {
+  if(IsFrontSideOfVector2D(vect,&cam_cord)) {
     DestroyVector(vect);
     DrawBSP0(to_dc,cam,node->left_child);
     DrawBSP0(to_dc,cam,node->right_child);
@@ -889,20 +889,32 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
 #define WACTIVATE_SWITCH 4
 #define WACTIVATE_MONSTER 8
 #define WACTIVATE_WALK 0x10
+
+#define TIME_SCALE (35.)
+
+Bool OutsideOfRange(F64 p,F64 s,F64 e) {
+  if(s<e&&s<=p<=e)
+    return FALSE;
+  else if(e<=p<=s)
+    return FALSE;
+  return TRUE;
+}
+
 U0 UpdateSector(CDoomSector *s) {
-  F64 percent,time=tS,ceil=I16_MAX;
+  F64 time=tS,ceil=I16_MAX,dir;
   I64 idx;
   CDoomLinedef *ld=s->cur_action_linedef;
   if(!ld) return;
+  if(s->paused) return;
   if(ld->special_type->type=='Ceil') {
     if(!s->going_up&&!s->going_down) {
-    if(s->target_end>s->ceil_height)
-	s->going_up=TRUE,s->going_down=FALSE;
-    else
-	s->going_down=TRUE,s->going_up=FALSE;
+      if(s->target_end>s->ceil_height)
+        s->going_up=TRUE,s->going_down=FALSE;
+      else
+        s->going_down=TRUE,s->going_up=FALSE;
     }
-    percent=(time-s->start_tS)/s->speed;
-    s->ceil_height=percent*(s->target_end-s->target_start)+s->target_start;
+    dir=Sign(s->target_end-s->target_start);
+    s->ceil_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;
     if(s->going_up&&s->ceil_height>s->target_end) {
       s->ceil_height=s->target_end;
       s->going_up=FALSE;
@@ -914,8 +926,8 @@ U0 UpdateSector(CDoomSector *s) {
     }
   } else if(ld->special_type->type=='Lift') {
     if(ld->special_type(CDoomLift*)->target==LIFT_LOW_HIGH_REPEAT) {
-      percent=(time-s->start_tS)/s->speed;
-      s->floor_height=percent*(s->target_end-s->target_start)+s->target_start;
+      dir=Sign(s->target_end-s->target_start);
+      s->floor_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;
       if(s->going_up) {
         if(s->floor_height>s->target_end) {
 	  s->floor_height=s->target_end;
@@ -945,8 +957,10 @@ lift_again:
         ceil=Min(s->linedefs[idx]->front->sector->base_ceil_height-4,ceil);
     }
     if(s->opening) {
-      percent=(time-s->start_tS)/s->speed;
-      if(percent>=1.||s->waiting) {
+      s->target_end=ceil;
+      dir=Sign(s->target_end-s->target_start);
+      s->ceil_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;      
+      if(OutsideOfRange(s->ceil_height,s->target_start,s->target_end)||s->waiting) {
         s->ceil_height=ceil;
 //-1 for never close/open again
         if(s->wait_time>=0.) {
@@ -961,14 +975,14 @@ lift_again:
 	  s->opening=FALSE;
 	  s->closing=TRUE;
 	  s->wait_time=-1.;
+	  s->target_start=s->ceil_height;
         }
-      } else {
-        s->ceil_height=percent*(ceil
-	      -s->base_floor_height)+s->base_floor_height;
       }
     } else if(s->closing) {
-      percent=(time-s->start_tS)/s->speed;
-      if(percent>=1.||s->waiting) {
+      s->target_end=s->floor_height;
+      dir=Sign(s->target_end-s->target_start);
+      s->ceil_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;      
+      if(OutsideOfRange(s->ceil_height,s->target_start,s->target_end)||s->waiting) {
         s->ceil_height=s->base_floor_height;
 //-1 for never close/open again
         if(s->wait_time>=0.) {
@@ -983,17 +997,15 @@ lift_again:
 	  s->opening=TRUE;
 	  s->closing=FALSE;
 	  s->wait_time=-1.;
+	  s->target_start=s->floor_height;
         }
-      }  else {
-        s->ceil_height=percent*(s->base_floor_height
-	      -ceil)+ceil;
       }
     }
     s->door_height_offset=s->ceil_height-s->base_floor_height;
   } else if(ld->special_type->type=='Floor') {
 floor_defacto:
-    percent=(time-s->start_tS)/s->speed;
-    s->floor_height=percent*(s->target_end-s->target_start)+s->target_start;
+    dir=Sign(s->target_end-s->target_start);
+    s->floor_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;      
     if(s->going_up) {
       if(s->floor_height>s->target_end) {
         s->floor_height=s->target_end;
@@ -1373,6 +1385,7 @@ activate:
 	    if(l->has_blue_key^^(door->key&DOOR_LOCK_BLUE)) return;
 	    if(l->has_yellow_key^^(door->key&DOOR_LOCK_YELLOW)) return;
 //Do the door action
+	    s->target_start=s->ceil_height;
 	    switch(door->action) {
 	      case DOOR_ACTION_OPEN_WAIT_CLOSE:
 	        if(s->opening) return;
@@ -1568,7 +1581,7 @@ U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
 
 U0 UpdateLevel(CDoomLevel *l) {
   CDoomSector *sector,*head=&l->sectors;
-  1UpdateThinkers(l);
+  UpdateThinkers(l);
   for(sector=head->next;sector!=head;sector=sector->next) {
     UpdateSector(sector);
   }
@@ -1602,7 +1615,7 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
 	ldv->data[1]=ld->end->y-ld->start->y;
 	dummy.x=where->x-ld->start->x;
 	dummy.y=where->y-ld->start->y;
-	if(!IsFrontSideOfVector2D(ldv,&dummy)) {
+	if(IsFrontSideOfVector2D(ldv,&dummy)) {
 	   sd=ld->front;
 	   floor=ld->front->sector->floor_height;
 	   floor2=FloorRaise(ld,ld->front->sector);
@@ -1624,6 +1637,7 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
       case 2:
 	if(AltSwitchTexture(sd->upper_texture[0])) {
 pass:
+PrintI("pass",1);
 	  if(ld->special_type->type=='Door')
 	    trigger=ld->special_type(CDoomDoor*)->trigger;
 	  else if(ld->special_type->type=='Ceil')

@@ -87,7 +87,7 @@ class CDoomFloor {
   I64 model;
   I64 monster;
   I64 crush;
-  I64 target
+  I64 target;
 };
 
 #define CEIL_DST_FLOOR 1
@@ -102,12 +102,16 @@ class CDoomCeil {
   U64 direction;
   F64 speed;
   I64 target;
+  Bool crush;
 };
 
 
 union CDoomActionSector {
   U64 type;
   CDoomDoor door;
+  CDoomCeil ceil;
+  CDoomFloor floor;
+  CDoomLift lift;
 };
 
 CDoomActionSector *action_sector_types[0x10000];

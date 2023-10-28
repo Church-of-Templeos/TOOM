@@ -359,8 +359,6 @@ U0 PuffThinker(CDoomLevel *l,CPuffThinker *puff) {
     Free(puff);
     return;
   }
-  self->height+=self->momz;
-  self->momz-=GRAVITY;
   if(s->floor_height<self->height)
     goto kill_puff;
 //I will goto the next puff frame
@@ -534,8 +532,7 @@ U0 SkullAttack(CDoomLevel *l,CMonsterThinker *t) {
     self->flags|=MF_SKULL_ATTACK;
     //TODO sound
     FaceTarget(l,t);
-    self->momx=FCos(t)*SKULL_ATTACK_SPEED;
-    self->momy=FSin(t)*SKULL_ATTACK_SPEED;
+    self->mom=SKULL_ATTACK_SPEED;
     dist=Sqrt(Sqr(dest->x-t->self->x)+Sqr(dest->y-t->self->y));
     self->momz=(dest->height+dest->template->height/2-t->self->height)/dist;
   }
@@ -605,8 +602,7 @@ U0 Metal(CDoomLevel *l,CMonsterThinker *t) {
 
 U0 ExplodeMissle(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *self=t->self;
-  self->momx=0.;
-  self->momy=0.;
+  self->mom=0.;
   self->momz=0.;
   SetState(l,t,t->self->template(CDoomMonsterTemplate*)->death_state);
   self->flags&=~MF_MISSILE; 
@@ -630,8 +626,7 @@ U0 SkullHit(CDoomLevel *l,CMonsterThinker *t,CDoomThing *hit_thang) {
   }
   self=t->self;
   self->flags&=~MF_SKULL_ATTACK;
-  self->momx=0.;
-  self->momy=0.;
+  self->mom=0.;
   self->momz=0.;
   SetState(l,t,t->self->template(CDoomMonsterTemplate*)->spawn_state);
 }

@@ -1068,7 +1068,7 @@ found:
   }
 //Assign sectors to subsectors
    for(dss=level->subsectors.next;dss!=&level->subsectors;dss=dss->next) {
-    if(!dss->first->back_side)
+    if(!dss->first->back_side)
       dss->sector=dss->first->linedef->front->sector;
     else
       dss->sector=dss->first->linedef->back->sector;

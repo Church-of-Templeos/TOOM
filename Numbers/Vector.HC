@@ -216,7 +216,7 @@ I64 SideOfVector2D(Vector *v,CD2 *point) {
       result=FALSE;
     return result;
   }
-  F64 left=dy*point->x,right=dx*point->y;
+  F64 left=dy*point->x,right=dx*point->y;
   if(right<left)
     return 0;
   return 1;

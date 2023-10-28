@@ -6,7 +6,9 @@
 #define COLLISF_NO_DROP 2
 #define COLLISF_NO_HIT_THING 4
 #define COLLISF_MONSTER 8
+#define COLLISF_ADJUST_FOR_RADIUS 0x10
 extern Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=0,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL);
+
 //https://stackoverflow.com/questions/14176776/find-out-if-2-lines-intersect
 Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
   CD2 st,en;
@@ -42,6 +44,50 @@ Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
 F64 DistFromLine(CD2 *p,CD2 *l1,CD2 *l2) {
   return Abs((l2->x-l1->x)*(l1->y-p->y)-(l2->y-l1->y)*(l1->x-p->x))/Sqrt(Sqr(l1->x-l2->x)+Sqr(l1->y-l2->y));
 }
+
+//Sort of from here
+//https://www.sevenson.com.au/programming/sat/
+Bool CloseToLine(CD2 *tip=NULL,CD2 *p1,CD2 *p2,CD2 *at,F64 radius) {
+  I64 idx;
+  F64 magnitude,ax,ay,p1min,p1max,dot,p2min,p2max,a;
+  magnitude=Sqrt(Sqr(p2->x-p1->x)+Sqr(p2->y-p1->y));
+  ax=p2->x-p1->x;
+  ay=p2->y-p1->y;
+  if(magnitude>0.) {
+    ax*=1/magnitude;
+    ay*=1/magnitude;
+  }
+
+  p1min=ax*at->x+ay*at->y;
+  p1max=p1min;
+
+  dot=ax*p1->x+ay*p1->y;
+  p2min=dot;
+  p2max=dot;
+
+  dot=ax*p2->x+ay*p2->y;
+  p2min=Min(p2min,dot);
+  p2max=Max(p2max,dot);
+
+//Check for overlap
+//https://stackoverflow.com/questions/3269434/whats-the-most-efficient-way-to-test-if-two-ranges-overlap
+  if(Max(p2min-radius,p1min)<=Min(p2max+radius,p1max)) {
+    if(DistFromLine(at,p1,p2)<radius) {
+PrintF("d2",DistFromLine(at,p1,p2));
+      if(tip) {
+	magnitude=p1min-p2min;
+	a=FArg(p2->x-p1->x,p2->y-p1->y);
+	tip->x=p1->x+FCos(a)*magnitude;
+	tip->y=p1->y+FSin(a)*magnitude;
+	tip->x+=FCos(a+pi/2)*radius;
+	tip->y+=FSin(a+pi/2)*radius;
+      }
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
 F64 IntersectDist(CDoomLinedef *ld,CD2 *a,CD2 *b) {
 //I will use a divine heuristic(Ask God how this works),see InterceptVector from doom3do
   F64 dx1=ld->end->x-ld->start->x;
@@ -73,6 +119,7 @@ Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F6
   F64 ld_normal1,ld_normal2,angle2;
   F64 dist;
   F64 x,y;
+  angle2=FArg(closest_point.x-point->x,closest_point.y-point->y);
   Vector *v=CreateVector(2);
   v->data[0]=ld->end->x-ld->start->x;
   v->data[1]=ld->end->y-ld->start->y;
@@ -83,12 +130,12 @@ Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F6
   if(IsFrontSideOfVector2D(v,&rel_point)) {
     angle2=ld_normal1-angle;
     x=-to_travel*FSin(angle2);
-    MoveInLevel(l,point,ld_normal1+pi/2,x,radius,cur_h,0);
+    MoveInLevel(l,point,ld_normal1+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS);
   } else{
     dist=radius-DistFromLine(point,ld->start,ld->end);
     angle2=ld_normal2-angle;
     x=-to_travel*FSin(angle2);
-    MoveInLevel(l,point,ld_normal2+pi/2,x,radius,cur_h,0);
+    MoveInLevel(l,point,ld_normal2+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS);
   }
   DestroyVector(v);
 }
@@ -102,7 +149,7 @@ CDoomThing *HitsAThing(CDoomLevel *l,CD2 *dummy,CDoomThing *exclude=NULL) {
     bbt_r=cur->x+cur->template->radius;
     bbt_b=cur->y-cur->template->radius;
     bbt_t=cur->y+cur->template->radius;
-    if(exclude!=cur)
+    if(exclude!=cur&&cur->flags&TF_OBSTACLE)
       if(bbt_l<=dummy->x<=bbt_r)
         if(bbt_b<=dummy->y<=bbt_t) {
 	  dist=Sqrt(Sqr(cur->x-dummy->x)+Sqr(cur->y-dummy->y));
@@ -238,6 +285,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
   F64 dist2=0,sin=Sin(angle),cos=Cos(angle),cap;
   F64 floor_height=0,ceil_height,odist=dist,best_dist;
   F64 min_dist=I16_MAX,wall_angle,slope,off,tmp,max_dist,step;
+  F64 last_good=0.;
   CDoomLinedef *best=NULL;
   CDoomLinedef *walls[64],*walked_over[64];
   CDoomSector *s;
@@ -254,6 +302,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
   move_fat.x=at->x+dist*cos,move_fat.y=at->y+dist*sin;
   cur_pos.x=move1.x;
   cur_pos.y=move1.y;
+  wall_idx=0;
   while(dist2<=dist+128) {
     for(xoff=-1;xoff<=1;xoff++)
       for(yoff=-1;yoff<=1;yoff++)
@@ -263,13 +312,12 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
 	    o=l->block_map_offsets[
 		  (blockx+xoff)+
 		  (blocky+yoff)*l->block_map_cols];
-	    wall_idx=0;
 	    for(lds=l->block_map_data+o;*lds;lds++,i++) {
 //TODO ceiling
 	      if(lds[0]->flags&WAD_LINEDEFF_WALL)
-	       goto fail_walk;
+	        goto fail_walk;
 	      if(lds[0]->flags&WAD_LINEDEFF_WALL_MONSTER&&flags&COLLISF_MONSTER)
-	       goto fail_walk;
+	        goto fail_walk;
 	      vector->data[0]=lds[0]->end->x-lds[0]->start->x;
 	      vector->data[1]=lds[0]->end->y-lds[0]->start->y;
 	      dummy.x=move1.x-lds[0]->start->x;
@@ -327,10 +375,10 @@ fail_walk:
 skip:;
 	  }
 
-//Things take less precednece than walls
+	  //Things take less precednece than walls
     if(flags&COLLISF_NO_HIT_THING)
       if(hit_thing=HitsAThing(l,&cur_pos,exclude)) 
-	break;
+        break;
     dist2+=24;
     cur_pos.x=move1.x+cos*dist2;
     cur_pos.y=move1.y+sin*dist2;
@@ -384,11 +432,13 @@ look_for_hot:
   }
 //Final test,ensure the final destination is within step distance
   if(s=GetSectorForCoord(l,result->x,result->y)) {
-    if(s->floor_height>=cur_height+STEP_HEIGHT) {
+    if(s->floor_height>cur_height+STEP_HEIGHT) {
+      dist=0;
       result->x=move1.x;
       result->y=move1.y;
     }
   }
+
   DestroyVector(vector);
   return best;
 }

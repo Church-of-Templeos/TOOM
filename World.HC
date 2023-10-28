@@ -7,10 +7,10 @@
 //G  == Gun
 // 1 == Once
 // R == Repeat
-#define DOOR_SPEED_SLOW 1.
-#define DOOR_SPEED_NORMAL 2.
-#define DOOR_SPEED_FAST 3.
-#define DOOR_SPEED_TURBO 4.
+#define DOOR_SPEED_SLOW (16*(1/35.)/2*4)
+#define DOOR_SPEED_NORMAL (16*(1/35.)*4)
+#define DOOR_SPEED_FAST (16*(1/35.)*4*4)
+#define DOOR_SPEED_TURBO 64.
 
 
 #define DOOR_ACTION_OPEN_WAIT_CLOSE 1

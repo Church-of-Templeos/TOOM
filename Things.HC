@@ -107,7 +107,7 @@ U0 ParseThingProps() {
     template->animation=StrNew(ani);
     template->type=dec;
     for(flagsp=flags;*flagsp;flagsp++) {
-      switch(&*flagsp) {
+      switch(*flagsp) {
         case 'A':
 	  template->flags|=TF_ARTIFACT;
 	  break;

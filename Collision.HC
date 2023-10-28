@@ -149,7 +149,7 @@ CDoomThing *HitsAThing(CDoomLevel *l,CD2 *dummy,CDoomThing *exclude=NULL) {
     bbt_r=cur->x+cur->template->radius;
     bbt_b=cur->y-cur->template->radius;
     bbt_t=cur->y+cur->template->radius;
-    if(exclude!=cur&&cur->flags&TF_OBSTACLE)
+    if(exclude!=cur&&cur->template->flags&TF_OBSTACLE) {
       if(bbt_l<=dummy->x<=bbt_r)
         if(bbt_b<=dummy->y<=bbt_t) {
 	  dist=Sqrt(Sqr(cur->x-dummy->x)+Sqr(cur->y-dummy->y));
@@ -158,6 +158,7 @@ CDoomThing *HitsAThing(CDoomLevel *l,CD2 *dummy,CDoomThing *exclude=NULL) {
 	    min_dist=dist;
 	  }
 	}
+      }
   }
   return max;
 }

@@ -959,7 +959,8 @@ lift_again:
     if(s->opening) {
       s->target_end=ceil;
       dir=Sign(s->target_end-s->target_start);
-      s->ceil_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;      
+      if(!s->waiting) 
+        s->ceil_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;      
       if(OutsideOfRange(s->ceil_height,s->target_start,s->target_end)||s->waiting) {
         s->ceil_height=ceil;
 //-1 for never close/open again
@@ -1005,9 +1006,13 @@ lift_again:
   } else if(ld->special_type->type=='Floor') {
 floor_defacto:
     dir=Sign(s->target_end-s->target_start);
-    s->floor_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;      
+PrintF("s->waiting",s->waiting);
+    if(!s->waiting) 
+      s->floor_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;
+    else
+  PrintF("till",tS-(s->wait_time+s->start_tS));
     if(s->going_up) {
-      if(s->floor_height>s->target_end) {
+      if(s->floor_height>=s->target_end) {
         s->floor_height=s->target_end;
         s->going_up=FALSE;
 floor_en:
@@ -1031,7 +1036,7 @@ floor_en:
         }
       }
     } else if(s->going_down) {
-      if(s->floor_height<s->target_end) {
+      if(s->floor_height<=s->target_end) {
         s->floor_height=s->target_end;
         s->going_down=FALSE;
         goto floor_en;
@@ -1581,7 +1586,7 @@ U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
 
 U0 UpdateLevel(CDoomLevel *l) {
   CDoomSector *sector,*head=&l->sectors;
-  UpdateThinkers(l);
+  //UpdateThinkers(l);
   for(sector=head->next;sector!=head;sector=sector->next) {
     UpdateSector(sector);
   }

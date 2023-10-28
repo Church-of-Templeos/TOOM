@@ -100,7 +100,7 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
   for(t=head->next;t!=head;t=t->next) {
 //https://doomwiki.org/wiki/Thing_types#Other
     if(t->thing_type==1) {
-      p->x=t->x;
+      p->x=t->x;
       p->y=t->y;
       p->angle=t->angle;
       break;

@@ -49,7 +49,7 @@ class CMonsterThinker:CDoomThinkerBase {
 #define MELEE_RANGE 70.
 #define JUST_HIT_TIME .75
 CDoomThing *GetPlayer() {
-  return p;
+  return p;
 }
 U0 RemoveMonsterFromMem(CMonsterThinker *t) {
   QueRem(t->self);

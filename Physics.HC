@@ -32,7 +32,7 @@ U0 PhysicsOnThing(CDoomLevel *l,CDoomThing *thing) {
       thing->momz=-GRAVITY;
     }
     thing->height=Clamp(thing->height,sec->floor_height,sec->ceil_height);
-    if(thing->height==sec->floor_height)
+    if(thing->height==sec->floor_height)
       thing->momz=0;
   }
 //Check for crusher  action linedef

@@ -40,7 +40,7 @@ class CDoomCamera {
 };
 #define GRID_SZ  128
 #define Y_SCALE 5
-#define DIST_SCALE (GR_HEIGHT)
+#define DIST_SCALE (GR_HEIGHT*1.4)
 
 #define FLOOR_VPIXEL_WIDTH 2
 #define WALL_VPIXEL_WIDTH 2
@@ -219,37 +219,35 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
     sin=FSin(angle+cam->angle);
     cos2=FCos(angle);
     for(y=miny;y<maxy;y+=2) {
-      if(!GrPeek0(cam->floor_dc,x/2,y/2)) {
-	dist=DIST_SCALE/((ToF64(y)-GR_HEIGHT/2)/(cam->h-at))/cos2;
-	if(dist<0.) goto next;
-        point.x=cam->x+cos*dist-sector->shape_start_x;
-        point.y=cam->y+sin*dist-sector->shape_start_y;
-	  if(0.<=point.x<w)
-	    if(0.<=point.y<h){
-	      db_z=&to_dc->depth_buf[x+y*to_dc->width_internal];
-	      if(*db_z>dist)
-	        if(GrPeek0(sector->shape_dc,point.x/2,point.y/2)) {
-		  cam->floor_dc->color=WHITE;
-		  GrPlot0(cam->floor_dc,x/2,y/2);
-		  db_z[0]=dist;
-		  db_z[1]=dist;
-		  db_z+=to_dc->width_internal;
-		  db_z[0]=dist;
-		  db_z[1]=dist;
-		  floorx=point.x;
-		  floory=point.y;
-		  floorx=(2*floorx%texture->width)&~1;
-		  floory=(2*floory%texture->height)&~1;
-		  if(floorx<0) floorx=-floorx;
-		  if(floory<0) floory=-floory;
-		  color=texture->body[floorx+floory*texture->width](U16);
-		  dst=&to_dc->body[x+y*to_dc->width_internal];
-		  *dst=color;
-		  dst(U8*)+=to_dc->width_internal;
-		  color=texture->body[floorx+(1+floory)*texture->width](U16);
-		  *dst=color;
-	       }
-            }
+      dist=DIST_SCALE/((ToF64(y)-GR_HEIGHT/2)/(cam->h-at))/cos2;
+      if(dist<0.) goto next;
+      point.x=cam->x+cos*dist-sector->shape_start_x;
+      point.y=cam->y+sin*dist-sector->shape_start_y;
+      if(0.<=point.x<w)
+        if(0.<=point.y<h){
+	  db_z=&to_dc->depth_buf[x+y*to_dc->width_internal];
+	  if(*db_z>dist)
+	    if(GrPeek0(sector->shape_dc,point.x/2,point.y/2)) {
+	      cam->floor_dc->color=WHITE;
+	      GrPlot0(cam->floor_dc,x/2,y/2);
+	      db_z[0]=dist;
+	      db_z[1]=dist;
+	      db_z+=to_dc->width_internal;
+	      db_z[0]=dist;
+	      db_z[1]=dist;
+	      floorx=point.x;
+	      floory=point.y;
+	      floorx=(2*floorx%texture->width)&~1;
+	      floory=(2*floory%texture->height)&~1;
+	      if(floorx<0) floorx=-floorx;
+	      if(floory<0) floory=-floory;
+	      color=texture->body[floorx+floory*texture->width](U16);
+	      dst=&to_dc->body[x+y*to_dc->width_internal];
+	      *dst=color;
+	      dst(U8*)+=to_dc->width_internal;
+	      color=texture->body[floorx+(1+floory)*texture->width](U16);
+	      *dst=color;
+	    }
         }
 next:;
     }
@@ -401,7 +399,7 @@ set_floor_height:
 }
 
 
-U0 PlotSpriteIn3DSpace(CDC *to_dc,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,Bool reflect=FALSE) {
+U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,Bool reflect=FALSE) {
   CD2 copy,copy2;
   F64 new_height,new_width;
   I64 x,y,tox,fromx,toy,fromy,ix,iy,dist;
@@ -412,7 +410,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,
   if(!ClipLineToScrenCoords(cam,&copy,&copy2,level))
     return;
   dist=Sqrt(Sqr(p->x-cam->x)+Sqr(p->y-cam->y));
-  new_height=DIST_SCALE/(1+ToF64(dist))*sprite->height;
+  new_height=DIST_SCALE/(1+ToF64(dist))*sprite->height/2;
   new_width=new_height/sprite->height*sprite->width;
   fromx=copy.x-new_width/2;
   tox=ClampI64(copy.x+new_width/2,0,GR_WIDTH-2);;
@@ -424,7 +422,13 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,
     for(x=fromx;x<tox;x+=2) {
       if(x<0) x=0;
       if(x>tox) break;
-       if(!reflect)
+      if(y>cam->floor_heights[x/2])
+        if(dist>cam->floor_depths[x/2])
+	  goto nextx;
+      if(y<cam->ceil_heights[x/2])
+        if(dist>cam->ceil_depths[x/2])
+	  goto nextx;
+      if(!reflect)
         ix=Lerp((x-fromx)/new_width,0,sprite->width-1);
       else
         ix=Lerp((x-fromx)/new_width,sprite->width-1,0);
@@ -441,6 +445,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,
         if(from->u8[0]!=TRANSPARENT)
           *dst=*from,*db_z=dist,db_z[1]=dist;
       }
+nextx:;
     }
   }
 }
@@ -485,7 +490,7 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   sprite=thing->animation[anim_frame].faces[face-1];
   p.x=thing->x,p.y=thing->y;
   if(sprite)
-    PlotSpriteIn3DSpace(to_dc,sprite,cam,&p,thing->height,reflect);
+    PlotSpriteIn3DSpace(to_dc,thing->template->height,sprite,cam,&p,thing->height,reflect);
 }
 
 F64 FloorRaise(CDoomLinedef *l,CDoomSector *sector) {
@@ -1006,7 +1011,7 @@ floor_defacto:
     dir=Sign(s->target_end-s->target_start);
     if(!s->waiting) 
       s->floor_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;
-    if(s->going_up) {
+     if(s->going_up) {
       if(s->floor_height>=s->target_end) {
         s->floor_height=s->target_end;
         s->going_up=FALSE;
@@ -1684,7 +1689,7 @@ U0 AnimateTask(I64)
 
 
 U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
-  cam->h=p->height+48;
+  cam->h=p->height+32;
   cam->x=p->x;
   cam->y=p->y;
   cam->angle=p->angle;

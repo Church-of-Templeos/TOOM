@@ -24,7 +24,7 @@ class CDoomThingTemplate {
 #define TF_MISSILE 0x80
   I64 code;
   I64 flags;
-} *doom_thing_types[0x10000];
+} *doom_thing_types[0x10000];
 
 class CDoomProjectileTemplate:CDoomThingTemplate {
   CDoomAnimationFrame *_idle_frames;

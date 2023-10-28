@@ -157,7 +157,7 @@
 # Misc
 11	B	S	16	56	none	-		Deathmatch start
 89	59	2	20	32	none1	-		Monster spawner
-1	1	S	16	56	PLAY	A+		Player 1 start
+1	1	S	16	56	PLAY	A+		Player 1 start
 2	2	S	16	56	PLAY	A+		Player 2 start
 3	3	S	16	56	PLAY	A+		Player 3 start
 4	4	S	16	56	PLAY	A+		Player 4 start

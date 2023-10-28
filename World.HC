@@ -211,7 +211,7 @@ skip:
 
 #define DOOM_LIFTS_FILE "Platforms.TXT"
 
-U0 LoadLifts() {
+U0 LoadLifts() {
   U8 *optr=FileRead(DOOM_LIFTS_FILE),*fptr,*ln;
   StrUtil(optr,SUF_REM_CTRL_CHARS);
   U8 cls[STR_LEN],*cls_ptr=cls;

@@ -26,9 +26,6 @@ U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 speed=GRID_SZ/4) {
   }
   if(hit) TriggerLinedef(l,hit,WACTIVATE_PUSH);
   FifoI64Del(crossed_f);
-  if(GetSectorForCoord(l,p->x,p->y)) {
-    p->height=GetSectorForCoord(l,p->x,p->y)->floor_height;
-  }
 }
 
 U0 PlayerLook(CDoomPlayer *p,F64 angle) {
@@ -38,6 +35,8 @@ U0 PlayerLook(CDoomPlayer *p,F64 angle) {
 CDoomPlayer *PlayerNew(CDoomLevel *l) {
   U16 gunsInit=0;
   CDoomPlayer *p=CAlloc(sizeof(CDoomPlayer));
+  QueIns(p,l->things.last);
+  p->template=doom_thing_types[1];
   p->health=100;
   p->armor=0;
   p->arsenal=CAlloc(sizeof(GunAvail*)*8);  
@@ -101,7 +100,7 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
   for(t=head->next;t!=head;t=t->next) {
 //https://doomwiki.org/wiki/Thing_types#Other
     if(t->thing_type==1) {
-      p->x=t->x+10;
+      p->x=t->x;
       p->y=t->y;
       p->angle=t->angle;
       break;

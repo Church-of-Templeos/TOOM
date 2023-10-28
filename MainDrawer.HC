@@ -456,6 +456,7 @@ CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
 
 U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   if(!thing->template) return; //???
+  if(thing->template==doom_thing_types[1]) return; //Dont render player
   if(!thing->animation) thing->animation=thing->template->_animation;
   I64 anim_frame=(tS-thing->anim_start_tS)*4,frame_cnt,face;
   F64 angle,gap;
@@ -725,9 +726,6 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     }
   }
   for(thing=level->things.next;thing!=&level->things;thing=thing->next) {
-    sector=GetSectorForCoord(level,thing->x,thing->y);
-    if(sector)
-      thing->height=sector->floor_height;
     DrawAThing(to_dc,thing,cam);
   }
   Free(sorted);
@@ -1006,12 +1004,9 @@ lift_again:
   } else if(ld->special_type->type=='Floor') {
 floor_defacto:
     dir=Sign(s->target_end-s->target_start);
-PrintF("s->waiting",s->waiting);
     if(!s->waiting) 
       s->floor_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;
-    else
-  PrintF("till",tS-(s->wait_time+s->start_tS));
-    if(s->going_up) {
+    if(s->going_up) {
       if(s->floor_height>=s->target_end) {
         s->floor_height=s->target_end;
         s->going_up=FALSE;
@@ -1584,18 +1579,24 @@ U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
 }
 
 
+
+extern CDoomThing *p;
+#include "Collision.HC";
+#include "Player.HC";
+#include "ST.HC";
+#include "Enemy.HC";
+#include "Physics.HC";
+
 U0 UpdateLevel(CDoomLevel *l) {
   CDoomSector *sector,*head=&l->sectors;
-  //UpdateThinkers(l);
+  Physics(l);
+  UpdateThinkers(l);
   for(sector=head->next;sector!=head;sector=sector->next) {
     UpdateSector(sector);
   }
 }
 
 
-#include "Collision.HC";
-#include "Player.HC";
-#include "ST.HC";
 
 U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
   CD2 dummy;
@@ -1642,7 +1643,6 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
       case 2:
 	if(AltSwitchTexture(sd->upper_texture[0])) {
 pass:
-PrintI("pass",1);
 	  if(ld->special_type->type=='Door')
 	    trigger=ld->special_type(CDoomDoor*)->trigger;
 	  else if(ld->special_type->type=='Ceil')
@@ -1682,7 +1682,6 @@ U0 AnimateTask(I64)
   
 }
 
-#include "Enemy.HC";
 
 U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
   cam->h=p->height+48;
@@ -1696,7 +1695,16 @@ PlayerMove(l,p,0);
 
 Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
 WinMax;
-InitMonsters(l);
+U0 InitLevel(CDoomLevel *l) {
+  CDoomThing *t,*head=&l->things;
+  CDoomSector *s;
+  for(t=head->next;t!=head;t=t->next) {
+    if(s=GetSectorForCoord(l,t->x,t->y))
+      t->height=s->floor_height;
+  }
+  InitMonsters(l);
+}
+InitLevel(l);
 while(TRUE) {
   
   DCFill;

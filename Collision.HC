@@ -304,7 +304,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
   cur_pos.x=move1.x;
   cur_pos.y=move1.y;
   wall_idx=0;
-  while(dist2<=dist+128) {
+  while(dist2<=dist+128) {
     for(xoff=-1;xoff<=1;xoff++)
       for(yoff=-1;yoff<=1;yoff++)
         if(0<=blockx+xoff<l->block_map_cols)

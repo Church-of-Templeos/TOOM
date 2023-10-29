@@ -209,47 +209,48 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
 
   if(maxx<minx)
     return;
-  minx=MaxI64(0,minx);
-  miny=MaxI64(0,miny);
-  maxx=MinI64(GR_WIDTH-2,maxx);
-  maxy=MinI64(GR_HEIGHT-2,maxy);
-  for(x=minx;x<maxx;x+=2) {
-    angle=(ToF64(x)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
+  minx=MaxI64(0,minx)>>1;
+  miny=MaxI64(0,miny)>>1;
+  maxx=MinI64(GR_WIDTH-2,maxx)>>1;
+  maxy=MinI64(GR_HEIGHT-2,maxy)>>1;
+//
+  for(x=minx;x<maxx;x++) {
+    angle=(ToF64(x*2)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
     cos=FCos(angle+cam->angle);
     sin=FSin(angle+cam->angle);
     cos2=FCos(angle);
-    for(y=miny;y<maxy;y+=2) {
-      dist=DIST_SCALE/((ToF64(y)-GR_HEIGHT/2)/(cam->h-at))/cos2;
-      if(dist<0.) goto next;
-      point.x=cam->x+cos*dist-sector->shape_start_x;
-      point.y=cam->y+sin*dist-sector->shape_start_y;
-      if(0.<=point.x<w)
-        if(0.<=point.y<h){
-	  db_z=&to_dc->depth_buf[x+y*to_dc->width_internal];
-	  if(*db_z>dist)
-	    if(GrPeek0(sector->shape_dc,point.x/2,point.y/2)) {
-	      cam->floor_dc->color=WHITE;
-	      GrPlot0(cam->floor_dc,x/2,y/2);
-	      db_z[0]=dist;
-	      db_z[1]=dist;
-	      db_z+=to_dc->width_internal;
-	      db_z[0]=dist;
-	      db_z[1]=dist;
-	      floorx=point.x;
-	      floory=point.y;
-	      floorx=(2*floorx%texture->width)&~1;
-	      floory=(2*floory%texture->height)&~1;
-	      if(floorx<0) floorx=-floorx;
-	      if(floory<0) floory=-floory;
-	      color=texture->body[floorx+floory*texture->width](U16);
-	      dst=&to_dc->body[x+y*to_dc->width_internal];
-	      *dst=color;
-	      dst(U8*)+=to_dc->width_internal;
-	      color=texture->body[floorx+(1+floory)*texture->width](U16);
-	      *dst=color;
-	    }
-        }
+    for(y=miny;y<maxy;y++) {
+      if(1) { //TODOmagic
+        dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at))/cos2;
+        if(dist<0.) goto next;
+        point.x=cam->x+cos*dist-sector->shape_start_x;
+        point.y=cam->y+sin*dist-sector->shape_start_y;
+        if(0.<=point.x<w)
+	  if(0.<=point.y<h){
+	    db_z=&to_dc->depth_buf[x*2+(y*2)*to_dc->width_internal];
+	    if(*db_z>dist)
+	      if(GrPeek0(sector->shape_dc,point.x/2,point.y/2)) {
+	        db_z[0]=dist;
+	        db_z[1]=dist;
+	        db_z+=to_dc->width_internal;
+	        db_z[0]=dist;
+	        db_z[1]=dist;
+	        floorx=point.x;
+	        floory=point.y;
+	        floorx=(2*floorx%texture->width)&~1;
+	        floory=(2*floory%texture->height)&~1;
+	        if(floorx<0) floorx=-floorx;
+	        if(floory<0) floory=-floory;
+	        color=texture->body[floorx+floory*texture->width](U16);
+	        dst=&to_dc->body[(x*2)+(y*2)*to_dc->width_internal];
+	        *dst=color;
+	        dst(U8*)+=to_dc->width_internal;
+	        color=texture->body[floorx+(1+floory)*texture->width](U16);
+	        *dst=color;
+	      }
+	  }
 next:;
+      }
     }
   }
 } 
@@ -331,6 +332,11 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    if(iy+ih2<0) break;
 	    if(ih2<0) break;
 	  }
+          if(idist>cam->floor_depths[ix/2]) {
+	    if(iy+ih2>=cam->floor_heights[ix/2]) {
+	      break;
+            }
+	  }
 //https://doomwiki.org/wiki/Texture_alignment
 	  if(repeat) {
 	    if(onesided) {
@@ -390,6 +396,7 @@ set_floor_height:
 	    cam->ceil_heights[ix/2]=ClampI64(iy+ih,0,GR_HEIGHT);
 	  cam->floor_depths[ix/2]=idist;
 //	  cam->ceil_depths[ix/2]=idist;
+//	  GrVLine(cam->floor_dc,ix/2,0,(iy+ih)/2);
         } else if(cam->floor_depths[ix/2]>=idist) {
 	  goto set_floor_height;
         }
@@ -569,32 +576,13 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
     SetVector(wall_vect,seg->linedef->end->x-seg->linedef->start->x,0);
     SetVector(wall_vect,seg->linedef->end->y-seg->linedef->start->y,1);
     opposite=NULL;
-    if(seg->linedef->front^^seg->linedef->back) {
-      if(seg->linedef->front)
-        sidedef=seg->linedef->front;
-      else
-        sidedef=seg->linedef->back;	
-    } else{
-//Backface culling
-      if(wall_vect->data[0]*cam_cord.y-wall_vect->data[1]*cam_cord.x<0.)
-        sidedef=seg->linedef->front,opposite=seg->linedef->back;
-      else
-        sidedef=seg->linedef->back,opposite=seg->linedef->front;
-    }
+    if(IsFrontSideOfVector2D(wall_vect,&cam_cord)) 
+      sidedef=seg->linedef->front,opposite=seg->linedef->back;
+    else
+      sidedef=seg->linedef->back,opposite=seg->linedef->front;
     no_draw=FALSE;
-    if(!sidedef) {
-//If the backside is invisible,the floor may still be visible
-      sector=opposite->sector;
-      sidedef=opposite;
-      floor=sector->floor_height;
-      ceil=sector->ceil_height;
-      no_draw=TRUE;
-      wall=2;
-      if(!sector->drawn)
-        goto draw_wall;
-      else
-        goto skip;
-    }
+    if(!sidedef)
+      goto skip;
     sector=sidedef->sector;
     highest_ceil=HighestCeil(seg->linedef,sector);
     for(wall=0;wall!=3;wall++) {
@@ -701,9 +689,6 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     cam->floor_depths[idx]=I16_MAX;
     cam->ceil_depths[idx]=I16_MAX;
   }
-  if(!cam->floor_dc)
-    cam->floor_dc=DCNew(GR_WIDTH/2,GR_HEIGHT/2);
-  DCFill(cam->floor_dc,0);
   if(!cam->visible_sectors)
     cam->visible_sectors=FifoI64New(512);
 

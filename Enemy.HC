@@ -245,9 +245,9 @@ Bool LookForPlayers(CDoomLevel *l,CMonsterThinker *t) {
   if(!CanSeeTarget(l,t)) {
 new_target:
     t->target=GetPlayer;
-    return TRUE;
+    return FALSE;
   }
-  if(!target||!target->health)
+  if(!target||target->health<=0.)
     goto new_target;
 //TODO sound
   angle=FArg(target->x-thing->x,target->y-thing->y)-thing->angle;
@@ -262,8 +262,9 @@ new_target:
 U0 Look(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *p=GetPlayer;
   t->target=p;
-  if(!CanSeeTarget(t->self,t))
+  if(!CanSeeTarget(l,t)) {
     return ;
+  }
 //TODOstart sound
   SetState(l,t,t->self->template(CDoomMonsterTemplate*)->see_state);
 }

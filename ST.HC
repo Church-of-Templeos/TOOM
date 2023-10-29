@@ -1,4 +1,6 @@
 //#include "Weapons.HC";
+extern U0 PlayerAttack(F64 shots_per_min,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0);
+
 #define BG 4
 #define FG 0
 #define SCREENWIDTH 640
@@ -1277,14 +1279,48 @@ U0 SwapWeapon(I64 weapon)
   }
 }
 
-U0 ST_Fire()
+U0 ST_Fire(CDoomPlayer *p)
 {
-   if(weapons.on==FALSE)
-   {
-     weapons.on=TRUE;
-     weapons.oldinum=-1;
-     
-   }
+  if(weapons.on==FALSE)
+    {
+    weapons.on=TRUE;
+    weapons.oldinum=-1;
+
+    switch(weaponIndex) {
+      case 0: //First
+//TODO test for beserk
+        PlayerAttack(123.5,2,20,32);
+        break;
+      case 1: //Pistol
+        if(p->arsenal[weaponIndex]->load->ammo>0)
+	  PlayerAttack(150.,5,15,200*64.);
+        break;
+      case 2: //Shotgun
+        if(p->arsenal[weaponIndex]->load->ammo>0)
+	  PlayerAttack(56.8,5,15,200*64.);
+        break;
+      case 3: //Chainhun
+        if(p->arsenal[weaponIndex]->load->ammo>0)
+	  PlayerAttack(525,5,15,200*64.);
+        break;
+      case 4: //Rocket
+        if(p->arsenal[weaponIndex]->load->ammo>0)
+	  PlayerAttack(105,20,160,200*64.,'Rocket');
+        break;
+      case 5: //Chainsaw
+	PlayerAttack(525,2,20,32);
+        break;
+      case 6: //Plsmaa
+        if(p->arsenal[weaponIndex]->load->ammo>0)
+	  PlayerAttack(700,5,40,200*64.,'Plasma');
+        break;
+      case 7: //Big poopin gun
+//TODO tracer
+        if(p->arsenal[weaponIndex]->load->ammo>0)
+	  PlayerAttack(52.5,100,800,200*64.,'BFG');
+        break;
+    }
+  }
 }
 
 U0 ST_Key(U16 val)

@@ -1563,6 +1563,29 @@ extern CDoomThing *p;
 #include "Enemy.HC";
 #include "Physics.HC";
 
+U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0) {
+  static F64 last_attack=0.;
+  F64 cooldown=60./shots_per_minute;
+  if(tS<last_attack+cooldown) return;
+  last_attack=tS;
+  F64 angle=p->angle,r;
+  F64 damage=Rand*(max_damage-min_damage)+min_damage;
+  I64 idx;
+  CDoomThing *target=NULL; //TODO chose a target
+  if(!rocket_type) {
+     if(weaponIndex==2) {//Shotgun
+       for(idx=0;idx!=3;idx++) {
+         r=(Rand-.5)*2;
+	 angle=p->angle+r*9.8*pi/360.; 
+         LineAttack(l,p,target,range,angle,damage);
+       }
+     } else
+       LineAttack(l,p,target,range,angle,damage);
+  } else {
+//TODO
+  }
+}
+
 U0 UpdateLevel(CDoomLevel *l) {
   CDoomSector *sector,*head=&l->sectors;
   Physics(l);
@@ -1740,8 +1763,7 @@ while(TRUE) {
      ST_Key(0);
   }
   if(ms.lb) {
-     LineAttack(l,p,NULL,500.*64,p->angle,13.);
-     ST_Fire();
+     ST_Fire(p);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('1'))) {
      SwapWeapon(0);

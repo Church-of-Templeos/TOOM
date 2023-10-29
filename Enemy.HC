@@ -439,8 +439,6 @@ U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 an
   F64 dist,src_h,dst_h,dist2;
   if(hit) {
      target=hit;
-PrintI("hitx",self->x-hit->x);
-PrintI("hity",self->y-hit->y);
 //I will make some distance between the blood-puff and the target to avoid z-clipping
 //Angle from hit->self 
      angle2=FArg(self->x-hit->x,self->y-hit->y);

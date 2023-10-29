@@ -112,6 +112,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
 
 
 U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
+  if(FramePtr("F_SKY1")==texture) return;
   I64 x,y;
   I64 w=sector->shape_dc->width*2,h=sector->shape_dc->height*2;
   I64 floorx,floory;
@@ -241,7 +242,10 @@ next:;
   }
 } 
 
-U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,Bool floor=FALSE,CDoomLinedef *ld,CDoomSidedef *sd) {
+//floor is 0 for floor
+//floor is 1 for middle
+//floor is 2 for ceil
+U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd) {
   CD2 clone_st,clone_en,zero;
   clone_st.x=st->x,clone_st.y=st->y;
   clone_en.x=en->x,clone_en.y=en->y;
@@ -258,11 +262,17 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   I32 *db_z,idist;
   F64 dist,ratio;
   Bool repeat=FALSE,onesided=ld->front^^ld->back;
+  Bool is_sky=FALSE,is_sky2=FALSE;
   CDoomSidedef *opposite;
   if(ld->front==sd)
     opposite=ld->back;
   else
     opposite=ld->front;
+  if(opposite)
+    is_sky=opposite->sector->ceil_dc[0]==FramePtr("F_SKY1")&&floor==2;
+  if(is_sky) return;
+  if(onesided)
+    is_sky2=sd->sector->ceil_dc[0]==FramePtr("F_SKY1");
   U16 *color,*to;
   if(start_angle>end_angle) {
     tmp=start_angle;
@@ -308,86 +318,116 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  cam->floor_depths[ix/2]=idist;
         }
         ih2+=2;
-        while((ih2-=2)>=0) {
-	  if(!(cam->ceil_heights[ix/2]<=iy+ih2<=cam->floor_heights[ix/2]-2)) {
-	    if(iy+ih2<cam->ceil_heights[ix/2])
-	      break;
+        if(is_sky2) {//Fill in upper pixels Z-buf distance with distnce for sky
+	  ty=iy;
+	  while(ty>=0) {
+	    db_z=&to_dc->depth_buf[ix+ty*to_dc->width_internal];
+	    if(*db_z>idist) {
+	      db_z[0]=idist;
+	      db_z[1]=idist;
+	      db_z+=to_dc->width_internal;
+	      db_z[0]=idist;
+	      db_z[1]=idist;
+	    }
+	    ty-=2;
+	  }
+        }
+        if(is_sky) {
+	  ih2+=iy;
+	  while(ih2>=0) {
+	    db_z=&to_dc->depth_buf[ix+ih2*to_dc->width_internal];
+	    if(*db_z>idist) {
+	      db_z[0]=idist;
+	      db_z[1]=idist;
+	      db_z+=to_dc->width_internal;
+	      db_z[0]=idist;
+	      db_z[1]=idist;
+	    }
+	    ih2-=2;
+	  }
+        } else
+	  while((ih2-=2)>=0) {
+	    if(!(cam->ceil_heights[ix/2]<=iy+ih2<=cam->floor_heights[ix/2]-2)) {
+	      if(iy+ih2<cam->ceil_heights[ix/2])
+	        break;
 //GR_HEIGHT-2>iy+ih2;
-	    ih2=cam->floor_heights[ix/2]-2-iy;
-	    if(ih2>ih) break;
-	    if(iy+ih2<0) break;
-	    if(ih2<0) break;
-	  }
-          if(idist>cam->floor_depths[ix/2]) {
-	    if(iy+ih2>=cam->floor_heights[ix/2]) {
-	      break;
-            }
-	  }
-//https://doomwiki.org/wiki/Texture_alignment
-	  if(repeat) {
-	    if(onesided) {
-//Dont ask nroot how any of this works,he typed in random stuff
-	      if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
-	        ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2))%texture->height;
-	      } else {
-	        ty=(ToI64(ih2*ratio)*2+yoff*2-sd->sector->door_height_offset*2)%texture->height;
-	      }
-	    } else {
-	      if(floor) {
-	        if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
-		  ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)+2*ToI64(ceilh-flrh))%texture->height;
-	        } else {
-		  ty=ToI64(ToI64(ih2*ratio)*2+yoff*2-ToI64(sd->sector->door_height_offset)*2)%texture->height;
-	        }
-	      } else{
-	        if(!(ld->flags&WAD_LINEDEFF_UPPER_UNPEGGED)) {
-		  ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)-ToI64(sd->sector->door_height_offset)*2)%texture->height;
-	        } else {
-		  ty=(ToI64(ih2*ratio)*2+yoff*2-ToI64(sd->sector->door_height_offset)*2)%texture->height;
-	        }
+	      ih2=cam->floor_heights[ix/2]-2-iy;
+	      if(ih2>ih) break;
+	      if(iy+ih2<0) break;
+	      if(ih2<0) break;
+	    }
+	    if(idist>cam->floor_depths[ix/2]) {
+	      if(iy+ih2>=cam->floor_heights[ix/2]) {
+	        break;
 	      }
 	    }
-	  } else {
-	    ty=(ToF64(ih2)/ih)*(texture->height-2);
+//https://doomwiki.org/wiki/Texture_alignment
+	    if(repeat) {
+	      if(onesided) {
+//Dont ask nroot how any of this works,he typed in random stuff
+	        if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
+		  ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2))%texture->height;
+	        } else {
+		  ty=(ToI64(ih2*ratio)*2+yoff*2-sd->sector->door_height_offset*2)%texture->height;
+	        }
+	      } else {
+	        if(floor==0) {
+		  if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
+		    ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)+2*ToI64(ceilh-flrh))%texture->height;
+		  } else {
+		    ty=ToI64(ToI64(ih2*ratio)*2+yoff*2-ToI64(sd->sector->door_height_offset)*2)%texture->height;
+		  }
+	        } else{
+		  if(!(ld->flags&WAD_LINEDEFF_UPPER_UNPEGGED)) {
+		    ty=(ToI64(ih2*ratio)*2+yoff*2+texture->height-2-ToI64(ratio*ih*2)-ToI64(sd->sector->door_height_offset)*2)%texture->height;
+		  } else {
+		    ty=(ToI64(ih2*ratio)*2+yoff*2-ToI64(sd->sector->door_height_offset)*2)%texture->height;
+		  }
+	        }
+	      }
+	    } else {
+	      ty=(ToF64(ih2)/ih)*(texture->height-2);
+	    }
+//Doors raise the ceiling but the texture needs to move along with it
+	    if(opposite)
+	      ty=ToI64(ty)%texture->height;
+	    tx=AbsI64(tx);
+	    ty=AbsI64(ty);
+	    ty=ClampI64(ty,0,texture->height-2);
+	    tx=ClampI64(tx,0,texture->width-2);
+	    tx&=~1;
+	    ty&=~1;
+	    color=texture->body[tx+ty*texture->width_internal](U16);
+	    to=&to_dc->body[ix+(iy+ih2)*to_dc->width_internal];
+	    db_z=&to_dc->depth_buf[ix+(iy+ih2)*to_dc->width_internal];
+	    if(*db_z>idist) {
+	      db_z[0]=idist;
+	      db_z[1]=idist;
+	      db_z+=to_dc->width_internal;
+	      db_z[0]=idist;
+	      db_z[1]=idist;
+	      *to=color;
+	      to(U8*)+=to_dc->width_internal;
+	      color=texture->body[tx+(ty+1)*texture->width_internal](U16);
+	      *to=color;
+	    }
 	  }
-	  //Doors raise the ceiling but the texture needs to move along with it
-	  if(opposite)
-            ty=ToI64(ty)%texture->height;
-	  tx=AbsI64(tx);
-	  ty=AbsI64(ty);
-	  ty=ClampI64(ty,0,texture->height-2);
-	  tx=ClampI64(tx,0,texture->width-2);
-	  tx&=~1;
-	  ty&=~1;
-	  color=texture->body[tx+ty*texture->width_internal](U16);
-	  to=&to_dc->body[ix+(iy+ih2)*to_dc->width_internal];
-	  db_z=&to_dc->depth_buf[ix+(iy+ih2)*to_dc->width_internal];
-	  if(*db_z>idist) {
-	    db_z[0]=idist;
-	    db_z[1]=idist;
-	    db_z+=to_dc->width_internal;
-	    db_z[0]=idist;
-	    db_z[1]=idist;
-	    *to=color;
-	    to(U8*)+=to_dc->width_internal;
-	    color=texture->body[tx+(ty+1)*texture->width_internal](U16);
-	    *to=color;
-	  }
-        }
-        if(iy<cam->floor_heights[ix/2]) {
+        if(!is_sky) {
+	  if(iy<cam->floor_heights[ix/2]) {
 set_floor_height:
-	  if(floor)
-	    cam->floor_heights[ix/2]=ClampI64(iy,0,GR_HEIGHT);
-	  else
-	    cam->ceil_heights[ix/2]=ClampI64(iy+ih,0,GR_HEIGHT);
-	  cam->floor_depths[ix/2]=idist;
+	    if(floor==0)
+	      cam->floor_heights[ix/2]=ClampI64(iy,0,GR_HEIGHT);
+	    else
+	      cam->ceil_heights[ix/2]=ClampI64(iy+ih,0,GR_HEIGHT);
+	    cam->floor_depths[ix/2]=idist;
 //	  cam->ceil_depths[ix/2]=idist;
-//	  GrVLine(cam->floor_dc,ix/2,0,(iy+ih)/2);
-        } else if(cam->floor_depths[ix/2]>=idist) {
-	  goto set_floor_height;
+	    //	  GrVLine(cam->floor_dc,ix/2,0,(iy+ih)/2);
+	  } else if(cam->floor_depths[ix/2]>=idist) {
+	    goto set_floor_height;
+	  }
         }
       }
-    }
+    }
   }
 }
 
@@ -539,7 +579,6 @@ CDC *GetLowerTexture(CDoomSidedef *s) {
   I64 t=ToI64(tS*4)%FrameCnt(s->lower_texture);
   return s->lower_texture[t];
 }
-
 U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
   CD2 start_floor,start_ceil;
   CD2 end_floor,end_ceil;
@@ -593,10 +632,10 @@ draw_wall:
         end_seg=PointToLinedefSegment(cam,seg->linedef,seg->end);
         h=Abs(start_floor.y-start_ceil.y);
         h2=Abs(end_ceil.y-end_floor.y);
-        if(ToI64(h)&&ToI64(h2)) {
+	if(ToI64(h)&&ToI64(h2)) {
 	  if(fail_cnt!=2) {
 	    if(!no_draw)
-	      RayCastWall(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall==0||wall==2,seg->linedef,sidedef);
+	      RayCastWall(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef);
 	    if(!sector->drawn) {
 	      sector->drawn=TRUE;
 	      FifoI64Ins(cam->visible_sectors,sector);
@@ -607,11 +646,11 @@ draw_wall:
 	    }
 	  }
         }
-      } else if(wall==1&&(texture=GetUpperTexture(sidedef))) {
+      } else if(wall==2&&(texture=GetUpperTexture(sidedef))) {
         floor=Min(sector->ceil_height,CeilDepress(seg->linedef,sector));
         ceil=Max(sector->ceil_height,CeilDepress(seg->linedef,sector));
         goto draw_wall;
-      } else if(wall==2&&(texture=GetMiddleTexture(sidedef))) {
+      } else if(wall==1&&(texture=GetMiddleTexture(sidedef))) {
         floor=sector->floor_height;
         ceil=sector->ceil_height;
         goto draw_wall;
@@ -663,10 +702,33 @@ I64 SectorFloorSort(CDoomSector *a,CDoomSector *b)  {
   return 0;
 }
 
+U0 DrawSky(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
+  CDC *texture=FramePtr("SKY1");
+  I64 iy,ix,off=texture->width*cam->angle/pi,tx,ty;
+  U16 *to,*from;
+  for(iy=0;iy!=GR_HEIGHT;iy+=2) {
+    ty=iy/ToF64(GR_HEIGHT)*texture->height;
+    if(ty>texture->height-2)
+      ty=texture->height-2;
+    for(ix=0;ix!=GR_WIDTH;ix+=2) {
+      tx=(ix+off)/ToF64(GR_WIDTH)*texture->width;
+      tx%=texture->width-2;
+      tx=AbsI64(tx);
+      from=&texture->body[tx+ty*texture->width_internal];
+      to=&to_dc->body[ix+iy*to_dc->width_internal];
+      *to=*from;
+      from(U8*)+=texture->width_internal;
+      to(U8*)+=to_dc->width_internal;
+      *to=*from;
+    }
+  }
+}
+
 U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   CDoomSector *sector,**sorted;  
   CDoomThing *thing;
   I64 idx=0,idx2,af,tf;
+  DrawSky(to_dc,l,cam);
   for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next)
     sector->drawn=FALSE;
   for(idx=0;idx!=GR_WIDTH/2;idx++) {

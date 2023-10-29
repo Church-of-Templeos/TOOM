@@ -231,7 +231,7 @@ F64 ValidateLineOfSightShot(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 source_
 // Shoot_h  MUST BE OFF THE GROUND,it is the height the shot is fired out
 // 
 
-CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_h) {
+CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_h,CDoomThing *exclude=NULL) {
   if(dist<0) {
     dist=-dist;
     angle+=pi;
@@ -251,6 +251,8 @@ CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_
     dummy.x+=16.*cos;   
     dummy.y+=16.*sin;
     for(cur=head->next;cur!=head;cur=cur->next) {
+     if(cur==exclude||!(cur->template->flags&TF_SHOOTABLE))
+	goto next;
       bbt_l=cur->x-cur->template->radius/2.;
       bbt_r=cur->x+cur->template->radius/2.;
       bbt_b=cur->y-cur->template->radius/2.;
@@ -265,6 +267,7 @@ CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_
 	  if(wall_dist<0.)
 	    return cur;
         }
+next:;
     }
   }
   return NULL;

@@ -1,19 +1,5 @@
 #ifndef DOOM_MAIN
 #define DOOM_MAIN "Doom" 
-class CWad {
-  U8 body[0];
-  U8 ident[4];
-  U32 lump_cnt;
-  U32 directory_ptr;
-}; 
-
-
-CWad *LoadWad(U8 *filename) {
-  return FileRead(filename);
-}
-
-static CWad *wad=LoadWad("DOOM.WAD");
-
 #include "FastTrig.HC";
 #include "Wad.HC";
 #include "Thinker.HC";
@@ -1754,6 +1740,7 @@ while(TRUE) {
      ST_Key(0);
   }
   if(ms.lb) {
+     LineAttack(l,p,NULL,500.*64,p->angle,13.);
      ST_Fire();
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('1'))) {

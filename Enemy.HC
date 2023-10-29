@@ -116,7 +116,7 @@ Bool SetState(CDoomLevel *l,CMonsterThinker *m,U8 *st) {
     RemoveMonsterFromMem(m);
     return FALSE;
   }
-PrintI(st,1);
+//PrintI(st,1);
   if(m->self->animation!=s->anim_frames) {
     m->self->anim_start_tS=tS;
     m->self->animation=s->anim_frames;
@@ -320,28 +320,34 @@ U0 CreatePuffTemplates() {
   CDC *what;
   for(i=0;i!=3;i++) {
     blood_templates[i]=CAlloc(sizeof CDoomThingTemplate);
-    blood_templates[i]->_animation=CAlloc(sizeof CDoomAnimationFrame);
+    blood_templates[i]->_animation=CAlloc(sizeof(CDoomAnimationFrame)*2);
     switch(i) {
-      case 0: what=FramePtr("BLOOD1"); break;
-      case 1: what=FramePtr("BLOOD2"); break;
-      case 2: what=FramePtr("BLOOD3"); break;
+      case 0: what=FramePtr("BLUDA0"); break;
+      case 1: what=FramePtr("BLUDB0"); break;
+      case 2: what=FramePtr("BLUDC0"); break;
     }
-    for(j=0;j!=8;j++)
+    for(j=0;j!=8;j++) {
       blood_templates[i]->_animation->faces[j]=what;
+      blood_templates[i]->_animation->chr='B';
+    }
   }
   for(i=0;i!=4;i++) {
     smoke_templates[i]=CAlloc(sizeof CDoomThingTemplate);
-    smoke_templates[i]->_animation=CAlloc(sizeof CDoomAnimationFrame);
+    smoke_templates[i]->_animation=CAlloc(sizeof(CDoomAnimationFrame)*2);
     switch(i) {
-      case 0: what=FramePtr("PUFF1"); break;
-      case 1: what=FramePtr("PUFF2"); break;
-      case 2: what=FramePtr("PUFF3"); break;
-      case 3: what=FramePtr("PUFF4"); break;
+      case 0: what=FramePtr("PUFFA0"); break;
+      case 1: what=FramePtr("PUFFB0"); break;
+      case 2: what=FramePtr("PUFFC0"); break;
+      case 3: what=FramePtr("PUFFD0"); break;
     }
-    for(j=0;j!=8;j++)
+    for(j=0;j!=8;j++) {
       smoke_templates[i]->_animation->faces[j]=what;
+      smoke_templates[i]->_animation->chr='B';
+
+    }
   }
 }
+CreatePuffTemplates;
 class CPuffThinker:CDoomThinkerBase {
   CDoomThing *self;
   F64 spawn_time;
@@ -350,7 +356,7 @@ U0 PuffThinker(CDoomLevel *l,CPuffThinker *puff) {
   CDoomThing *self=puff->self;
   CDoomThingTemplate **templates;
   I64 i,i2;
-  CDoomSector *s=GetSectorForCoord(l,self->x,self->x)->floor_height;
+  CDoomSector *s=GetSectorForCoord(l,self->x,self->y);
   if(!s) {
 //wut
     kill_puff:
@@ -360,10 +366,10 @@ U0 PuffThinker(CDoomLevel *l,CPuffThinker *puff) {
     Free(puff);
     return;
   }
-  if(s->floor_height<self->height)
-    goto kill_puff;
+//  if(s->floor_height>=self->height)
+//    goto kill_puff;
 //I will goto the next puff frame
-  if(tS-puff->spawn_time>1./5.) {
+  if(tS-puff->spawn_time>1./4./2.) {
     puff->spawn_time=tS;
     for(i=0;i!=2;i++) {
       if(i==0)
@@ -380,6 +386,8 @@ U0 PuffThinker(CDoomLevel *l,CPuffThinker *puff) {
         if(i==0&&i2==3) goto kill_puff;
         else if(i==1&&i2==4) goto kill_puff;
 	self->template=templates[i2];
+//Update the animation
+	self->animation=templates[i2]->_animation;
       }
     }
   }
@@ -403,7 +411,9 @@ U0 SpawnBloodPuff(CDoomLevel *l,CD2 *at,F64 h,F64 damage) {
   }
   t=AddThinker(l,&PuffThinker,sizeof CPuffThinker);
   t->spawn_time=tS;
+  QueIns(blood,&l->things);
   t->self=blood;
+  blood->animation=blood->template->_animation;
 }
 U0 SpawnSmokePuff(CDoomLevel *l,CD2 *at,F64 h,F64 attack_range) {
   CDoomThing *smoke=CAlloc(sizeof CDoomThing);
@@ -418,13 +428,56 @@ U0 SpawnSmokePuff(CDoomLevel *l,CD2 *at,F64 h,F64 attack_range) {
     smoke->template=smoke_templates[0];
   t=AddThinker(l,&PuffThinker,sizeof CPuffThinker);
   t->spawn_time=tS;
+  QueIns(smoke,&l->things);
   t->self=smoke;
+  smoke->animation=smoke->template->_animation;
 } 
-U0 LineAttack(CDoomLevel *l,CMonsterThinker *t,F64 range,F64 angle,F64 damage) {
-  CDoomThing *hit=ShotSmacksAHomie(l,&t->self->x,angle,range,t->self->height+t->self->template->height/2);
+U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 angle,F64 damage) {
+  CDoomThing *hit=ShotSmacksAHomie(l,&self->x,angle,range,self->height+self->template->height/2/2,self); ///2 for account for dithering  "super-pixel"
+  CD2 puff_pos;
+  F64 angle2;
+  F64 dist,src_h,dst_h,dist2;
   if(hit) {
+     target=hit;
+PrintI("hitx",self->x-hit->x);
+PrintI("hity",self->y-hit->y);
+//I will make some distance between the blood-puff and the target to avoid z-clipping
+//Angle from hit->self 
+     angle2=FArg(self->x-hit->x,self->y-hit->y);
 //Spawn a BLOOD PUFF,and I AINT talkin marshmellow
-
+     dst_h=target->height+target->template->height/2;
+     puff_pos.x=hit->x+5*Cos(angle2);
+     puff_pos.y=hit->y+5*Sin(angle2);
+     SpawnBloodPuff(l,&puff_pos,dst_h,damage);
+  } else if(target) {
+//Spawn a smoke puff as we missed
+    src_h=self->height+self->template->height/2;
+    dst_h=target->height+target->template->height/2;
+    dist2=Sqrt(Sqr(self->x-target->x)+Sqr(self->y-target->y));
+    dist=ValidateLineOfSightShot(l,&self->x,angle,range,src_h,dst_h); 
+    if(dist>=5.) {
+      angle2=FArg(self->x-target->x,self->y-target->y);
+      dst_h=Lerp(dist/dist2,src_h,dst_h); //Good enough?
+      dist-=5.;
+       puff_pos.x=self->x+dist*Cos(angle2);
+       puff_pos.y=self->y+dist*Sin(angle2);
+       SpawnSmokePuff(l,&puff_pos,dst_h,dist+5.);
+    }
+  } else {
+//Make shot right in front of us
+    src_h=self->height+self->template->height/2;
+    dist=ValidateLineOfSightShot(l,&self->x,angle,range,src_h,src_h); 
+    if(dist>=5.) {
+      dist-=5.;
+      puff_pos.x=self->x+dist*Cos(angle);
+      puff_pos.y=self->y+dist*Sin(angle);
+      SpawnSmokePuff(l,&puff_pos,src_h,dist+5.);
+    } else if(dist>0.) {
+//Really close to wall
+      puff_pos.x=self->x+dist*Cos(angle);
+      puff_pos.y=self->y+dist*Sin(angle);
+      SpawnSmokePuff(l,&puff_pos,src_h,dist);
+    }
   }
 }
 U0 PosAttack(CDoomLevel *l,CMonsterThinker *t) {
@@ -435,7 +488,7 @@ U0 PosAttack(CDoomLevel *l,CMonsterThinker *t) {
     angle=t->self->angle;
     angle+=(.5-Rand)*180./pi*5;
     damage=((RandU64&7)+1)*3;
-    LineAttack(l,t,MISSILE_RANGE,angle,damage);
+    LineAttack(l,t->self,t->target,MISSILE_RANGE,angle,damage);
   }
 }
 U0 SPosAttack(CDoomLevel *l,CMonsterThinker *t) {
@@ -449,7 +502,7 @@ U0 SPosAttack(CDoomLevel *l,CMonsterThinker *t) {
       angle=bangle;
       angle+=(.5-Rand)*180./pi*5;
       damage=((RandU64&7)+1)*3;
-      LineAttack(l,t,MISSILE_RANGE,angle,damage);
+      LineAttack(l,t->self,t->target,MISSILE_RANGE,angle,damage);
     }
   }
 }
@@ -462,9 +515,9 @@ U0 SpidRefire(CDoomLevel *l,CMonsterThinker *t) {
 }
 U0 SpawnMissile(CDoomLevel *l,CDoomThing *t,CDoomThing *target,U64 type) {
 //TODO choose state
-}
-//Imp poo poo
-U0 TroopAttack(CDoomLevel *l,CMonsterThinker *t) {
+}        
+//Imp poo poo    
+  U0 TroopAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 damage;
   if(t->target) {
     FaceTarget(l,t);
@@ -486,7 +539,7 @@ U0 SargAttack(CDoomLevel *l,CMonsterThinker *t) {
     angle=t->self->angle;
     angle+=(.5-Rand)*180./pi*5;
     damage=((RandU64&7)+1)*4;
-    LineAttack(l,t,MELEE_RANGE,angle,damage);
+    LineAttack(l,t,t->target,MELEE_RANGE,angle,damage);
   }
 }
 

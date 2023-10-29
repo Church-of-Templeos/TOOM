@@ -1,6 +1,20 @@
 #ifndef DOOM_WAD
 #define DOOM_WAD" Whats Poppin"
 #define DEBUG 1
+class CWad {
+  U8 body[0];
+  U8 ident[4];
+  U32 lump_cnt;
+  U32 directory_ptr;
+}; 
+
+
+CWad *LoadWad(U8 *filename) {
+  return FileRead(filename);
+}
+
+static CWad *wad=LoadWad("DOOM.WAD");
+
 
 #define TICK_TIME (1/30.)
 
@@ -1115,7 +1129,6 @@ U0 DumpWad(CWad *wad) {
 //
 CDoomGr *dgr=LoadWadGr(wad);
 CDoomLevel *l=LoadWadLevel(wad,"E1M1");;
-
 /*
 DCFill;
 if(l)

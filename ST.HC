@@ -525,299 +525,167 @@ U0 InitWidgets()
 
 }
 
+
+
 U0 ST_ReadOnce()
 {
-   if(st_firsttime ==FALSE)
-   {
-     //not efficent
-     st_firsttime = TRUE;
-     InitWidgets();
+  if(st_firsttime ==FALSE)
+    {
+//not efficent
+    st_firsttime = TRUE;
+    InitWidgets();
 
-     //STATUS BARS
-     CWadDirectory *wad_dir=wad->body+wad->directory_ptr;  //Wads have a base pointer where the "directories" are stored
-     wad_dir+=W_CheckNumForName("STBAR",wad);  //Get the index and add it to the pointer
-     ST = ReadDoomImage(wad->body+wad_dir->ptr); 
- 
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STTNUM0",wad);  
-     NUM0 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STTNUM1",wad);  
-     NUM1 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STTNUM2",wad);  
-     NUM2 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STTNUM3",wad);  
-     NUM3 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STTNUM4",wad);  
-     NUM4 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STTNUM5",wad);  
-     NUM5 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STTNUM6",wad);  
-     NUM6 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STTNUM7",wad);  
-     NUM7 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STTNUM8",wad);  
-     NUM8 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STTNUM9",wad);  
-     NUM9 = ReadDoomImage(wad->body+wad_dir->ptr); 
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STTPRCNT",wad);  
-     NUMPCT = ReadDoomImage(wad->body+wad_dir->ptr); 
+    //STATUS BARS
+    CWadDirectory *wad_dir=wad->body+wad->directory_ptr;  //Wads have a base pointer where the "directories" are stored
+    ST = FramePtr("STBAR");
+    NUM0=FramePtr("STTNUM0");
+    NUM1=FramePtr("STTNUM1");
+    NUM2=FramePtr("STTNUM2");
+    NUM3=FramePtr("STTNUM3");
+    NUM4=FramePtr("STTNUM4");
+    NUM5=FramePtr("STTNUM5");
+    NUM6=FramePtr("STTNUM6");
+    NUM7=FramePtr("STTNUM7");
+    NUM8=FramePtr("STTNUM8");
+    NUM9=FramePtr("STTNUM9");
+    NUMPCT=FramePtr("STTPRCNT");
 
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STYSNUM0",wad);  
-     NUMS0 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STYSNUM1",wad);  
-     NUMS1 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STYSNUM2",wad);  
-     NUMS2 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STYSNUM3",wad);  
-     NUMS3 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STYSNUM4",wad);  
-     NUMS4 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STYSNUM5",wad);  
-     NUMS5 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STYSNUM6",wad);  
-     NUMS6 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STYSNUM7",wad);  
-     NUMS7 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STYSNUM8",wad);  
-     NUMS8 = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("STYSNUM9",wad);  
-     NUMS9 = ReadDoomImage(wad->body+wad_dir->ptr); 
-    
-     
-     //FACES
-     wad_dir=wad->body+wad->directory_ptr;  //Wads have a base pointer where the "directories" are stored
-     wad_dir+=W_CheckNumForName("STFST01T",wad);  //Get the index and add it to the pointer
-     FACE00 = ReadDoomImage(wad->body+wad_dir->ptr); 
+    NUMS0=FramePtr("STYSNUM0");
+    NUMS1=FramePtr("STYSNUM1");
+    NUMS2=FramePtr("STYSNUM2");
+    NUMS3=FramePtr("STYSNUM3");
+    NUMS4=FramePtr("STYSNUM4");
+    NUMS5=FramePtr("STYSNUM5");
+    NUMS6=FramePtr("STYSNUM6");
+    NUMS7=FramePtr("STYSNUM7");
+    NUMS8=FramePtr("STYSNUM8");
+    NUMS9=FramePtr("STYSNUM9");
 
-     wad_dir=wad->body+wad->directory_ptr;  //Wads have a base pointer where the "directories" are stored
-     wad_dir+=W_CheckNumForName("STFST00T",wad);  //Get the index and add it to the pointer
-     FACE0R = ReadDoomImage(wad->body+wad_dir->ptr); 
+    //FACES
 
-     wad_dir=wad->body+wad->directory_ptr;  //Wads have a base pointer where the "directories" are stored
-     wad_dir+=W_CheckNumForName("STFST02T",wad);  //Get the index and add it to the pointer
-     FACE0L = ReadDoomImage(wad->body+wad_dir->ptr);   
+    FACE00=FramePtr("STFST01T");
+    FACE0R=FramePtr("STFST00T");
+    FACE0L=FramePtr("STFST02T");
 
 
-     //WEAPONS
-     //PUNCH
+    //WEAPONS
+    //PUNCH
+    PUNCH=FramePtr("PUNGA0");
+    PUNCH1=FramePtr("PUNGB0");
+    PUNCH2=FramePtr("PUNGC0");
+    PUNCH3=FramePtr("PUNGD0");
 
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("PUNGA0",wad);  
-     PUNCH = ReadDoomImage(wad->body+wad_dir->ptr);     
-     wad_dir=wad->body+wad->directory_ptr; 
-     wad_dir+=W_CheckNumForName("PUNGB0",wad);  
-     PUNCH1 = ReadDoomImage(wad->body+wad_dir->ptr);   
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("PUNGC0",wad);  
-     PUNCH2 = ReadDoomImage(wad->body+wad_dir->ptr);   
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("PUNGD0",wad);  
-     PUNCH3 = ReadDoomImage(wad->body+wad_dir->ptr);   //4 sprites
-   
-     //PISTOL
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("PISGA0",wad);  
-     PISTOL = ReadDoomImage(wad->body+wad_dir->ptr);      
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("PISGE0",wad);  
-     PISTOLU = ReadDoomImage(wad->body+wad_dir->ptr);   
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("PISGB0",wad);  
-     PISTOL1 = ReadDoomImage(wad->body+wad_dir->ptr);
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("PISGC0",wad);  
-     PISTOL2 = ReadDoomImage(wad->body+wad_dir->ptr);   
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("PISGD0",wad);  
-     PISTOL3 = ReadDoomImage(wad->body+wad_dir->ptr);      
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("PISFA0",wad);  
-     PISTOLF = ReadDoomImage(wad->body+wad_dir->ptr);   //6 sprites
-    
-     //SHOTGUN   
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("SHTGA0",wad);  
-     SHOTGUN = ReadDoomImage(wad->body+wad_dir->ptr);      
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("SHTGB0",wad);  
-     SHOTGUN1 = ReadDoomImage(wad->body+wad_dir->ptr);   
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("SHTGC0",wad);  
-     SHOTGUN2 = ReadDoomImage(wad->body+wad_dir->ptr);   
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("SHTGD0",wad);  
-     SHOTGUN3 = ReadDoomImage(wad->body+wad_dir->ptr);         
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("SHTFA0",wad);  
-     SHOTGUNF1 = ReadDoomImage(wad->body+wad_dir->ptr); 
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("SHTFB0",wad);  
-     SHOTGUNF2 = ReadDoomImage(wad->body+wad_dir->ptr); //6 sprites      
-     
-     //CHAINGUN
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("CHGGA0",wad);  
-     CHAINGUN = ReadDoomImage(wad->body+wad_dir->ptr);       
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("CHGGB0",wad);  
-     CHAINGUN1 = ReadDoomImage(wad->body+wad_dir->ptr);       
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("CHGFA0",wad);  
-     CHAINGUNF1 = ReadDoomImage(wad->body+wad_dir->ptr);       
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("CHGFB0",wad);  
-     CHAINGUNF2 = ReadDoomImage(wad->body+wad_dir->ptr); //4 sprites      
+    //PISTOL
+    PISTOL=FramePtr("PISGA0");
+    PISTOLU=FramePtr("PISGE0");
+    PISTOL1=FramePtr("PISGB0");
+    PISTOL2=FramePtr("PISGC0");
+    PISTOL3=FramePtr("PISGD0");
+    PISTOLF=FramePtr("PISFA0");
+//SHOTGUN   
+    SHOTGUN=FramePtr("SHTGA0");
+    SHOTGUN1=FramePtr("SHTGB0");
+    SHOTGUN2=FramePtr("SHTGC0");
+    SHOTGUN3=FramePtr("SHTGD0");
+    SHOTGUNF1=FramePtr("SHTFA0");
+    SHOTGUNF2=FramePtr("SHTFB0");
+//CHAINGUN
+    CHAINGUN=FramePtr("CHGGA0");
+    CHAINGUN1=FramePtr("CHGGB0");
+    CHAINGUNF1=FramePtr("CHGFA0");
+    CHAINGUNF2=FramePtr("CHGFB0");
 
-     //MISSILELAUNCHER
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("MISGA0",wad);  
-     MISSILELAUNCHER = ReadDoomImage(wad->body+wad_dir->ptr);       
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("MISGB0",wad);  
-     MISSILELAUNCHER1 = ReadDoomImage(wad->body+wad_dir->ptr);      
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("MISFA0",wad);  
-     MISSILELAUNCHERF1 = ReadDoomImage(wad->body+wad_dir->ptr);      
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("MISFB0",wad);  
-     MISSILELAUNCHERF2 = ReadDoomImage(wad->body+wad_dir->ptr);      
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("MISFC0",wad);  
-     MISSILELAUNCHERF3 = ReadDoomImage(wad->body+wad_dir->ptr);      
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("MISFD0",wad);  
-     MISSILELAUNCHERF4 = ReadDoomImage(wad->body+wad_dir->ptr); //6 sprites      
+    //MISSILELAUNCHER
+    MISSILELAUNCHER=FramePtr("MISGA0");
+    MISSILELAUNCHER1=FramePtr("MISGB0");
+    MISSILELAUNCHERF1=FramePtr("MISFA0");
+    MISSILELAUNCHERF2=FramePtr("MISFB0");
+    MISSILELAUNCHERF3=FramePtr("MISFC0");
+    MISSILELAUNCHERF4=FramePtr("MISFD0");
 
-     //CHAINSAW
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("SAWGA0",wad);  
-     CHAINSAW = ReadDoomImage(wad->body+wad_dir->ptr);       
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("SAWGB0",wad);  
-     CHAINSAW1 = ReadDoomImage(wad->body+wad_dir->ptr);       
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("SAWGC0",wad);  
-     CHAINSAW2 = ReadDoomImage(wad->body+wad_dir->ptr);       
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("SAWGD0",wad);  
-     CHAINSAW3 = ReadDoomImage(wad->body+wad_dir->ptr);  //4 sprites     
+    //CHAINSAW
+    CHAINSAW = FramePtr("SAWGA0"); 
+    CHAINSAW1 = FramePtr("SAWGB0"); 
+    CHAINSAW2 = FramePtr("SAWGC0"); 
+    CHAINSAW3 = FramePtr("SAWGAD0"); 
 
-     //PLASMAGUN
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("PLSGA0",wad);  
-     PLASMAGUN = ReadDoomImage(wad->body+wad_dir->ptr);       
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("PLSGB0",wad);  
-     PLASMAGUN1 = ReadDoomImage(wad->body+wad_dir->ptr);       
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("PLSFA0",wad);  
-     PLASMAGUNF1 = ReadDoomImage(wad->body+wad_dir->ptr);       
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("PLSFB0",wad);  
-     PLASMAGUNF2 = ReadDoomImage(wad->body+wad_dir->ptr);  //4 sprites     
+    //PLASMAGUN
+    PLASMAGUN = FramePtr("PLSGA0");
+    PLASMAGUN1 = FramePtr("PLSGB0");
+    PLASMAGUNF1 = FramePtr("PLSFA0");
+    PLASMAGUNF2 = FramePtr("PLSFB0");
 
-     //BFG
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("BFGGA0",wad);  
-     BFG = ReadDoomImage(wad->body+wad_dir->ptr);       
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("BFGGB0",wad);  
-     BFG1 = ReadDoomImage(wad->body+wad_dir->ptr);       
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("BFGGC0",wad);  
-     BFG2 = ReadDoomImage(wad->body+wad_dir->ptr);       
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("BFGFA0",wad);  
-     BFGF1 = ReadDoomImage(wad->body+wad_dir->ptr);       
-     wad_dir=wad->body+wad->directory_ptr;  
-     wad_dir+=W_CheckNumForName("BFGFB0",wad);  
-     BFGF2 = ReadDoomImage(wad->body+wad_dir->ptr);   //5 sprites    
+    //BFG
+    BFG=FramePtr("BFGA0");
+    BFG1=FramePtr("BFGB0");
+    BFG2=FramePtr("BFGC0");
+    BFGF1=FramePtr("BFGFA0");
+    BFGF2=FramePtr("BFGFB0");
+
+    toom_faces.p[0]=FACE00;
+    toom_faces.p[1]=FACE0R;
+    toom_faces.p[2]=FACE0L;
+
+    weapons.on=FALSE;
+    weapons.inum=0;
+    weapons.oldinum=0;
+    weapons.x=SCREENWIDTH/3;
+    weapons.y=SCREENHEIGHT-146;$IV,1$$IV,0$
+
+    weapons.data=0;
+
+    weapons.p[0]=PUNCH;
+    weapons.p[1]=PUNCH1;
+    weapons.p[2]=PUNCH2;
+    weapons.p[3]=PUNCH3;
+
+    weapons.p[4]=PISTOL;
+    weapons.p[5]=PISTOL1;
+    weapons.p[6]=PISTOL2;
+    weapons.p[7]=PISTOL3;
+    weapons.p[8]=PISTOLU;
+    weapons.p[9]=PISTOLF;
+
+    weapons.p[10]=SHOTGUN;
+    weapons.p[11]=SHOTGUN1;
+    weapons.p[12]=SHOTGUN2;
+    weapons.p[13]=SHOTGUN3;
+    weapons.p[14]=SHOTGUNF1;
+    weapons.p[15]=SHOTGUNF2;
+
+    weapons.p[16]=CHAINGUN;
+    weapons.p[17]=CHAINGUN1;
+    weapons.p[18]=CHAINGUNF1;
+    weapons.p[19]=CHAINGUNF2;
+
+    weapons.p[20]=MISSILELAUNCHER;
+    weapons.p[21]=MISSILELAUNCHER1;
+    weapons.p[22]=MISSILELAUNCHERF1;
+    weapons.p[23]=MISSILELAUNCHERF2;
+    weapons.p[24]=MISSILELAUNCHERF3;
+    weapons.p[25]=MISSILELAUNCHERF4;
+
+    weapons.p[26]=CHAINSAW;
+    weapons.p[27]=CHAINSAW1;
+    weapons.p[28]=CHAINSAW2;
+    weapons.p[29]=CHAINSAW3; 
+
+    weapons.p[30]=PLASMAGUN;
+    weapons.p[31]=PLASMAGUN1;
+    weapons.p[32]=PLASMAGUNF1;
+    weapons.p[33]=PLASMAGUNF2;     
+
+    weapons.p[34]=BFG;
+    weapons.p[35]=BFG1;
+    weapons.p[36]=BFG2;
+    weapons.p[37]=BFGF1;     
+    weapons.p[38]=BFGF2;     
 
 
-     toom_faces.p[0]=FACE00;
-     toom_faces.p[1]=FACE0R;
-     toom_faces.p[2]=FACE0L;
+  }
 
-     weapons.on=FALSE;
-     weapons.inum=0;
-     weapons.oldinum=0;
-     weapons.x=SCREENWIDTH/3;
-     weapons.y=SCREENHEIGHT-146;$IV,1$$IV,0$
-    
-     weapons.data=0;
-    
-     weapons.p[0]=PUNCH;
-     weapons.p[1]=PUNCH1;
-     weapons.p[2]=PUNCH2;
-     weapons.p[3]=PUNCH3;
 
-     weapons.p[4]=PISTOL;
-     weapons.p[5]=PISTOL1;
-     weapons.p[6]=PISTOL2;
-     weapons.p[7]=PISTOL3;
-     weapons.p[8]=PISTOLU;
-     weapons.p[9]=PISTOLF;
 
-     weapons.p[10]=SHOTGUN;
-     weapons.p[11]=SHOTGUN1;
-     weapons.p[12]=SHOTGUN2;
-     weapons.p[13]=SHOTGUN3;
-     weapons.p[14]=SHOTGUNF1;
-     weapons.p[15]=SHOTGUNF2;
-     
-     weapons.p[16]=CHAINGUN;
-     weapons.p[17]=CHAINGUN1;
-     weapons.p[18]=CHAINGUNF1;
-     weapons.p[19]=CHAINGUNF2;
-     
-     weapons.p[20]=MISSILELAUNCHER;
-     weapons.p[21]=MISSILELAUNCHER1;
-     weapons.p[22]=MISSILELAUNCHERF1;
-     weapons.p[23]=MISSILELAUNCHERF2;
-     weapons.p[24]=MISSILELAUNCHERF3;
-     weapons.p[25]=MISSILELAUNCHERF4;
-     
-     weapons.p[26]=CHAINSAW;
-     weapons.p[27]=CHAINSAW1;
-     weapons.p[28]=CHAINSAW2;
-     weapons.p[29]=CHAINSAW3; 
-
-     weapons.p[30]=PLASMAGUN;
-     weapons.p[31]=PLASMAGUN1;
-     weapons.p[32]=PLASMAGUNF1;
-     weapons.p[33]=PLASMAGUNF2;     
-    
-     weapons.p[34]=BFG;
-     weapons.p[35]=BFG1;
-     weapons.p[36]=BFG2;
-     weapons.p[37]=BFGF1;     
-     weapons.p[38]=BFGF2;     
-    
-     
-   }
-
-  
-  
 }
 
 U0 AnimateFire(CDoomPlayer *p)
@@ -1167,10 +1035,12 @@ U0 AnimateFire(CDoomPlayer *p)
    }
 }
 
-U0 SwapWeapon(I64 weapon)
+U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
 {
   if(!weapons.on)
   {
+  if(!p->arsenal[weapon]->available)
+    return;
   weaponIndex = weapon;
   switch(weapon)
   {

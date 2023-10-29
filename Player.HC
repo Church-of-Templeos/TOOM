@@ -43,7 +43,6 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
   for(gunsInit=0;gunsInit<8;gunsInit++)
   {
     p->arsenal[gunsInit] = CAlloc(sizeof(GunAvail));
-    p->arsenal[gunsInit]->available = TRUE;//all guns enabled
     //p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));
     //p->arsenal[gunsInit]->load->ammo=999;
     //p->arsenal[gunsInit]->load->baseDamage=2;
@@ -52,12 +51,14 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
     switch(gunsInit)
     {
       case 0://fists
+	p->arsenal[gunsInit]->available = TRUE;
         p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));    
         p->arsenal[gunsInit]->load->ammo=0;
         p->arsenal[gunsInit]->baseDamage=2;
         p->arsenal[gunsInit]->load->splash=FALSE;   
         break;
       case 1://pistol
+	p->arsenal[gunsInit]->available = TRUE;
         p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));
         p->arsenal[gunsInit]->load->ammo=50;
         p->arsenal[gunsInit]->baseDamage=4;

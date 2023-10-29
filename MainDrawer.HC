@@ -1624,6 +1624,141 @@ extern CDoomThing *p;
 #include "ST.HC";
 #include "Enemy.HC";
 #include "Physics.HC";
+CDoomPlayer *p=PlayerNew(l);
+
+U0 CheckPowerupPickup(CDoomLevel *l) {
+  CDoomThing *t,*head=&l->things,*next;
+  AmmoType *load;
+  GunAvail *avail;
+  Bool change;
+  I64 orig;
+  for(t=head->next;t!=head;t=next) {
+    next=t->next;
+    if(SqrI64(t->template->radius)>=SqrI64(p->x-t->x)+SqrI64(p->y-t->y)) {
+      switch(t->template->type) {
+        case 2006: //BFG
+	  p->arsenal[7]->available=TRUE;
+cell:
+	  load=p->arsenal[6]->load;
+	  orig=load->ammo;
+	  if(l->skill==0||l->skill==5)
+	    load->ammo+=40;
+	  else
+	    load->ammo+=20;
+	  load->ammo=ClampI64(load->ammo,0,maxCells);
+	  if(load->ammo!=orig) {
+rem:
+	    QueRem(t);
+	    Free(t);
+	  }
+	  break;
+        case 2002: //Chaingun
+	  load=p->arsenal[3]->load;
+	  p->arsenal[3]->available=TRUE;
+	  orig=load->ammo;
+	  if(l->skill==0||l->skill==5)
+	    load->ammo+=40;
+	  else
+	    load->ammo+=20;
+	  load->ammo=ClampI64(load->ammo,0,maxBullets);
+	  if(load->ammo!=orig) 
+	    goto rem;
+	  break;
+        case 2005: //Chainsaw
+	  p->arsenal[5]->available=TRUE;
+	  break;
+        case 2004: //Plasma gun
+	  load=p->arsenal[6]->load;
+	  p->arsenal[6]->available=TRUE;
+	  goto cell;
+        case 2003: //Rocket luancher
+	  break;
+        case 2001: //Shutgun
+	  load=p->arsenal[2]->load;
+	  p->arsenal[2]->available=TRUE;
+	  orig=load->ammo;
+	  if(l->skill==0||l->skill==5)
+	    load->ammo+=8;
+	  else
+	    load->ammo+=4;
+	  load->ammo=ClampI64(load->ammo,0,maxBullets);
+	  if(load->ammo!=orig) 
+	    goto rem;
+	  break;
+        case 2008: //4 shells
+	  load=p->arsenal[2]->load;
+	  orig=load->ammo;
+	  load->ammo+=4;
+	  load->ammo=ClampI64(load->ammo,0,maxShells);
+	  if(load->ammo!=orig) 
+	    goto rem;
+	  break;
+        case 2048: //Box of bullets
+	  load=p->arsenal[1]->load;
+	  orig=load->ammo;
+	  if(l->skill==0||l->skill==5)
+	    load->ammo+=100;
+	  else
+	    load->ammo+=50;
+	  load->ammo=ClampI64(load->ammo,0,maxBullets);
+	  if(load->ammo!=orig) 
+	    goto rem;
+	  break;
+        case 2046: //Box of rockets
+	  load=p->arsenal[4]->load;
+	  orig=load->ammo;
+	  if(l->skill==0||l->skill==5)
+	    load->ammo+=10;
+	  else
+	    load->ammo+=5;
+	  load->ammo=ClampI64(load->ammo,0,maxRockets);
+	  if(load->ammo!=orig) 
+	    goto rem;
+	  break;
+        case 2049: //Box of shotfgu
+	  load=p->arsenal[2]->load;
+	  orig=load->ammo;
+	  if(l->skill==0||l->skill==5)
+	    load->ammo+=40;
+	  else
+	    load->ammo+=20;
+	  load->ammo=ClampI64(load->ammo,0,maxRockets);
+	  if(load->ammo!=orig) 
+	    goto rem;
+	  break;
+        case 2007: //clip
+	  load=p->arsenal[1]->load;
+	  orig=load->ammo;
+	  if(l->skill==0||l->skill==5)
+	    load->ammo+=20;
+	  else
+	    load->ammo+=10;
+	  load->ammo=ClampI64(load->ammo,0,maxBullets);
+	  if(load->ammo!=orig) 
+	    goto rem;
+	  break;
+        case 2047: //Energy cell
+	  goto cell;
+        case 17: //Energy cell pack
+	  load=p->arsenal[6]->load;
+	  orig=load->ammo;
+	  load->ammo+=20;
+	  load->ammo=ClampI64(load->ammo,0,maxCells);
+	  if(load->ammo!=orig)
+	    goto rem;
+	  break;
+        case 2010: //Rocket
+	  load=p->arsenal[4]->load;
+	  orig=load->ammo;
+	  load->ammo+=1;
+	  load->ammo=ClampI64(load->ammo,0,maxRockets);
+	  if(load->ammo!=orig)
+	    goto rem;
+	  break;
+      }
+    }
+  }
+}
 
 U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0) {
   static F64 last_attack=0.;
@@ -1652,6 +1787,7 @@ U0 UpdateLevel(CDoomLevel *l) {
   CDoomSector *sector,*head=&l->sectors;
   Physics(l);
   UpdateThinkers(l);
+  CheckPowerupPickup(l);
   for(sector=head->next;sector!=head;sector=sector->next) {
     UpdateSector(sector);
   }
@@ -1731,7 +1867,6 @@ pass:
   }
 }
 
-CDoomPlayer *p=PlayerNew(l);
 
 U0 AnimateTask(I64)
 {
@@ -1828,28 +1963,28 @@ while(TRUE) {
      ST_Fire(p);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('1'))) {
-     SwapWeapon(0);
+     SwapWeapon(p,0);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('2'))) {
-     SwapWeapon(1);
+     SwapWeapon(p,1);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('3'))) {
-     SwapWeapon(2);
+     SwapWeapon(p,2);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('4'))) {
-     SwapWeapon(3);
+     SwapWeapon(p,3);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('5'))) {
-     SwapWeapon(4);
+     SwapWeapon(p,4);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('6'))) {
-     SwapWeapon(5);
+     SwapWeapon(p,5);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('7'))) {
-     SwapWeapon(6);
+     SwapWeapon(p,6);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode('8'))) {
-     SwapWeapon(7);
+     SwapWeapon(p,7);
   }
   if(Bt(kbd.down_bitmap,Char2ScanCode(' ')&0xff)) {
     PressAWall(l,&p->x,p->angle,p->height);

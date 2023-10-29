@@ -257,6 +257,7 @@ class CDoomLevel {
  I64 block_map_x_off,block_map_y_off;
   I64 block_map_cols,block_map_rows;
   I64 *block_map_offsets;
+  I64 skill;
   CDoomSector **block_map_data;
   CDoomLinedef **action_linedefs;
   Bool has_red_key,has_blue_key,has_yellow_key;
@@ -552,6 +553,16 @@ I64 PNameIndex(U8 *name,CDoomGr *gr) {
   return -1;
 }
 
+U0 LoadGrLump(CWad *wad,U8 *name) {
+  CWadDirectory *wad_dir=wad->body+wad->directory_ptr;
+  U8 lump_name[9];
+  wad_dir+=W_CheckNumForName(name,wad);
+  CDC *gr=ReadDoomImage(wad->body+wad_dir->ptr);
+  lump_name[8]=0;
+  MemCpy(lump_name,wad_dir->lump_name,8);
+  FramePtrAdd(lump_name,gr);
+}
+
 CDoomGr *LoadWadGr(CWad *wad) {
   CDoomGr *ret=CAlloc(sizeof(CDoomGr));
   CWadDirectory *wad_dir;
@@ -572,9 +583,9 @@ found_sstart:
     MemCpy(lump_name,wad_dir->lump_name,8);
     FramePtrAdd(lump_name,gr);
 #ifdef DEBUG
-//    GrBlot(,0,0,gr);
-//    Sleep(10);
-#endif
+    //    GrBlot(,0,0,gr);
+    //    Sleep(10);
+    #endif
     goto found_sstart;
   }
 //Yeah homie,im straight up gunna load Flats. Take a moment to praise God
@@ -591,9 +602,9 @@ found_fstart:
       MemCpy(lump_name,wad_dir->lump_name,8);
       FramePtrAdd(lump_name,gr);
 #ifdef DEBUG
-//      GrBlot(,0,0,gr);
-//      Sleep(10);
-#endif
+      //      GrBlot(,0,0,gr);
+      //      Sleep(10);
+      #endif
     }
     goto found_fstart;
   }
@@ -618,9 +629,9 @@ found_pstart:
       MemCpy(lump_name,wad_dir->lump_name,8);
       gr=ReadDoomImage(wad->body+wad_dir->ptr);
 #ifdef DEBUG
-//      GrBlot(,0,0,gr);
-//      Sleep(10);
-#endif
+      //      GrBlot(,0,0,gr);
+      //      Sleep(10);
+      #endif
       FramePtrAdd(lump_name,gr);
     }
     goto found_pstart;
@@ -628,6 +639,81 @@ found_pstart:
   LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE1",wad),ret);
   if(W_GetLumpPtrFromName("TEXTURE2",wad)>=0)
     LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE2",wad),ret);
+
+
+  LoadGrLump(wad,"STBAR");
+  for(idx=0;idx!=10;idx++) {
+    lump_name[0]=0;
+    CatPrint(lump_name,"STTNUM%d",idx);
+    LoadGrLump(wad,lump_name);
+  }
+  LoadGrLump(wad,"STTPRCNT");
+  for(idx=0;idx!=10;idx++) {
+    lump_name[0]=0;
+    CatPrint(lump_name,"STYSNUM%d",idx);
+    LoadGrLump(wad,lump_name);
+  }
+//FACES
+
+  LoadGrLump(wad,"STFST01T");
+  LoadGrLump(wad,"STFST00T");
+  LoadGrLump(wad,"STFST02T");
+
+
+  //WEAPONS
+  //PUNCH
+  LoadGrLump(wad,"PUNGA0");
+  LoadGrLump(wad,"PUNGB0");
+  LoadGrLump(wad,"PUNGC0");
+  LoadGrLump(wad,"PUNGD0");
+
+  //PISTOL
+  for(idx='A';idx<='E';idx++) {
+    lump_name[0]=0;
+    CatPrint(lump_name,"PISG%c0",idx);
+    LoadGrLump(wad,lump_name);
+  }
+//SHOTGUN   
+  for(idx='A';idx<='D';idx++) {
+    lump_name[0]=0;
+    CatPrint(lump_name,"SHTG%c0",idx);
+    LoadGrLump(wad,lump_name);
+  }
+//CHAINGUN
+  for(idx='A';idx<='B';idx++) {
+    lump_name[0]=0;
+    CatPrint(lump_name,"CHGG%c0",idx);
+    LoadGrLump(wad,lump_name);
+  }
+  //MISSILELAUNCHER
+  for(idx='A';idx<='B';idx++) {
+    lump_name[0]=0;
+    CatPrint(lump_name,"MISG%c0",idx);
+    LoadGrLump(wad,lump_name);
+  }
+  for(idx='A';idx<='D';idx++) {
+    lump_name[0]=0;
+    CatPrint(lump_name,"MISF%c0",idx);
+    LoadGrLump(wad,lump_name);
+  }
+//CHAINSAW
+  for(idx='A';idx<='D';idx++) {
+    lump_name[0]=0;
+    CatPrint(lump_name,"SAWG%c0",idx);
+    LoadGrLump(wad,lump_name);
+  }
+//PLASMAGUN
+  for(idx='A';idx<='B';idx++) {
+    lump_name[0]=0;
+    CatPrint(lump_name,"PLSG%c0",idx);
+    LoadGrLump(wad,lump_name);
+  }
+//BFG
+  for(idx='A';idx<='B';idx++) {
+    lump_name[0]=0;
+    CatPrint(lump_name,"BFGG%c0",idx);
+    LoadGrLump(wad,lump_name);
+  }
   return ret;
 }
 

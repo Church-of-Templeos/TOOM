@@ -1672,6 +1672,17 @@ rem:
 	  p->arsenal[6]->available=TRUE;
 	  goto cell;
         case 2003: //Rocket luancher
+	  load=p->arsenal[4]->load;
+	  p->arsenal[4]->available=TRUE;
+	  orig=load->ammo;
+	  if(l->skill==0||l->skill==5)
+	    load->ammo+=2;
+	  else
+	    load->ammo+=1;
+	  load->ammo=ClampI64(load->ammo,0,maxRockets);
+	  if(load->ammo!=orig) 
+	    goto rem;
+	  break;
 	  break;
         case 2001: //Shutgun
 	  load=p->arsenal[2]->load;

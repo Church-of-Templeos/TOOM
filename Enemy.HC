@@ -59,13 +59,6 @@ U0 RemoveMonsterFromMem(CMonsterThinker *t) {
 }
 
 
-U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
-  if(!(target->template->flags&TF_SHOOTABLE))
-    return;
-  if(target->health<=0.) return;
-  if(target->health) {
-  }
-}
 
 Bool MMove(CDoomLevel *l,CMonsterThinker *m) {
   CDoomThing *self=m->self,*target=m->target;
@@ -116,7 +109,7 @@ Bool SetState(CDoomLevel *l,CMonsterThinker *m,U8 *st) {
     RemoveMonsterFromMem(m);
     return FALSE;
   }
-//PrintI(st,1);
+PrintI(st,1);
   if(m->self->animation!=s->anim_frames) {
     m->self->anim_start_tS=tS;
     m->self->animation=s->anim_frames;
@@ -126,6 +119,55 @@ Bool SetState(CDoomLevel *l,CMonsterThinker *m,U8 *st) {
   if(s->action)
     (*s->action)(l,m);
 }
+
+U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
+  CDoomThing *p=GetPlayer;
+  CDoomMonsterTemplate *template=target->template;
+  CMonsterThinker*thinker=target->thinker;
+  F64 angle,thrust;
+  if(!(target->template->flags&TF_SHOOTABLE))
+    return;
+  if(target->health<=0.) return;
+  if(p==target) {
+//TODO ouch face
+  }
+//Kick away(unless chainsaw)
+  if(p==opp&&weaponIndex!=5) { //5 is chainsaw
+    angle=FArg(target->x-p->x,target->y-p->y);
+    thrust=(25*damage)/template->mass;
+//If dead ,move forward sometimes
+    if(damage<40&&damage>=target->health&&RandU64&1) {
+      angle+=pi;
+      thrust*=4;
+    }
+    target->momx+=thrust*Cos(angle);
+    target->momy+=thrust*Sin(angle);
+  }
+  target->health-=damage;
+  if(0.<=target->health) {
+    target->health=0;
+    SetState(l,thinker,template->death_state);
+    return;
+  }
+  if(Rand<template->pain_chance) { //TODO check skull fly
+    target->flags|=MF_JUST_ATTACKED;
+    if(template->pain_state)
+      SetState(l,thinker,template->pain_state);
+  }
+
+  thinker->reaction_time=0;
+
+  if(opp&&thinker) {
+    thinker->target=opp;
+    if(template->see_state&&thinker->state==template->spawn_state) {
+       SetState(l,thinker,template->see_state);
+    }
+  }
+//TODO skull fly
+}
+
+
+
 U0 MonsterThinker(CDoomLevel *l,CMonsterThinker *m) {
   CDoomThing *self=m->self;
   if(m->state->action)
@@ -163,6 +205,7 @@ U0 InitMonsters(CDoomLevel *l) {
         thing->health=thing->template(CDoomMonsterTemplate*)->health;
         einstein=AddThinker(l,&MonsterThinker,sizeof CMonsterThinker);
 	einstein->self=thing;
+	thing->thinker=einstein;
 	SetState(l,einstein,thing->template(CDoomMonsterTemplate*)->spawn_state);
     }
   }
@@ -447,6 +490,7 @@ U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 an
      puff_pos.x=hit->x+5*Cos(angle2);
      puff_pos.y=hit->y+5*Sin(angle2);
      SpawnBloodPuff(l,&puff_pos,dst_h,damage);
+     DamageMob(l,target,self,damage);
   } else if(target) {
 //Spawn a smoke puff as we missed
     src_h=self->height+self->template->height/2;
@@ -584,7 +628,8 @@ U0 SkullAttack(CDoomLevel *l,CMonsterThinker *t) {
     self->flags|=MF_SKULL_ATTACK;
     //TODO sound
     FaceTarget(l,t);
-    self->mom=SKULL_ATTACK_SPEED;
+    self->momx=SKULL_ATTACK_SPEED*Cos(self->angle);
+    self->momy=SKULL_ATTACK_SPEED*Sin(self->angle);
     dist=Sqrt(Sqr(dest->x-t->self->x)+Sqr(dest->y-t->self->y));
     self->momz=(dest->height+dest->template->height/2-t->self->height)/dist;
   }
@@ -654,7 +699,8 @@ U0 Metal(CDoomLevel *l,CMonsterThinker *t) {
 
 U0 ExplodeMissle(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *self=t->self;
-  self->mom=0.;
+  self->momx=0.;
+  self->momy=0.;
   self->momz=0.;
   SetState(l,t,t->self->template(CDoomMonsterTemplate*)->death_state);
   self->flags&=~MF_MISSILE; 
@@ -678,7 +724,8 @@ U0 SkullHit(CDoomLevel *l,CMonsterThinker *t,CDoomThing *hit_thang) {
   }
   self=t->self;
   self->flags&=~MF_SKULL_ATTACK;
-  self->mom=0.;
+  self->momx=0.;
+  self->momy=0.;
   self->momz=0.;
   SetState(l,t,t->self->template(CDoomMonsterTemplate*)->spawn_state);
 }
@@ -704,6 +751,7 @@ U0 LoadMonsterInfo() {
   t->reaction_time=1/35.*8;
   t->health=60;
   t->speed=8.;
+  t->mass=100;
   t->damage=3;
   t->pain_chance=200./255;
   AddState(t->spawn_state="IMP.S_POSS_STND",10*4,t->_idle_frames,&Look,"IMP.S_POSS_STND");
@@ -711,8 +759,8 @@ U0 LoadMonsterInfo() {
   AddState(t->missile_state="IMP.S_POSS_ATK1",0,t->_idle_frames,&FaceTarget,"IMP.S_POSS_ATK2");
   AddState("IMP.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&TroopAttack,"IMP.S_POSS_RUN");
   AddState(t->pain_state="IMP.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"IMP.S_POSS_RUN");
-  AddState(t->death_state="IMP.S_POSS_DIE",STATE_NO_REPEAT,t->_hurt_frames,&Fall,"ST_NULL");
-  AddState(t->gib_state="IMP.S_POSS_GIB",STATE_NO_REPEAT,t->_dying_frames,&XFall,"ST_NULL");
+  AddState(t->death_state="IMP.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
+  AddState(t->gib_state="IMP.S_POSS_GIB",STATE_NO_REPEAT,t->_gib_frames,&XFall,"ST_NULL");
 //Fireball and I aint talkin alchohol
   p=imp_fireball=CAlloc(sizeof CDoomProjectileTemplate);
   p->damage=9;
@@ -761,6 +809,7 @@ U0 LoadMonsterInfo() {
   t->reaction_time=1/35.*8;
   t->health=400.;
   t->speed=8.;
+  t->mass=400;
   t->pain_chance=.50;
   t->_idle_frames=GenerateCacheFrames(t,"A");
   t->_chase_frames=GenerateCacheFrames(t,"A");
@@ -923,6 +972,7 @@ U0 LoadMonsterInfo() {
   t->pain_time=1/35.*6;
   t->health=20;
   t->speed=8;
+  t->mass=100;
   t->pain_chance=200/255.;
   t->_idle_frames=GenerateCacheFrames(t,"AB");
   t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");

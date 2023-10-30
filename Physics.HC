@@ -13,14 +13,16 @@ U0 PhysicsOnThing(CDoomLevel *l,CDoomThing *thing) {
   CDoomLinedef *ld;
   CDoomSector *sec;
   CDoomActionSector *special;
-  F64 mom_t=thing->mom;
-  at.x=thing->x;
-  at.y=thing->y;
-  if(ld=MoveInLevel(l,&at,thing->angle,mom_t,thing->template->radius,thing->height,COLLISF_SLIDE|COLLISF_NO_HIT_THING,,thing)) {
+  F64 angle=FArg(thing->momx,thing->momy);
+  F64 mom_t=Sqrt(Sqr(thing->momx)+Sqr(thing->momy));
+  if(ld=MoveInLevel(l,&thing->x,angle,mom_t,thing->template->radius,thing->height,COLLISF_SLIDE|COLLISF_NO_HIT_THING,,thing)) {
   }
-  thing->mom*=FRICTION;
-  if(thing->mom<1.)
-    thing->mom=0.;
+  thing->momx*=FRICTION;
+  thing->momy*=FRICTION;
+  if(thing->momy<1.)
+    thing->momy=0.;
+  if(thing->momx<1.)
+    thing->momx=0.;
 //Gravity
   if(sec=GetSectorForCoord(l,thing->x,thing->y)) {
     if(thing->height>sec->floor_height) {

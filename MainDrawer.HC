@@ -3,7 +3,6 @@
 #include "FastTrig.HC";
 #include "Wad.HC";
 #include "Thinker.HC";
-//#include "Weapons.HC";
 
 //IMPORTANT
 CacheAnimationFrames;

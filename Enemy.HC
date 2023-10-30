@@ -12,13 +12,17 @@ class CState {
   CDoomAnimationFrame *anim_frames;
   U0 (*action)(CDoomLevel *,CDoomThinker *);
   U8 *next_state;
+  Bool no_repeat;
 };
 //2 Special times
 #define STATE_NO_REPEAT -1
 #define STATE_UNTIL_ANIM_DONE -2
 U0 AddState(U8 *name,F64 ticks,CDoomAnimationFrame *f,U8 *fptr=NULL,U8 *next=NULL) {
   CState *s=CAlloc(sizeof CState);
-  if(ticks=STATE_UNTIL_ANIM_DONE)
+  if(ticks==STATE_NO_REPEAT) {
+    s->time=AnimationTime(f);
+    s->no_repeat=TRUE;
+  } else if(ticks=STATE_UNTIL_ANIM_DONE)
     s->time=AnimationTime(f);
   else
     s->time=ticks/4.;
@@ -105,17 +109,20 @@ Bool SetState(CDoomLevel *l,CMonsterThinker *m,U8 *st) {
   m->state=s;
   if(!s) {
     if(st) DbgPrint("Unimplemented state ASK NROOT(%s)",st);
-    //You done silly
+//You done silly
     RemoveMonsterFromMem(m);
     return FALSE;
   }
-PrintI(st,1);
-  if(m->self->animation!=s->anim_frames) {
-    m->self->anim_start_tS=tS;
-    m->self->animation=s->anim_frames;
+  PrintI(st,1);
+  if(s->anim_frames) {
+    if(m->self->animation!=s->anim_frames) {
+      m->self->anim_start_tS=tS;
+      m->self->animation=s->anim_frames;
+    }
+    m->state_start_tS=tS;
+    m->state_length=s->time;
+    m->self->anim_no_repeat=s->no_repeat;
   }
-  m->state_start_tS=tS;
-  m->state_length=s->time;
   if(s->action)
     (*s->action)(l,m);
 }
@@ -642,10 +649,16 @@ U0 BOOM(CDoomLevel *l,CMonsterThinker *t) {
 U0 Pain(CDoomLevel *l,CMonsterThinker *t) {
 }
 U0 Fall(CDoomLevel *l,CMonsterThinker *t) {
+  t->self->flags&=~(TF_SHOOTABLE|TF_OBSTACLE);
   t->self->solid=FALSE;
 }
 U0 XFall(CDoomLevel *l,CMonsterThinker *t) {
   t->self->solid=FALSE;
+}
+U0 NullState(CDoomLevel *l,CMonsterThinker *t) {
+  //Remove the thinker but not the thing
+  QueRem(t);
+  Free(t);
 }
 U0 RadiusAttack(CDoomLevel *l,CDoomThing *dik,F64 boom) {
   CDoomThing *cur,*head=&l->things;
@@ -739,6 +752,7 @@ CDoomThingTemplate *rocket;
 U0 LoadMonsterInfo() {
   CDoomProjectileTemplate *p;
   //https://doomwiki.org/wiki/Imp
+  AddState("ST_NULL",0.,NULL,&NullState,NULL);
   CDoomMonsterTemplate *t=doom_thing_types[0xbb9];
   t->_idle_frames=GenerateCacheFrames(t,"AB");
   t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
@@ -793,7 +807,7 @@ U0 LoadMonsterInfo() {
   AddState("BARON.S_POSS_ATK3",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&BarronOfHellAttack,"BARON.S_POSS_RUN");
   AddState(t->pain_state="BARON.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"BARON.S_POSS_RUN");
   AddState(t->death_state="BARON.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"BARON.S_POSS_DIE2");
-  AddState(t->death_state="BARON.S_POSS_DIE2",STATE_NO_REPEAT,t->_dying_frames,&BossDeath,"ST_NULL");
+  AddState(t->death_state="BARON.S_POSS_DIE2",0,t->_dying_frames,&BossDeath,"ST_NULL");
 //Booger ball
   p=baron_fireball=CAlloc(sizeof CDoomProjectileTemplate);
   p->damage=8;
@@ -824,8 +838,7 @@ U0 LoadMonsterInfo() {
   AddState(t->missile_state="CACO.S_POSS_ATK2",0,t->_idle_frames,&FaceTarget,"CACO.S_POSS_ATK3");
   AddState("CACO.S_POSS_ATK3",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&SkullAttack,"CACO.S_POSS_RUN");
   AddState(t->pain_state="CACO.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"CACO.S_POSS_RUN");
-  AddState(t->death_state="CACO.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"CACO.S_POSS_DIE2");
-  AddState(t->death_state="CACO.S_POSS_DIE2",STATE_NO_REPEAT,t->_hurt_frames,&BossDeath,"ST_NULL");
+  AddState(t->death_state="CACO.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
 //Cacodemon ball
   p=cacodemon_fireball=CAlloc(sizeof CDoomProjectileTemplate);
   p->damage=5;
@@ -878,8 +891,7 @@ U0 LoadMonsterInfo() {
   AddState(t->missile_state="PANKY.S_POSS_ATK1",0,t->_idle_frames,&FaceTarget,"PANKY.S_POSS_ATK2");
   AddState(t->missile_state="PANKY.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&SkullAttack,"PANKY.S_POSS_RUN");
   AddState(t->pain_state="PANKY.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"PANKY.S_POSS_RUN");
-  AddState(t->death_state="PANKY.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"PANKY.S_POSS_DIE2");
-  AddState(t->death_state="PANKY.S_POSS_DIE2",STATE_NO_REPEAT,t->_dying_frames,NULL,NULL);
+  AddState(t->death_state="PANKY.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
 //Skull demon
   t=doom_thing_types[0xbbe];
   t->reaction_time=1/35.*8;
@@ -901,8 +913,7 @@ U0 LoadMonsterInfo() {
   AddState(t->missile_state="SKULL.S_POSS_ATK1",0,t->_idle_frames,&FaceTarget,"SKULL.S_POSS_ATK2");
   AddState(t->missile_state="SKULL.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&SkullAttack,"SKULL.S_POSS_RUN");
   AddState(t->pain_state="SKULL.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"SKULL.S_POSS_RUN");
-  AddState(t->death_state="SKULL.S_POSS_DIE",9*4,t->_hurt_frames,&Fall,"SKULL.S_POSS_DIE2");
-  AddState(t->death_state="SKULL.S_POSS_DIE2",0,t->_hurt_frames,NULL,NULL);
+  AddState(t->death_state="SKULL.S_POSS_DIE",0,t->_hurt_frames,&Fall,"ST_NULL");
 //Shotgun guy
   t=doom_thing_types[9];
   t->reaction_time=1/35.*8;
@@ -926,7 +937,7 @@ U0 LoadMonsterInfo() {
   AddState("SHOTGUN.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&SPosAttack,"SHOTGUN.S_POSS_RUN");
   AddState(t->pain_state="SHOTGUN.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"SHOTGUN.S_POSS_RUN");
   AddState(t->death_state="SHOTGUN.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
-  AddState(t->gib_state="SHOTGUN.S_POSS_GIB",STATE_UNTIL_ANIM_DONE,t->_dying_frames,&XFall,"ST_NULL");
+  AddState(t->gib_state="SHOTGUN.S_POSS_GIB",STATE_NO_REPEAT,t->_dying_frames,&XFall,"ST_NULL");
 
 //Transparent demon
   t=doom_thing_types[0x3a];
@@ -949,8 +960,8 @@ U0 LoadMonsterInfo() {
   AddState(t->missile_state="TRANS.S_POSS_ATK1",0,t->_idle_frames,&FaceTarget,"TRANS.S_POSS_ATK2");
   AddState(t->missile_state="TRANS.S_POSS_ATK2",10*4,t->_idle_frames,&SkullAttack,"TRANS.S_POSS_RUN");
   AddState(t->pain_state="TRANS.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"TRANS.S_POSS_RUN");
-  AddState(t->death_state="TRANS.S_POSS_DIE",9*4,t->_hurt_frames,&Fall,"TRANS.S_POSS_DIE2");
-  AddState(t->death_state="TRANS.S_POSS_DIE2",0,t->_hurt_frames,NULL,NULL);
+  AddState(t->death_state="TRANS.S_POSS_DIE",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Fall,"TRANS.S_POSS_DIE2");
+  AddState(t->death_state="TRANS.S_POSS_DIE2",STATE_NO_REPEAT,t->_dying_frames,NULL,NULL);
 //Scrotum spider
   t=doom_thing_types[0x7];
   t->reaction_time=1/35.*8;
@@ -987,7 +998,7 @@ U0 LoadMonsterInfo() {
   AddState("ZOMBIE.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&PosAttack,"ZOMBIE.S_POSS_ATK3");
   AddState("ZOMBIE.S_POSS_ATK3",STATE_UNTIL_ANIM_DONE,t->_chase_frames,NULL,"ZOMBIE.S_POSS_RUN");
   AddState(t->pain_state="ZOMBIE.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"ZOMBIE.S_POSS_RUN");
-  AddState(t->death_state="ZOMBIE.S_POSS_DIE",STATE_UNTIL_ANIM_DONE,t->_dying_frames,&Fall,"ST_NULL");
+  AddState(t->death_state="ZOMBIE.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
   AddState(t->gib_state="ZOMBIE.S_POSS_GIB",STATE_NO_REPEAT,t->_gib_frames,&XFall,"ST_NULL");
 };
 LoadMonsterInfo;

@@ -504,7 +504,10 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   while(thing->animation[frame_cnt].chr)
     frame_cnt++;
   if(!frame_cnt) return;
-  anim_frame%=frame_cnt;
+  if(thing->anim_no_repeat)
+    anim_frame=MinI64(frame_cnt-1,anim_frame);
+  else
+    anim_frame%=frame_cnt;
   angle=cam->angle;
   angle-=thing->angle;
   angle=Wrap(angle+pi);

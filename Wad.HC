@@ -878,8 +878,8 @@ found:
     dthing->y=wthing->y;
     dthing->angle=wthing->angle/ToF64(I16_MAX)*2*pi;
     dthing->thing_type=wthing->thing_type;
-    dthing->flags=wthing->flags;
     dthing->template=doom_thing_types[wthing->thing_type];
+    dthing->flags=dthing->template->flags;
     QueIns(dthing,level->things.last);
     wthing++;
   }

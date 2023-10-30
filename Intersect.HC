@@ -1,4 +1,4 @@
-Bool InRange(F64 low,F64 x,F64 high) {
+ Bool InRange(F64 low,F64 x,F64 high) {
   if(low<high)
     return low-.1<=x<=high+.1;
   return high-.1<=x<=low+.1;

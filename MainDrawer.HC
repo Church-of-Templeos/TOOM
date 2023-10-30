@@ -294,7 +294,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       ix=GR_WIDTH/2.+ca/(cam->fov/2.)*GR_WIDTH/2.;
       ix&=~1;
       if(dist<=0.) dist=1;
-      tx=(ToI64(Sqrt(Sqr(hit.x-st->x)+Sqr(hit.y-st->y)))*2+xoff*2)%texture->width;
+      tx=(ToI64(Sqrt(Sqr(hit.x-en->x)+Sqr(hit.y-en->y)))*2+xoff*2)%texture->width;
       if(0<=ix<=GR_WIDTH-2) {
 //The offset from the ground is included in the "height",we dont render the overdraw
         margin=DIST_SCALE/(dist*FCos(ca))*(cam->h-level);
@@ -311,11 +311,11 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  ih2=ih;
         }
         iy&=~1;
-        if(idist<cam->floor_depths[ix/2]) {
-	  cam->floor_heights[ix/2]=GR_HEIGHT;
-	  cam->ceil_heights[ix/2]=0;
-	  cam->floor_depths[ix/2]=idist;
-        }
+	  if(idist<cam->floor_depths[ix/2]) {
+	    cam->floor_heights[ix/2]=GR_HEIGHT;
+	    cam->ceil_heights[ix/2]=0;
+	    cam->floor_depths[ix/2]=idist;
+	  }
         ih2+=2;
         if(is_sky2) {//Fill in upper pixels Z-buf distance with distnce for sky
 	  ty=iy;
@@ -400,17 +400,21 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    to=&to_dc->body[ix+(iy+ih2)*to_dc->width_internal];
 	    db_z=&to_dc->depth_buf[ix+(iy+ih2)*to_dc->width_internal];
 	    if(*db_z>idist) {
-	      db_z[0]=idist;
-	      db_z[1]=idist;
-	      db_z+=to_dc->width_internal;
-	      db_z[0]=idist;
-	      db_z[1]=idist;
-	      *to=color;
-	      to(U8*)+=to_dc->width_internal;
-	      color=texture->body[tx+(ty+1)*texture->width_internal](U16);
-	      *to=color;
+	      if(color&0xff!=TRANSPARENT) {
+	        db_z[0]=idist;
+	        db_z[1]=idist;
+	        db_z+=to_dc->width_internal;
+	        db_z[0]=idist;
+	        db_z[1]=idist;
+	        *to=color;
+	        to(U8*)+=to_dc->width_internal;
+	        color=texture->body[tx+(ty+1)*texture->width_internal](U16);
+	        *to=color;
+	      }
 	    }
 	  }
+      }
+      if(texture->flags&DCF_NO_TRANSPARENTS) {
         if(!is_sky) {
 	  if(iy<cam->floor_heights[ix/2]) {
 set_floor_height:
@@ -1627,7 +1631,6 @@ extern CDoomThing *p;
 #include "Enemy.HC";
 #include "Physics.HC";
 CDoomPlayer *p=PlayerNew(l);
-
 U0 CheckPowerupPickup(CDoomLevel *l) {
   CDoomThing *t,*head=&l->things,*next;
   AmmoType *load;

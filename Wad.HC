@@ -293,7 +293,7 @@ CDC *PNameIndexToDC(I64 idx,CDoomGr *gr) {
 
 
 U0 LoadWadTEXTUREs(CWadTEXTURE1 *header,CDoomGr *gr) {
-  I64 texture,i,anim_cnt;
+  I64 texture,i,anim_cnt,x,y;
   U8 name[9];
   CDC *result,*patch;
   CWadTexture *map_texture;
@@ -309,7 +309,15 @@ U0 LoadWadTEXTUREs(CWadTEXTURE1 *header,CDoomGr *gr) {
 	map_texture->patches[i].origin_x*2,
 	map_texture->patches[i].origin_y*2,
 	patch);
-    } 
+    }
+    for(x=0;x!=result->width;x++)
+      for(y=0;y!=result->height;y++) {
+	if(GrPeek0(result,x,y)==TRANSPARENT)
+	  goto fin;
+      }
+//MAKE SURE TO SET THIS FOR THE RENDERER
+    result->flags|=DCF_NO_TRANSPARENTS;
+fin:
     FramePtrAdd(name,result);
 //    GrBlot(,0,0,result);
 //    Sleep(10);

@@ -16,6 +16,8 @@ Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
   st.y=ld->start->y;
   en.x=ld->end->x;
   en.y=ld->end->y;
+  return PlaneIntersect(NULL,a,b,ld->start,ld->end);
+/*
   F64 angle=FArg(en.x-st.x,en.y-st.y);
   F64 bbl_t=Max(a->y,b->y)+1.;
   F64 bbl_b=Min(a->y,b->y)-1.;
@@ -38,11 +40,28 @@ Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
   &&
         (((st.x-a->x)*(b->y-a->y) - (st.y-a->y)*(b->x-a->x))
   * ((en.x-a->x)*(b->y-a->y) - (en.y-a->y)*(b->x-a->x)) < 0.);
+*/
 }
 
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
 F64 DistFromLine(CD2 *p,CD2 *l1,CD2 *l2) {
   return Abs((l2->x-l1->x)*(l1->y-p->y)-(l2->y-l1->y)*(l1->x-p->x))/Sqrt(Sqr(l1->x-l2->x)+Sqr(l1->y-l2->y));
+}
+
+Bool CheckLineWithBox(CDoomLinedef *ld,CD2 *at,F64 radius) {
+  CD2 tl,tr,bl,br;
+  tl.x=at->x-radius; 
+  bl.x=at->x-radius;
+  tr.x=at->x+radius;
+  br.x=at->x+radius;
+  tl.y=at->y+radius;
+  tr.y=at->y+radius;
+  bl.y=at->y-radius;
+  br.y=at->y-radius;
+  return CrosesLine(ld,&tl,&tr)||
+	CrosesLine(ld,&tr,&br)||
+	CrosesLine(ld,&br,&bl)||
+	CrosesLine(ld,&tl,&bl);
 }
 
 //Sort of from here
@@ -340,11 +359,12 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
 fail_walk:
 	        if(wall_idx<64)
 		  walls[wall_idx++]=*lds;
-	        if(CrosesLine(lds[0],&move1,&move_fat)&&CrosesLine(lds[0],&move1,&move2)) {
+	        if(CrosesLine(lds[0],&move1,&move_fat)) {
 		  tmp=IntersectDist(lds[0],&move1,&move2);
 		  if(tmp<min_dist) {
 		    best=lds[0];
 		    min_dist=tmp;
+		    cap=dist2;
 		  }
 	        }
 	      } else {
@@ -420,8 +440,25 @@ skip:;
   cur_pos.x=result->x;
   cur_pos.y=result->y;
 fin:
-  if(flags&COLLISF_SLIDE&&best)
+  if(flags&COLLISF_SLIDE&&best) {
+    dist=Clamp(cap+radius,0.,odist);
+    while(dist>0.) {
+      cur_pos.x=move1.x+cos*dist;
+      cur_pos.y=move1.y+sin*dist;
+      for(i=0;i!=wall_idx;i++) {
+        if(CheckLineWithBox(walls[i],&cur_pos,radius))
+	  goto found;
+      }
+      result->x=cur_pos.x;
+      result->y=cur_pos.y;
+      break;
+found:
+      dist-=1;
+    }
+    if(dist>0.)
+      odist=odist-dist;
     SlideWalk(l,best,result,angle,radius,cur_height,odist);
+  }
   if(!best&&walked_over_hot) {
     min_dist=I16_MAX;
     goto look_for_hot;

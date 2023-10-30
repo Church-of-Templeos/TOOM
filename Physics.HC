@@ -10,11 +10,12 @@ Bool IsCrushed(CDoomSector *s,CDoomThing *t) {
 //Accoutns for momentum and falling
 U0 PhysicsOnThing(CDoomLevel *l,CDoomThing *thing) {
   CD2 at;
-  CDoomLinedef *ld;
+  CDoomLinedef *ld=NULL;
   CDoomSector *sec;
   CDoomActionSector *special;
   F64 angle=FArg(thing->momx,thing->momy);
   F64 mom_t=Sqrt(Sqr(thing->momx)+Sqr(thing->momy));
+  if(mom_t>=1.)
   if(ld=MoveInLevel(l,&thing->x,angle,mom_t,thing->template->radius,thing->height,COLLISF_SLIDE|COLLISF_NO_HIT_THING,,thing)) {
   }
   thing->momx*=FRICTION;

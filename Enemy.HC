@@ -113,7 +113,7 @@ Bool SetState(CDoomLevel *l,CMonsterThinker *m,U8 *st) {
     RemoveMonsterFromMem(m);
     return FALSE;
   }
-//  PrintI(st,1);
+PrintI(st,p==m->self);
   if(s->anim_frames) {
     if(m->self->animation!=s->anim_frames) {
       m->self->anim_start_tS=tS;
@@ -123,7 +123,8 @@ Bool SetState(CDoomLevel *l,CMonsterThinker *m,U8 *st) {
     m->state_length=s->time;
     m->self->anim_no_repeat=s->no_repeat;
   }
-  if(s->action)
+//If our state is not going to be run,call the action now
+  if(m->state_length<=0.&&s->action)
     (*s->action)(l,m);
 }
 
@@ -148,9 +149,8 @@ U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
     target->momy+=thrust*Sin(angle);
   }
   target->health-=damage;
-  if(0.<=target->health) {
+  if(0.>=target->health) {
     target->health=0.;
-    if(target==p) {DCFill;Exit;}
     if(thinker) SetState(l,thinker,template->death_state);
     return;
   }
@@ -483,7 +483,6 @@ U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 an
   F64 angle2;
   F64 dist,src_h,dst_h,dist2;
   if(hit) {
-PrintI("hit",hit);
      target=hit;
 //I will make some distance between the blood-puff and the target to avoid z-clipping
 //Angle from hit->self 
@@ -543,7 +542,6 @@ U0 SPosAttack(CDoomLevel *l,CMonsterThinker *t) {
   I64 i;
   if(t->target) {
     if(t->self->flags&MF_JUST_ATTACKED) return;
-PrintI("at",1);
     t->self->flags|=MF_JUST_ATTACKED;
 //TODO sound start 
     FaceTarget(l,t);
@@ -753,7 +751,7 @@ CDoomThingTemplate *rocket;
 U0 LoadMonsterInfo() {
   CDoomProjectileTemplate *p;
   //https://doomwiki.org/wiki/Imp
-  AddState("ST_NULL",0.,NULL,&NullState,NULL);
+  AddState("ST_NULL",0.,NULL,&NullState,"ST_NULL");
   CDoomMonsterTemplate *t=doom_thing_types[0xbb9];
   t->_idle_frames=GenerateCacheFrames(t,"AB");
   t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
@@ -962,7 +960,7 @@ U0 LoadMonsterInfo() {
   AddState(t->missile_state="TRANS.S_POSS_ATK2",10*4,t->_idle_frames,&SkullAttack,"TRANS.S_POSS_RUN");
   AddState(t->pain_state="TRANS.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"TRANS.S_POSS_RUN");
   AddState(t->death_state="TRANS.S_POSS_DIE",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Fall,"TRANS.S_POSS_DIE2");
-  AddState(t->death_state="TRANS.S_POSS_DIE2",STATE_NO_REPEAT,t->_dying_frames,NULL,NULL);
+  AddState(t->death_state="TRANS.S_POSS_DIE2",STATE_NO_REPEAT,t->_dying_frames,NULL,"ST_NULL");
 //Scrotum spider
   t=doom_thing_types[0x7];
   t->reaction_time=1/35.*8;

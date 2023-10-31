@@ -842,7 +842,6 @@ cam.y=sect->linedefs[0]->start->y;
 cam.fov=pi/4;
 //cam.angle=-pi;
 cam.h=0;
-DocClear;
 Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
 
 F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
@@ -1940,10 +1939,21 @@ U0 AnimateTask(I64)
 
 
 U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
-  cam->h=p->height+32;
+  F64 angle;
+  //if were are dead,sink the camera
+  if(p->health<=0.) {
+    cam->h=Clamp(cam->h-12*1/30.,p->height+8,p->height+32);
+  } else 
+    cam->h=p->height+32;
   cam->x=p->x;
   cam->y=p->y;
-  cam->angle=p->angle;
+  if(p->stare_at) {
+    //We are dead(?) and looking at who killed us
+    angle=FArg(p->stare_at->x-cam->x,p->stare_at->y-cam->y);
+    cam->angle=(cam->angle+angle)/2;
+  } else {
+    cam->angle=p->angle;
+  }
 }
 
 
@@ -1961,101 +1971,105 @@ U0 InitLevel(CDoomLevel *l) {
   InitMonsters(l);
 }
 InitLevel(l);
-while(TRUE) {
-  
-  DCFill;
-  UpdateCameraFromPlayer(&cam,p);
+try {
+  while(TRUE) {
 
-  DrawDoomWorld(&cam,l,gr.dc);
-  ST_Start(p);
+    DCFill;
+    UpdateCameraFromPlayer(&cam,p);
 
-//mouse camera pan.
-  cursor_x=ms.pos.x;
-  if(cursor_tx!=cursor_x)
-  {
-   if(cursor_x<1)
-   {
-    cursor_x=1;
-   }
-   //disabled in Aiwnios (no mouse lock)
-   //p->angle-=(pi/cursor_x-pi/cursor_tx)*16;
-   MsSet(320,240);
-   cursor_x=ms.pos.x;   
-   cursor_tx = cursor_x;
-  
-   
-  }
+    DrawDoomWorld(&cam,l,gr.dc);
+    ST_Start(p);
+
+    //mouse camera pan.
+    cursor_x=ms.pos.x;
+    if(cursor_tx!=cursor_x)
+      {
+      if(cursor_x<1)
+        {
+        cursor_x=1;
+      }
+//disabled in Aiwnios (no mouse lock)
+      //p->angle-=(pi/cursor_x-pi/cursor_tx)*16;
+      MsSet(320,240);
+      cursor_x=ms.pos.x;   
+      cursor_tx = cursor_x;
 
 
- if(Bt(kbd.down_bitmap,SC_CURSOR_UP)||Bt(kbd.down_bitmap,Char2ScanCode('w')))
-  {
-    MoveInLevel(l,&cam.x,cam.angle,GRID_SZ/4,16,cam.h-48);
-    PlayerMove(l,p,GRID_SZ/4);
-    ST_Key(0);
-  }
-  if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)||Bt(kbd.down_bitmap,Char2ScanCode('s'))) {
-    MoveInLevel(l,&cam.x,cam.angle,-GRID_SZ/4,16,cam.h-48);
-    PlayerMove(l,p,-GRID_SZ/4);
-    ST_Key(0);
-  }
-  if(Bt(kbd.down_bitmap,Char2ScanCode('q'))) {
-    MoveInLevel(l,&cam.x,cam.angle+90,-GRID_SZ/4,16,cam.h-90);
-    PlayerMove(l,p,-GRID_SZ/4);
-    ST_Key(0);
-  }
-  if(Bt(kbd.down_bitmap,Char2ScanCode('e'))) {
-    MoveInLevel(l,&cam.x,cam.angle-90,-GRID_SZ/4,16,cam.h-90);
-    PlayerMove(l,p,-GRID_SZ/4);
-    ST_Key(0);
-  }
-  if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)||Bt(kbd.down_bitmap,Char2ScanCode('a'))) {
-      p->angle-=pi/16.;
-     ST_Key(2);
-  }
-  if(Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)||Bt(kbd.down_bitmap,Char2ScanCode('d'))) {
-      p->angle+=pi/16.;
-     ST_Key(1);
-  }
-  if(!Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)&&!Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
-     ST_Key(0);
-  }
-  if(ms.lb) {
-     ST_Fire(p);
-  }
-  if(Bt(kbd.down_bitmap,Char2ScanCode('1'))) {
-     SwapWeapon(p,0);
-  }
-  if(Bt(kbd.down_bitmap,Char2ScanCode('2'))) {
-     SwapWeapon(p,1);
-  }
-  if(Bt(kbd.down_bitmap,Char2ScanCode('3'))) {
-     SwapWeapon(p,2);
-  }
-  if(Bt(kbd.down_bitmap,Char2ScanCode('4'))) {
-     SwapWeapon(p,3);
-  }
-  if(Bt(kbd.down_bitmap,Char2ScanCode('5'))) {
-     SwapWeapon(p,4);
-  }
-  if(Bt(kbd.down_bitmap,Char2ScanCode('6'))) {
-     SwapWeapon(p,5);
-  }
-  if(Bt(kbd.down_bitmap,Char2ScanCode('7'))) {
-     SwapWeapon(p,6);
-  }
-  if(Bt(kbd.down_bitmap,Char2ScanCode('8'))) {
-     SwapWeapon(p,7);
-  }
-  if(Bt(kbd.down_bitmap,Char2ScanCode(' ')&0xff)) {
-    PressAWall(l,&p->x,p->angle,p->height);
-  }
-  if(Bt(kbd.down_bitmap,Char2ScanCode('\n')&0xff)) {
-     DCFill;
-     ST_Exit();
-    break;
-  }
-  UpdateLevel(l);
-  Refresh;
-}
-"%P\n",0x00000000400d8093;
+    }
+
+    if(p->health>0.) {
+      if(Bt(kbd.down_bitmap,SC_CURSOR_UP)||Bt(kbd.down_bitmap,Char2ScanCode('w')))
+        {
+        p->running=Bt(kbd.down_bitmap,SC_SHIFT);
+        PlayerMove(l,p,1);
+        UpdateCameraFromPlayer(&cam,p);
+        ST_Key(0);
+      }
+      if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)||Bt(kbd.down_bitmap,Char2ScanCode('s'))) {
+        p->running=Bt(kbd.down_bitmap,SC_SHIFT);
+        PlayerMove(l,p,-1);
+        UpdateCameraFromPlayer(&cam,p);
+        ST_Key(0);
+      }
+      if(Bt(kbd.down_bitmap,Char2ScanCode('q'))) {
+        MoveInLevel(l,&cam.x,cam.angle+90,-GRID_SZ/4,16,cam.h-90);
+        PlayerMove(l,p,-GRID_SZ/4);
+        ST_Key(0);
+      }
+      if(Bt(kbd.down_bitmap,Char2ScanCode('e'))) {
+        MoveInLevel(l,&cam.x,cam.angle-90,-GRID_SZ/4,16,cam.h-90);
+        PlayerMove(l,p,-GRID_SZ/4);
+        ST_Key(0);
+      }
+      if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)||Bt(kbd.down_bitmap,Char2ScanCode('a'))) {
+        p->angle-=pi/16.;
+        ST_Key(2);
+      }
+      if(Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)||Bt(kbd.down_bitmap,Char2ScanCode('d'))) {
+        p->angle+=pi/16.;
+        ST_Key(1);
+      }
+      if(!Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)&&!Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
+        ST_Key(0);
+      }
+      if(ms.lb) {
+        ST_Fire(p);
+      }
+      if(Bt(kbd.down_bitmap,Char2ScanCode('1'))) {
+        SwapWeapon(p,0);
+      }
+      if(Bt(kbd.down_bitmap,Char2ScanCode('2'))) {
+        SwapWeapon(p,1);
+      }
+      if(Bt(kbd.down_bitmap,Char2ScanCode('3'))) {
+        SwapWeapon(p,2);
+      }
+      if(Bt(kbd.down_bitmap,Char2ScanCode('4'))) {
+        SwapWeapon(p,3);
+      }
+      if(Bt(kbd.down_bitmap,Char2ScanCode('5'))) {
+        SwapWeapon(p,4);
+      }
+      if(Bt(kbd.down_bitmap,Char2ScanCode('6'))) {
+        SwapWeapon(p,5);
+      }
+      if(Bt(kbd.down_bitmap,Char2ScanCode('7'))) {
+        SwapWeapon(p,6);
+      }
+      if(Bt(kbd.down_bitmap,Char2ScanCode('8'))) {
+        SwapWeapon(p,7);
+      }
+      if(Bt(kbd.down_bitmap,Char2ScanCode(' ')&0xff)) {
+        PressAWall(l,&p->x,p->angle,p->height);
+      }
+    }
+    if(Bt(kbd.down_bitmap,Char2ScanCode('\n')&0xff)) {
+      DCFill;
+      ST_Exit();
+      break;
+    }
+    UpdateLevel(l);
+    Refresh;
+  }} catch PutExcept(TRUE);
+DCFill;
 #endif

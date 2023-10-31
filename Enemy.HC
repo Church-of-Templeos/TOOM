@@ -113,7 +113,7 @@ Bool SetState(CDoomLevel *l,CMonsterThinker *m,U8 *st) {
     RemoveMonsterFromMem(m);
     return FALSE;
   }
-PrintI(st,p==m->self);
+//PrintI(st,p==m->self);
   if(s->anim_frames) {
     if(m->self->animation!=s->anim_frames) {
       m->self->anim_start_tS=tS;
@@ -129,7 +129,7 @@ PrintI(st,p==m->self);
 }
 
 U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
-  CDoomThing *p=GetPlayer;
+  CDoomPlayer *p=GetPlayer;
   CDoomMonsterTemplate *template=target->template;
   CMonsterThinker*thinker=target->thinker;
   F64 angle,thrust;
@@ -151,6 +151,8 @@ U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
   target->health-=damage;
   if(0.>=target->health) {
     target->health=0.;
+    if(p==target)
+      p->stare_at=opp;
     if(thinker) SetState(l,thinker,template->death_state);
     return;
   }
@@ -511,6 +513,7 @@ U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 an
 //Make shot right in front of us
     src_h=self->height+self->template->height/2;
     dist=ValidateLineOfSightShot(l,&self->x,angle,range,src_h,src_h); 
+PrintF("dist",dist);
     if(dist>=5.) {
       dist-=5.;
       puff_pos.x=self->x+dist*Cos(angle);
@@ -548,6 +551,7 @@ U0 SPosAttack(CDoomLevel *l,CMonsterThinker *t) {
     bangle=t->self->angle;
     for(i=0;i!=3;i++) {
       angle=bangle;
+      if(!i) //Direct straight shot
       angle+=(Rand-.5)*180./pi*5;
       damage=((RandU64&7)+1)*3;
       LineAttack(l,t->self,t->target,MISSILE_RANGE,angle,damage);
@@ -565,7 +569,7 @@ U0 SpawnMissile(CDoomLevel *l,CDoomThing *t,CDoomThing *target,U64 type) {
 //TODO choose state
 }        
 //Imp poo poo    
-  U0 TroopAttack(CDoomLevel *l,CMonsterThinker *t) {
+U0 TroopAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 damage;
   if(t->target) {
     FaceTarget(l,t);

@@ -12,12 +12,17 @@ class GunAvail{
 
 class CDoomPlayer:CDoomThing {
   F64 armor;
+//When you die,the player stares at the thing that killed the player
+  CDoomThing *stare_at;
   GunAvail **arsenal;
   Bool running;
 };
 
 
-U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 speed=GRID_SZ/4) {
+U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 dir=1) {
+  F64 speed=dir;
+  if(p->running) speed*=30;
+  else speed*=20;
   CFifoI64 *crossed_f=FifoI64New(16);
   CDoomLinedef *crossed;
   CDoomLinedef *hit=MoveInLevel(l,&p->x,p->angle,speed,16,p->height,COLLISF_NO_HIT_THING|COLLISF_SLIDE,crossed_f,p);

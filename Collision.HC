@@ -236,7 +236,7 @@ F64 ValidateLineOfSightShot(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 source_
 
 	    }
 	    if(hit_wall) {
-	      return dist2;
+	      return Min(dist2,dist);
 	    }
         }
       }
@@ -272,6 +272,12 @@ CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_
     for(cur=head->next;cur!=head;cur=cur->next) {
       if(cur==exclude||!(cur->flags&TF_SHOOTABLE)||(cur->health<=0.))
         goto next;
+      bbt_l=cur->x-cur->template->radius/2.;
+      bbt_r=cur->x+cur->template->radius/2.;
+      bbt_b=cur->y-cur->template->radius/2.;
+      bbt_t=cur->y+cur->template->radius/2.;
+      if(bbt_l<=dummy.x<=bbt_r)
+        if(bbt_b<=dummy.y<=bbt_t) {
 	  wall_dist=ValidateLineOfSightShot(l,at,angle,
 	        cd=Sqrt(Sqr(cur->x-at->x)+Sqr(cur->y-at->y)),
 	        shoot_h,
@@ -283,7 +289,7 @@ CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_
 	      closest_dist=wall_dist;
 	    }
 	  }
-
+        }
 next:;
     }
     if(closest)
@@ -305,7 +311,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
   I64 blocky=(at->y-l->block_map_y_off)/128,o,wall_idx;
   CD2 move1,move2,dummy,*result=at,push_back,cur_pos,move_fat;
   CD2 orig,towards;
-  F64 dist2=0,sin=Sin(angle),cos=Cos(angle),cap;
+  F64 dist2=0,sin=Sin(angle),cos=Cos(angle),cap=dist;
   F64 floor_height=0,ceil_height,odist=dist,best_dist;
   F64 min_dist=I16_MAX,wall_angle,slope,off,tmp,max_dist,step;
   F64 last_good=0.;
@@ -440,21 +446,21 @@ skip:;
   cur_pos.x=result->x;
   cur_pos.y=result->y;
 fin:
-  if(flags&COLLISF_SLIDE&&best) {
-    dist=Clamp(cap+radius,0.,odist);
-    while(dist>0.) {
-      cur_pos.x=move1.x+cos*dist;
-      cur_pos.y=move1.y+sin*dist;
-      for(i=0;i!=wall_idx;i++) {
-        if(CheckLineWithBox(walls[i],&cur_pos,radius))
-	  goto found;
-      }
-      result->x=cur_pos.x;
-      result->y=cur_pos.y;
-      break;
-found:
-      dist-=1;
+  dist=Clamp(cap+radius,0.,odist);
+  while(dist>0.) {
+    cur_pos.x=move1.x+cos*dist;
+    cur_pos.y=move1.y+sin*dist;
+    for(i=0;i!=wall_idx;i++) {
+      if(CheckLineWithBox(walls[i],&cur_pos,radius))
+        goto found;
     }
+    result->x=cur_pos.x;
+    result->y=cur_pos.y;
+    break;
+found:
+    dist-=1;
+  }
+  if(flags&COLLISF_SLIDE&&best) {
     if(dist>0.)
       odist=odist-dist;
     SlideWalk(l,best,result,angle,radius,cur_height,odist);

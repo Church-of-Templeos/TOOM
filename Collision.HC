@@ -92,7 +92,6 @@ Bool CloseToLine(CD2 *tip=NULL,CD2 *p1,CD2 *p2,CD2 *at,F64 radius) {
 //https://stackoverflow.com/questions/3269434/whats-the-most-efficient-way-to-test-if-two-ranges-overlap
   if(Max(p2min-radius,p1min)<=Min(p2max+radius,p1max)) {
     if(DistFromLine(at,p1,p2)<radius) {
-PrintF("d2",DistFromLine(at,p1,p2));
       if(tip) {
 	magnitude=p1min-p2min;
 	a=FArg(p2->x-p1->x,p2->y-p1->y);
@@ -202,16 +201,16 @@ F64 ValidateLineOfSightShot(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 source_
   I64 blockx,blocky;
   CDoomLinedef **lds;
   F64 dist2=0.,sin=Sin(angle),cos=Cos(angle);
-  F64 vslope=Tan((target_h-source_h)/dist);
+  F64 vslope=(target_h-source_h)/dist;
   F64 ceil_height,floor_height;
   dummy.x=at->x,dummy.y=at->y;
   while(dist2<=dist) {
     blocky=(dummy.y-l->block_map_y_off)/128;
     blockx=(dummy.x-l->block_map_x_off)/128;
-    dist2+=16.; //Smallest radius??>
-    source_h+=16.*vslope;
-    dummy.x+=16.*cos;   
-    dummy.y+=16.*sin;
+    dist2+=8.; //Smallest radius??>
+    source_h+=8.*vslope;
+    dummy.x+=8.*cos;   
+    dummy.y+=8.*sin;
     if(0<=blockx<l->block_map_cols)
       if(0<=blocky<l->block_map_rows) {
         lds=l->block_map_data+l->block_map_offsets[
@@ -234,6 +233,7 @@ F64 ValidateLineOfSightShot(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 source_
 	      dummy.x=at->x+dist2*cos;
 	      dummy.y=at->y+dist2*sin;
 	      dist2-=1.;;
+
 	    }
 	    if(hit_wall) {
 	      return dist2;
@@ -255,41 +255,45 @@ CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_
     dist=-dist;
     angle+=pi;
   }
-  CDoomThing *head=&l->things,*cur;
+  CDoomThing *head=&l->things,*cur,*closest=NULL;
   CD2 dummy;
   I64 blockx,blocky;
   CDoomLinedef **lds;
   F64 wall_dist;
-  F64 dist2=0.,sin=Sin(angle),cos=Cos(angle);
+  F64 dist2=0.,sin=Sin(angle),cos=Cos(angle),cd,closest_dist=I16_MAX;
   F64 bbt_l,bbt_r,bbt_t,bbt_b,ceil_height,floor_height;
   dummy.x=at->x,dummy.y=at->y;
   while(dist2<=dist) {
     blocky=(dummy.y-l->block_map_y_off)/128;
     blockx=(dummy.x-l->block_map_x_off)/128;
-    dist2+=16.; //Smallest radius??>
-    dummy.x+=16.*cos;   
-    dummy.y+=16.*sin;
+    dist2+=8.; //Smallest radius??>
+    dummy.x+=8.*cos;   
+    dummy.y+=8.*sin;
     for(cur=head->next;cur!=head;cur=cur->next) {
-     if(cur==exclude||!(cur->flags&TF_SHOOTABLE))
-	goto next;
-      bbt_l=cur->x-cur->template->radius/2.;
-      bbt_r=cur->x+cur->template->radius/2.;
-      bbt_b=cur->y-cur->template->radius/2.;
-      bbt_t=cur->y+cur->template->radius/2.;
-      if(bbt_l<=dummy.x<=bbt_r)
-        if(bbt_b<=dummy.y<=bbt_t) {
+      if(cur==exclude||!(cur->flags&TF_SHOOTABLE)||(cur->health<=0.))
+        goto next;
 	  wall_dist=ValidateLineOfSightShot(l,at,angle,
-	        Sqrt(Sqr(cur->x-at->x)+Sqr(cur->y-at->y)),
+	        cd=Sqrt(Sqr(cur->x-at->x)+Sqr(cur->y-at->y)),
 	        shoot_h,
-	        cur->height+cur->template->height/2.
+	        cur->height+cur->template->height-2
 	        );
-	  if(wall_dist<0.)
-	    return cur;
-        }
+PrintI("wall_dist",wall_dist);
+PrintI("wall_dist",cd);
+	  if(wall_dist<=cd+32.) {
+	    if(wall_dist<closest_dist) {
+	      closest=cur;
+	      closest_dist=wall_dist;
+	    }
+	  }
+
 next:;
     }
+    if(closest)
+      break;
   }
-  return NULL;
+PrintI("closest",closest);
+PrintI("p",p);
+  return closest;
 }
 
 

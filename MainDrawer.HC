@@ -1771,6 +1771,50 @@ rem:
 	  if(load->ammo!=orig)
 	    goto rem;
 	  break;
+
+//Yeah homie,we bout to get some power ups
+	case 2015:
+	  orig=p->armor;
+	  p->armor=ClampI64(p->armor+1,0,200);
+	  if(orig!=p->armor)
+	    goto rem;
+	  break;
+	case 2014:
+	  orig=p->health;
+	  p->health=ClampI64(p->health+1,0,200);
+	  if(orig!=p->health)
+	    goto rem;
+	  break;
+	case 83: //Megasphere
+	  p->health=200;
+	  p->armor=200;
+	  goto rem;
+	case 2013: //Supercharge
+	  orig=p->health;
+	  p->health=ClampI64(p->health+20,0,200);
+	  if(orig!=p->health)
+	    goto rem;
+	  break;
+	case 2018: //de-facto Armor
+	  if(p->armor>=100)
+	    break;
+	  p->armor=100.;
+	  goto rem;
+	case 2019: //megarmor
+	  if(p->armor>=200)
+	    break;
+	  p->armor=200.;
+	  goto rem;
+	case 2012:
+	  if(p->health>=100)
+	    break;
+	  p->health=ClampI64(p->health+25,0,100);
+	  goto rem;
+	case 2011:
+	  if(p->health>=100)
+	    break;
+	  p->health=ClampI64(p->health+10,0,100);
+	  goto rem;
       }
     }
   }
@@ -2013,4 +2057,5 @@ while(TRUE) {
   UpdateLevel(l);
   Refresh;
 }
+"%P\n",0x00000000400d8093;
 #endif

@@ -113,7 +113,7 @@ Bool SetState(CDoomLevel *l,CMonsterThinker *m,U8 *st) {
     RemoveMonsterFromMem(m);
     return FALSE;
   }
-  PrintI(st,1);
+//  PrintI(st,1);
   if(s->anim_frames) {
     if(m->self->animation!=s->anim_frames) {
       m->self->anim_start_tS=tS;
@@ -132,12 +132,9 @@ U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
   CDoomMonsterTemplate *template=target->template;
   CMonsterThinker*thinker=target->thinker;
   F64 angle,thrust;
-  if(!(target->template->flags&TF_SHOOTABLE))
+  if(!(target->flags&TF_SHOOTABLE))
     return;
   if(target->health<=0.) return;
-  if(p==target) {
-//TODO ouch face
-  }
 //Kick away(unless chainsaw)
   if(p==opp&&weaponIndex!=5) { //5 is chainsaw
     angle=FArg(target->x-p->x,target->y-p->y);
@@ -152,17 +149,17 @@ U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
   }
   target->health-=damage;
   if(0.<=target->health) {
-    target->health=0;
-    SetState(l,thinker,template->death_state);
+    target->health=0.;
+    if(target==p) {DCFill;Exit;}
+    if(thinker) SetState(l,thinker,template->death_state);
     return;
   }
-  if(Rand<template->pain_chance) { //TODO check skull fly
-    target->flags|=MF_JUST_ATTACKED;
+  if(Rand<template->pain_chance&&thinker) { //TODO check skull fly
     if(template->pain_state)
       SetState(l,thinker,template->pain_state);
   }
 
-  thinker->reaction_time=0;
+  if(thinker) thinker->reaction_time=0;
 
   if(opp&&thinker) {
     thinker->target=opp;
@@ -282,8 +279,8 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
 //Pushin P path is blocked so random direction
     thing->angle=(Rand-.5)*2.*2.*pi;
   }
-  t->steps_to_walk=dist;
-  t->state_length=dist;
+  t->steps_to_walk=dist/2;
+  t->state_length=dist/2;
   t->state_start_tS=tS;
   thing->x=dummy.x;
   thing->y=dummy.y;
@@ -335,12 +332,10 @@ U0 Chase(CDoomLevel *l,CMonsterThinker *t) {
   }
   if(t->self->template(CDoomMonsterTemplate*)->melee_state&&CheckMeleeRange(l,t)) {
     SetState(l,t,t->self->template(CDoomMonsterTemplate*)->melee_state);
-    t->self->flags|=MF_JUST_ATTACKED;
     return;
   }
   if(t->steps_to_walk<=0&&t->self->template(CDoomMonsterTemplate*)->missile_state&&CheckMissileRange(l,t)) {
     SetState(l,t,t->self->template(CDoomMonsterTemplate*)->missile_state);
-    t->self->flags|=MF_JUST_ATTACKED;
     return;
   }
   if(t->steps_to_walk) {
@@ -483,11 +478,12 @@ U0 SpawnSmokePuff(CDoomLevel *l,CD2 *at,F64 h,F64 attack_range) {
   smoke->animation=smoke->template->_animation;
 } 
 U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 angle,F64 damage) {
-  CDoomThing *hit=ShotSmacksAHomie(l,&self->x,angle,range,self->height+self->template->height/2/2,self); ///2 for account for dithering  "super-pixel"
+  CDoomThing *hit=ShotSmacksAHomie(l,&self->x,angle,range,self->height+self->template->height-2,self);
   CD2 puff_pos;
   F64 angle2;
   F64 dist,src_h,dst_h,dist2;
   if(hit) {
+PrintI("hit",hit);
      target=hit;
 //I will make some distance between the blood-puff and the target to avoid z-clipping
 //Angle from hit->self 
@@ -505,7 +501,7 @@ U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 an
     dist2=Sqrt(Sqr(self->x-target->x)+Sqr(self->y-target->y));
     dist=ValidateLineOfSightShot(l,&self->x,angle,range,src_h,dst_h); 
     if(dist>=5.) {
-      angle2=FArg(self->x-target->x,self->y-target->y);
+      angle2=FArg(target->x-self->x,target->y-self->y);
       dst_h=Lerp(dist/dist2,src_h,dst_h); //Good enough?
       dist-=5.;
        puff_pos.x=self->x+dist*Cos(angle2);
@@ -532,10 +528,12 @@ U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 an
 U0 PosAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 angle,damage;
   if(t->target) {
+    if(t->self->flags&MF_JUST_ATTACKED) return;
+    t->self->flags|=MF_JUST_ATTACKED;
     FaceTarget(l,t);
 //TODO start sound
     angle=t->self->angle;
-    angle+=(.5-Rand)*180./pi*5;
+    angle+=(.5-Rand)*pi/5;
     damage=((RandU64&7)+1)*3;
     LineAttack(l,t->self,t->target,MISSILE_RANGE,angle,damage);
   }
@@ -544,12 +542,15 @@ U0 SPosAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 bangle,angle,damage;
   I64 i;
   if(t->target) {
+    if(t->self->flags&MF_JUST_ATTACKED) return;
+PrintI("at",1);
+    t->self->flags|=MF_JUST_ATTACKED;
 //TODO sound start 
     FaceTarget(l,t);
     bangle=t->self->angle;
     for(i=0;i!=3;i++) {
       angle=bangle;
-      angle+=(.5-Rand)*180./pi*5;
+      angle+=(Rand-.5)*180./pi*5;
       damage=((RandU64&7)+1)*3;
       LineAttack(l,t->self,t->target,MISSILE_RANGE,angle,damage);
     }

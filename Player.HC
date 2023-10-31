@@ -35,8 +35,9 @@ U0 PlayerLook(CDoomPlayer *p,F64 angle) {
 CDoomPlayer *PlayerNew(CDoomLevel *l) {
   U16 gunsInit=0;
   CDoomPlayer *p=CAlloc(sizeof(CDoomPlayer));
-  QueIns(p,l->things.last);
+  QueIns(p,&l->things);
   p->template=doom_thing_types[1];
+  p->flags|=TF_SHOOTABLE;
   p->health=100;
   p->armor=0;
   p->arsenal=CAlloc(sizeof(GunAvail*)*8);  

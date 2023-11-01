@@ -3,6 +3,25 @@
 #include "FastTrig.HC";
 #include "Wad.HC";
 #include "Thinker.HC";
+class AmmoType{
+  U64 ammo;
+  Bool splash;
+  
+};
+
+class GunAvail{
+  Bool available;
+  I16 baseDamage;
+  AmmoType *load;
+};
+
+class CDoomPlayer:CDoomThing {
+  F64 armor;
+//When you die,the player stares at the thing that killed the player
+  CDoomThing *stare_at;
+  GunAvail **arsenal;
+  Bool running;
+};
 
 //IMPORTANT
 CacheAnimationFrames;
@@ -1624,9 +1643,10 @@ U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
 
 
 extern CDoomThing *p;
+extern U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 angle,F64 damage);
 #include "Collision.HC";
-#include "Player.HC";
 #include "ST.HC";
+#include "Player.HC";
 #include "Enemy.HC";
 #include "Physics.HC";
 CDoomPlayer *p=PlayerNew(l);
@@ -1819,28 +1839,7 @@ rem:
   }
 }
 
-U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0) {
-  static F64 last_attack=0.;
-  F64 cooldown=60./shots_per_minute;
-  if(tS<last_attack+cooldown) return;
-  last_attack=tS;
-  F64 angle=p->angle,r;
-  F64 damage=Rand*(max_damage-min_damage)+min_damage;
-  I64 idx;
-  CDoomThing *target=NULL; //TODO chose a target
-  if(!rocket_type) {
-     if(weaponIndex==2) {//Shotgun
-       for(idx=0;idx!=3;idx++) {
-         r=(Rand-.5)*2;
-	 angle=p->angle+r*9.8*pi/360.; 
-         LineAttack(l,p,target,range,angle,damage);
-       }
-     } else
-       LineAttack(l,p,target,range,angle,damage);
-  } else {
-//TODO
-  }
-}
+
 
 U0 UpdateLevel(CDoomLevel *l) {
   CDoomSector *sector,*head=&l->sectors;

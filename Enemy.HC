@@ -651,11 +651,40 @@ U0 BOOM(CDoomLevel *l,CMonsterThinker *t) {
 } 
 U0 Pain(CDoomLevel *l,CMonsterThinker *t) {
 }
+
+U0 DropItem(CDoomLevel *l,CMonsterThinker *t) {
+  CDoomThing *self=t->self,*new;
+  I64 spawn=-1;
+  switch(self->template->type) {
+    case 9: //Shotgun gut
+      spawn=2001;
+    break;
+    case 3004: //zombie
+      spawn=2007;
+    break;
+  }
+  if(spawn!=-1) {
+    new=CAlloc(sizeof CDoomThing);
+    new->x=self->x;
+    new->y=self->y;
+    new->template=doom_thing_types[spawn];
+    QueIns(new,l->things.last);
+    new->flags=new->template->flags;
+  }
+}
+
 U0 Fall(CDoomLevel *l,CMonsterThinker *t) {
+//Alive ???(Only drop once)
+  if(t->self->flags&TF_SHOOTABLE)
+    DropItem(l,t);
   t->self->flags&=~(TF_SHOOTABLE|TF_OBSTACLE);
   t->self->solid=FALSE;
 }
 U0 XFall(CDoomLevel *l,CMonsterThinker *t) {
+//Alive ???(Only drop once)
+  if(t->self->flags&TF_SHOOTABLE)
+    DropItem(l,t);
+  t->self->flags&=~(TF_SHOOTABLE|TF_OBSTACLE);
   t->self->solid=FALSE;
 }
 U0 NullState(CDoomLevel *l,CMonsterThinker *t) {

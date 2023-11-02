@@ -1042,6 +1042,7 @@ U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
   if(!p->arsenal[weapon]->available)
     return;
   weaponIndex = weapon;
+
   switch(weapon)
   {
    case 0:

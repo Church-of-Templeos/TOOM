@@ -16,27 +16,30 @@ U0 PhysicsOnThing(CDoomLevel *l,CDoomThing *thing) {
   F64 angle=FArg(thing->momx,thing->momy);
   F64 mom_t=Sqrt(Sqr(thing->momx)+Sqr(thing->momy));
   if(mom_t>=1.)
-  if(ld=MoveInLevel(l,&thing->x,angle,mom_t,thing->template->radius,thing->height,COLLISF_SLIDE|COLLISF_NO_HIT_THING,,thing)) {
-  }
+    if(ld=MoveInLevel(l,&thing->x,angle,mom_t,thing->template->radius,thing->height,COLLISF_SLIDE|COLLISF_NO_HIT_THING,,thing)) {
+    }
   thing->momx*=FRICTION;
   thing->momy*=FRICTION;
   if(thing->momy<1.)
     thing->momy=0.;
   if(thing->momx<1.)
     thing->momx=0.;
+  sec=GetSectorForCoord(l,thing->x,thing->y);
 //Gravity
-  if(sec=GetSectorForCoord(l,thing->x,thing->y)) {
-    if(thing->height>sec->floor_height) {
-      thing->height+=thing->momz;
-      thing->momz-=GRAVITY;
-    } else if(thing->height>sec->ceil_height) {
-      thing->height=sec->ceil_height-thing->template->height;
+  if(!(thing->flags&TF_FLOATING)) {
+    if(sec) {
+      if(thing->height>sec->floor_height) {
+        thing->height+=thing->momz;
+        thing->momz-=GRAVITY;
+      } else if(thing->height>sec->ceil_height) {
+        thing->height=sec->ceil_height-thing->template->height;
 //Hit the ceiling so bump down
-      thing->momz=-GRAVITY;
+        thing->momz=-GRAVITY;
+      }
+      thing->height=Clamp(thing->height,sec->floor_height,sec->ceil_height);
+      if(thing->height==sec->floor_height)
+        thing->momz=0;
     }
-    thing->height=Clamp(thing->height,sec->floor_height,sec->ceil_height);
-    if(thing->height==sec->floor_height)
-      thing->momz=0;
   }
 //Check for crusher  action linedef
   if(sec&&sec->cur_action_linedef) {

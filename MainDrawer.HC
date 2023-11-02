@@ -1814,6 +1814,25 @@ rem:
 	    break;
 	  p->health=ClampI64(p->health+10,0,100);
 	  goto rem;
+//Keys
+	case 5: //BLue keycard
+	  l->has_blue_key=TRUE;
+	  goto rem;
+	case 40: //BLue skull key
+	  l->has_blue_key=TRUE;
+	  goto rem;
+	case 38: //Red skull key
+	  l->has_red_key=TRUE;
+	  goto rem;
+	case 13: //Red keycard
+	  l->has_red_key=TRUE;
+	  goto rem;
+	case 39: //Yellow skull key
+	  l->has_yellow_key=TRUE;
+	  goto rem;
+	case 6: //Yellow keycard
+	  l->has_yellow_key=TRUE;
+	  goto rem;
       }
     }
   }
@@ -1838,7 +1857,7 @@ U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64
      } else
        LineAttack(l,p,target,range,angle,damage);
   } else {
-//TODO
+    SpawnMissile(l,p,target,rocket_type);
   }
 }
 
@@ -1988,9 +2007,6 @@ try {
         {
         cursor_x=1;
       }
-//disabled in Aiwnios (no mouse lock)
-      //p->angle-=(pi/cursor_x-pi/cursor_tx)*16;
-      MsSet(320,240);
       cursor_x=ms.pos.x;   
       cursor_tx = cursor_x;
 

@@ -29,7 +29,7 @@ class CDoomThingTemplate {
 class CDoomProjectileTemplate:CDoomThingTemplate {
   CDoomAnimationFrame *_idle_frames;
   CDoomAnimationFrame *_hit_frames;
-  F64 damage;
+  F64 direct,splash,speed;
 };
 
 
@@ -192,7 +192,7 @@ static CDoomAnimationFrame *GenerateCacheFrames(CDoomThingTemplate *t,U8 *frames
     if(!Bt(char_bmp_alpha,frames[idx2]))
       goto skip;
     ret[idx].chr=frames[idx2];
-    for(angle=-2.*pi/8.,face=0;angle<=2*pi+.1&&face<8;angle+=2*pi/8.,face++) {
+    for(angle=0,face=0;angle<=2*pi+.1&&face<8;angle+=2*pi/8.,face++) {
       last_dc=_GetThingFaceSprite(t,angle,frames[idx2],&ret[idx].reflect[face]);
       ret[idx].faces[face]=last_dc;
     }
@@ -207,7 +207,6 @@ static CDoomAnimationFrame *GenerateCacheFrames(CDoomThingTemplate *t,U8 *frames
     idx++;
 skip:;
   }
-DbgPutS(frames);
   return ret;
 }
 F64 AnimationTime(CDoomAnimationFrame *f) {

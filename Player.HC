@@ -49,6 +49,8 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
   for(gunsInit=0;gunsInit<8;gunsInit++)
   {
     p->arsenal[gunsInit] = CAlloc(sizeof(GunAvail));
+//REMOVE TODO
+   p->arsenal[gunsInit]->available=TRUE;
     //p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));
     //p->arsenal[gunsInit]->load->ammo=999;
     //p->arsenal[gunsInit]->load->baseDamage=2;

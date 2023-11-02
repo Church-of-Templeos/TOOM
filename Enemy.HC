@@ -1,4 +1,10 @@
 //See enemy.c in doom3do
+CDoomThingTemplate *imp_fireball;
+CDoomThingTemplate *baron_fireball;
+CDoomThingTemplate *cacodemon_fireball;
+CDoomThingTemplate *rocket;
+extern U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage);
+
 #define TICK_FPS_SCALE (1/3.) //Ticks_per_sec/fps
 #define TICK_TIME (1/10.)
 
@@ -49,6 +55,64 @@ class CMonsterThinker:CDoomThinkerBase {
   I64 flags;
   CState *state;
 };
+
+class CMissileThinker:CDoomThinkerBase {
+  CDoomThing *shooter,*self;
+  F64 vslope;
+  F64 state_start_tS;
+  Bool hit;
+};
+
+U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
+  CDoomThing *self=t->self,*hit,*head=&l->things;
+  CDoomProjectileTemplate *template=self->template;
+  F64 dist,splash;
+  self->height+=t->vslope*template->speed;
+  CDoomLinedef *ld=MoveInLevel(l,&self->x,self->angle,template->speed,template->radius,self->height,COLLISF_NO_HIT_THING,NULL,self);
+  CDoomSector *s=GetSectorForCoord(l,self->x,self->y);
+  if(!t->hit) {
+    self->animation=template->_idle_frames;
+  } else {
+    dist=AnimationTime(template->_hit_frames);
+    if(tS-self->anim_start_tS>=dist) {
+      QueRem(t);
+      Free(t);
+      QueRem(self);
+      Free(self);
+    }
+    return;
+  }
+  if(hit=HitsAThing(l,&self->x,t->self)) {
+    if(!(hit->flags&TF_SHOOTABLE))
+      goto next;
+    DamageMob(l,hit,t->shooter,template->direct*(Rand&7+1));
+explode:
+    t->hit=TRUE;
+    self->anim_start_tS=tS;
+    self->anim_no_repeat=TRUE;
+    self->animation=template->_hit_frames;
+    splash=template->splash;
+//Splash damae
+    for(hit=head->next;hit!=head;hit=hit->next) {
+      if(hit->thinker&&hit->flags&TF_SHOOTABLE) {
+        dist=Sqrt(Sqr(hit->x-self->x)+Sqr(hit->y-self->y));
+        if(dist<splash)
+	  DamageMob(l,hit,t->shooter,dist);
+      }
+    }
+//TODO sound
+    return;
+  }
+next:
+  if(ld) { //Hit something
+    goto explode;
+  }
+  if(!(s->floor_height<self->height<s->ceil_height)) {
+    goto explode;
+  }
+}
+
+
 
 #define MELEE_RANGE 70.
 #define JUST_HIT_TIME .75
@@ -513,7 +577,6 @@ U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 an
 //Make shot right in front of us
     src_h=self->height+self->template->height/2;
     dist=ValidateLineOfSightShot(l,&self->x,angle,range,src_h,src_h); 
-PrintF("dist",dist);
     if(dist>=5.) {
       dist-=5.;
       puff_pos.x=self->x+dist*Cos(angle);
@@ -566,8 +629,44 @@ U0 SpidRefire(CDoomLevel *l,CMonsterThinker *t) {
   }
 }
 U0 SpawnMissile(CDoomLevel *l,CDoomThing *t,CDoomThing *target,U64 type) {
-//TODO choose state
-}        
+  CDoomProjectileTemplate *template=NULL;
+  CDoomThing *self;
+  F64 dist,angle;
+  CMissileThinker *think;
+  if(type=='Imp') {
+    template=imp_fireball;
+  } else if(type=='Rocket'||type=='Cyber') {
+    template=rocket;
+  } else if(type=='Caco') {
+    template=cacodemon_fireball;
+  } else if(type=='Baron') {
+    template=baron_fireball;
+  } else
+    throw('Missile');
+  self=CAlloc(sizeof CDoomThing);
+  if(target) {
+    angle=FArg(target->x-t->x,target->y-t->y);
+  } else
+    angle=t->angle;
+//Spawn outsdie of radius of both t and self
+//1.5 for square bound box
+  dist=1.5*(template->radius+t->template->radius);
+  self->x=t->x+dist*Cos(angle);
+  self->y=t->y+dist*Sin(angle);
+  self->angle=angle;
+  self->height=t->height+t->template->height/2;
+  self->template=template;
+  self->flags=template->flags;
+  QueIns(self,l->things.next);
+  think=AddThinker(l,&MissileThinker,sizeof CMissileThinker);
+  think->self=self;
+  think->shooter=t;
+  if(target) {
+    dist=Sqrt(Sqr(target->x-self->x)+Sqr(target->y-self->y));
+    think->vslope=(target->height-self->height)/dist;
+  } else
+    think->vslope=0.;
+}
 //Imp poo poo    
 U0 TroopAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 damage;
@@ -579,7 +678,7 @@ U0 TroopAttack(CDoomLevel *l,CMonsterThinker *t) {
       DamageMob(l,t->target,t,damage);
       return;
     }
-    SpawnMissile(l,t,t->target,'Imp');
+    SpawnMissile(l,t->self,t->target,'Imp');
   }
 }
 //Spectre
@@ -604,7 +703,7 @@ U0 CacodemonAttack(CDoomLevel *l,CMonsterThinker *t) {
       DamageMob(l,t->target,t,damage);
       return;
     }
-    SpawnMissile(l,t,t->target,'Caco');
+    SpawnMissile(l,t->self,t->target,'Caco');
   }
 }
 
@@ -612,7 +711,7 @@ U0 CyberdemonAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 damage;
   if(t->target) {
     FaceTarget(l,t);
-    SpawnMissile(l,t,t->target,'Cyber');
+    SpawnMissile(l,t->self,t->target,'Cyber');
   }
 }
 
@@ -625,7 +724,7 @@ U0 BarronOfHellAttack(CDoomLevel *l,CMonsterThinker *t) {
       DamageMob(l,t->target,t,damage);
       return;
     }
-    SpawnMissile(l,t,t->target,'Baron');
+    SpawnMissile(l,t->self,t->target,'Baron');
   }
 }
 
@@ -748,10 +847,6 @@ U0 SkullHit(CDoomLevel *l,CMonsterThinker *t,CDoomThing *hit_thang) {
 
 //Yvng Poop toad here(Nrootconauto)
 //I am NOT messing around with the C sprite names(they dont map to real sprite names)
-CDoomThingTemplate *imp_fireball;
-CDoomThingTemplate *baron_fireball;
-CDoomThingTemplate *cacodemon_fireball;
-CDoomThingTemplate *rocket;
 U0 LoadMonsterInfo() {
   CDoomProjectileTemplate *p;
   //https://doomwiki.org/wiki/Imp
@@ -780,12 +875,13 @@ U0 LoadMonsterInfo() {
   AddState(t->gib_state="IMP.S_POSS_GIB",STATE_NO_REPEAT,t->_gib_frames,&XFall,"ST_NULL");
 //Fireball and I aint talkin alchohol
   p=imp_fireball=CAlloc(sizeof CDoomProjectileTemplate);
-  p->damage=9;
+  p->flags=TF_FLOATING;
+  p->direct=9;
+  p->speed=350/30.;
   p->radius=6.;
   p->height=8.;
   StrCpy(p->spr_base_name,"BAL1");
-  p->flags=TF_MISSILE;
-  p->_idle_frames=GenerateCacheFrames(p,"AB");
+  p->animation=p->_idle_frames=GenerateCacheFrames(p,"AB");
   p->_hit_frames=GenerateCacheFrames(p,"CDE");
 //https://doomwiki.org/wiki/Baron_of_Hell
   t=doom_thing_types[0xbbb];
@@ -813,12 +909,13 @@ U0 LoadMonsterInfo() {
   AddState(t->death_state="BARON.S_POSS_DIE2",0,t->_dying_frames,&BossDeath,"ST_NULL");
 //Booger ball
   p=baron_fireball=CAlloc(sizeof CDoomProjectileTemplate);
-  p->damage=8;
+  p->flags=TF_FLOATING;
+  p->speed=525/30.;
+  p->direct=8;
   p->radius=6.;
   p->height=8.;
   StrCpy(p->spr_base_name,"BAL7");
-  p->flags=TF_MISSILE;
-  p->_idle_frames=GenerateCacheFrames(p,"AB");
+  p->animation=p->_idle_frames=GenerateCacheFrames(p,"AB");
   p->_hit_frames=GenerateCacheFrames(p,"CDE");
 //Flying meatball
   t=doom_thing_types[0xbbd];
@@ -844,12 +941,13 @@ U0 LoadMonsterInfo() {
   AddState(t->death_state="CACO.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
 //Cacodemon ball
   p=cacodemon_fireball=CAlloc(sizeof CDoomProjectileTemplate);
-  p->damage=5;
+  p->flags=TF_FLOATING;
+  p->speed=350/35.;;
+  p->direct=5;
   p->radius=6.;
   p->height=8.;
   StrCpy(p->spr_base_name,"BAL2");
-  p->flags=TF_MISSILE;
-  p->_idle_frames=GenerateCacheFrames(p,"AB");
+  p->animation=p->_idle_frames=GenerateCacheFrames(p,"AB");
   p->_hit_frames=GenerateCacheFrames(p,"CDE");
 //Cyber demon
   t=doom_thing_types[0x10];
@@ -867,12 +965,14 @@ U0 LoadMonsterInfo() {
   t->_dying_frames=GenerateCacheFrames(t,"HIJKLMNOPP");
 //Rocket
   p=rocket=CAlloc(sizeof CDoomProjectileTemplate);
-  p->damage=20.;
+  p->flags=TF_FLOATING;
+  p->direct=20.;
+  p->splash=128.;
   p->radius=11.;
+  p->speed=700./30.;
   p->height=8.;
   StrCpy(p->spr_base_name,"MISL");
-  p->flags=TF_MISSILE;
-  p->_idle_frames=GenerateCacheFrames(p,"A");
+  p->animation=p->_idle_frames=GenerateCacheFrames(p,"A");
   p->_hit_frames=GenerateCacheFrames(p,"BCD");
 //Pink demon
   t=doom_thing_types[0xbba];
@@ -1004,4 +1104,5 @@ U0 LoadMonsterInfo() {
   AddState(t->death_state="ZOMBIE.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
   AddState(t->gib_state="ZOMBIE.S_POSS_GIB",STATE_NO_REPEAT,t->_gib_frames,&XFall,"ST_NULL");
 };
+
 LoadMonsterInfo;

@@ -1,22 +1,3 @@
-class AmmoType{
-  U64 ammo;
-  Bool splash;
-  
-};
-
-class GunAvail{
-  Bool available;
-  I16 baseDamage;
-  AmmoType *load;
-};
-
-class CDoomPlayer:CDoomThing {
-  F64 armor;
-//When you die,the player stares at the thing that killed the player
-  CDoomThing *stare_at;
-  GunAvail **arsenal;
-  Bool running;
-};
 
 
 U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 dir=1) {
@@ -117,3 +98,21 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
   }
   return p;
 }
+
+CDoomThing *PlayerPickTarget(CDoomLevel *l,CDoomPlayer *p) {
+  CDoomThing *cur,*head=&l->things,*best;
+  F64 dist,angle,margin=5.6*pi/180;
+  for(cur=head->next;head!=cur;cur=cur->next) 
+    if(cur->flags&TF_SHOOTABLE&&cur!=p) {
+    dist=Sqrt(Sqr(cur->x-p->x)+Sqr(cur->y-p->y));
+    if(dist<=16.*64) {
+      angle=Wrap(FArg(cur->x-p->x,cur->y-p->y)-p->angle);
+      if(-margin<=angle<=margin) {
+        if(ValidateLineOfSightShot(l,&p->x,angle,dist+16,p->height,cur->height)<dist+16.)
+	  return cur;
+}
+    }
+  }
+  return NULL;
+}
+

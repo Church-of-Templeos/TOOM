@@ -1702,14 +1702,17 @@ U0 CheckPowerupPickup(CDoomLevel *l) {
   CDoomThing *t,*head=&l->things,*next;
   AmmoType *load;
   GunAvail *avail;
-  Bool change;
+  Bool change,new_gun=FALSE;
+  I64 picked_up_gun=-1;
   I64 orig;
   for(t=head->next;t!=head;t=next) {
     next=t->next;
     if(SqrI64(t->template->radius)>=SqrI64(p->x-t->x)+SqrI64(p->y-t->y)) {
       switch(t->template->type) {
         case 2006: //BFG
+	  new_gun=!p->arsenal[7]->available;
 	  p->arsenal[7]->available=TRUE;
+	  picked_up_gun=7;
 cell:
 	  load=p->arsenal[6]->load;
 	  orig=load->ammo;
@@ -1725,8 +1728,10 @@ rem:
 	  }
 	  break;
         case 2002: //Chaingun
+	  new_gun=!p->arsenal[3]->available;
 	  load=p->arsenal[3]->load;
 	  p->arsenal[3]->available=TRUE;
+	  picked_up_gun=3;
 	  orig=load->ammo;
 	  if(l->skill==0||l->skill==5)
 	    load->ammo+=40;
@@ -1737,13 +1742,19 @@ rem:
 	    goto rem;
 	  break;
         case 2005: //Chainsaw
+	  new_gun=!p->arsenal[5]->available;
+	  picked_up_gun=5;
 	  p->arsenal[5]->available=TRUE;
 	  break;
         case 2004: //Plasma gun
+	  new_gun=!p->arsenal[6]->available;
+	  picked_up_gun=6;
 	  load=p->arsenal[6]->load;
 	  p->arsenal[6]->available=TRUE;
 	  goto cell;
         case 2003: //Rocket luancher
+	  picked_up_gun=4;
+	  new_gun=!p->arsenal[4]->available;
 	  load=p->arsenal[4]->load;
 	  p->arsenal[4]->available=TRUE;
 	  orig=load->ammo;
@@ -1757,6 +1768,8 @@ rem:
 	  break;
 	  break;
         case 2001: //Shutgun
+	  picked_up_gun=2;
+	  new_gun=!p->arsenal[2]->available;
 	  load=p->arsenal[2]->load;
 	  p->arsenal[2]->available=TRUE;
 	  orig=load->ammo;
@@ -1904,6 +1917,8 @@ rem:
       }
     }
   }
+  if(picked_up_gun!=-1&&new_gun)
+    SwapWeapon(p,picked_up_gun);
 }
 
 U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0) {
@@ -2153,7 +2168,6 @@ try {
     }
     UpdateLevel(l);
     Refresh;
-PrintI("fpfs",winmgr.fps);
   }} catch PutExcept(TRUE);
 DCFill;
 #endif

@@ -30,8 +30,6 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
   for(gunsInit=0;gunsInit<8;gunsInit++)
   {
     p->arsenal[gunsInit] = CAlloc(sizeof(GunAvail));
-//REMOVE TODO
-   p->arsenal[gunsInit]->available=TRUE;
     //p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));
     //p->arsenal[gunsInit]->load->ammo=999;
     //p->arsenal[gunsInit]->load->baseDamage=2;
@@ -55,7 +53,7 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
         break;
       case 2://shotgun
         p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));
-        p->arsenal[gunsInit]->load->ammo=10;
+        p->arsenal[gunsInit]->load->ammo=0;
         p->arsenal[gunsInit]->baseDamage=4;
         p->arsenal[gunsInit]->load->splash=FALSE;   
         break;
@@ -65,7 +63,7 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
         break;
       case 4://rocket launcher
         p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));
-        p->arsenal[gunsInit]->load->ammo=10;
+        p->arsenal[gunsInit]->load->ammo=0;
         p->arsenal[gunsInit]->baseDamage=20;
         p->arsenal[gunsInit]->load->splash=TRUE;
         break;
@@ -75,7 +73,7 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
         break;
       case 6://plasma
         p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));
-        p->arsenal[gunsInit]->load->ammo=10;
+        p->arsenal[gunsInit]->load->ammo=0;
         p->arsenal[gunsInit]->baseDamage=5;
         p->arsenal[gunsInit]->load->splash=FALSE;
         break;

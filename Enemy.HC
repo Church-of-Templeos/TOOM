@@ -242,7 +242,7 @@ U0 MonsterThinker(CDoomLevel *l,CMonsterThinker *m) {
   CState *s=m->state;;
   if(!m->ran_state&&s) {
     m->ran_state=TRUE;
-    (s->action)(l,m);
+    if(s->action) (s->action)(l,m);
   }
 //Class 10 pooperism
   if(m->state_start_tS+m->state_length<tS) {
@@ -564,7 +564,7 @@ U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 an
     src_h=self->height+self->template->height/2;
     dst_h=target->height+target->template->height/2;
     dist2=Sqrt(Sqr(self->x-target->x)+Sqr(self->y-target->y));
-    dist=ValidateLineOfSightShot(l,&self->x,angle,range,src_h,dst_h); 
+    dist=ValidateLineOfSightShot(l,&self->x,angle,dist2,src_h,dst_h); 
     if(dist>=5.) {
       angle2=FArg(target->x-self->x,target->y-self->y);
       dst_h=Lerp(dist/dist2,src_h,dst_h); //Good enough?
@@ -614,8 +614,7 @@ U0 SPosAttack(CDoomLevel *l,CMonsterThinker *t) {
     bangle=t->self->angle;
     for(i=0;i!=3;i++) {
       angle=bangle;
-      if(!i)  //Ensure one direct shot
-        angle+=(Rand-.5)*180./pi*5;
+      angle+=(Rand-.5)*180./pi*5;
       damage=((RandU64%4)+1)*3;
       LineAttack(l,t->self,t->target,MISSILE_RANGE,angle,damage);
     }

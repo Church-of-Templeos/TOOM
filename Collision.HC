@@ -201,16 +201,25 @@ F64 ValidateLineOfSightShot(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 source_
   I64 blockx,blocky;
   CDoomLinedef **lds;
   F64 dist2=0.,sin=Sin(angle),cos=Cos(angle);
+  F64 diff;
   F64 vslope=(target_h-source_h)/dist;
   F64 ceil_height,floor_height;
   dummy.x=at->x,dummy.y=at->y;
   while(dist2<=dist) {
     blocky=(dummy.y-l->block_map_y_off)/128;
     blockx=(dummy.x-l->block_map_x_off)/128;
-    dist2+=8.; //Smallest radius??>
-    source_h+=8.*vslope;
-    dummy.x+=8.*cos;   
-    dummy.y+=8.*sin;
+    if(dist2+8<=dist) {
+      dist2+=8.; //Smallest radius??>
+      source_h+=8.*vslope;
+      dummy.x+=8.*cos;   
+      dummy.y+=8.*sin;
+    } else {
+      diff=dist-dist2;
+      source_h+=diff*vslope;
+      dummy.x+=diff*cos;   
+      dummy.y+=diff*sin;
+      dist2=dist+.1;
+    }
     if(0<=blockx<l->block_map_cols)
       if(0<=blocky<l->block_map_rows) {
         lds=l->block_map_data+l->block_map_offsets[
@@ -235,9 +244,9 @@ F64 ValidateLineOfSightShot(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 source_
 	      dist2-=1.;;
 
 	    }
-	    if(hit_wall) {
-	      return Min(dist2,dist);
-	    }
+	  if(hit_wall) {
+	    return Min(dist2,dist);
+	  }
         }
       }
   }
@@ -263,37 +272,21 @@ CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_
   F64 dist2=0.,sin=Sin(angle),cos=Cos(angle),cd,closest_dist=I16_MAX;
   F64 bbt_l,bbt_r,bbt_t,bbt_b,ceil_height,floor_height;
   dummy.x=at->x,dummy.y=at->y;
-  while(dist2<=dist) {
-    blocky=(dummy.y-l->block_map_y_off)/128;
-    blockx=(dummy.x-l->block_map_x_off)/128;
-    dist2+=8.; //Smallest radius??>
-    dummy.x+=8.*cos;   
-    dummy.y+=8.*sin;
-    for(cur=head->next;cur!=head;cur=cur->next) {
-      if(cur==exclude||!(cur->flags&TF_SHOOTABLE)||(cur->health<=0.))
-        goto next;
-      bbt_l=cur->x-cur->template->radius/2.;
-      bbt_r=cur->x+cur->template->radius/2.;
-      bbt_b=cur->y-cur->template->radius/2.;
-      bbt_t=cur->y+cur->template->radius/2.;
-      if(bbt_l<=dummy.x<=bbt_r)
-        if(bbt_b<=dummy.y<=bbt_t) {
-	  wall_dist=ValidateLineOfSightShot(l,at,angle,
-	        cd=Sqrt(Sqr(cur->x-at->x)+Sqr(cur->y-at->y)),
-	        shoot_h,
-	        cur->height+cur->template->height-2
-	        );
-	  if(wall_dist==-1) {
-	    if(cd<closest_dist) {
-	      closest=cur;
-	      closest_dist=wall_dist;
-	    }
-	  }
-        }
-next:;
+  for(cur=head->next;cur!=head;cur=cur->next) {
+    if(cur==exclude||!(cur->flags&TF_SHOOTABLE)||(cur->health<=0.))
+      goto next;
+    wall_dist=ValidateLineOfSightShot(l,at,angle,
+	  cd=Sqrt(Sqr(cur->x-at->x)+Sqr(cur->y-at->y)),
+	  shoot_h,
+	  cur->height+cur->template->height-2
+	  );
+    if(wall_dist==-1) {
+      if(cd<closest_dist) {
+        closest=cur;
+        closest_dist=wall_dist;
+      }
     }
-    if(closest)
-      break;
+next:;
   }
   return closest;
 }

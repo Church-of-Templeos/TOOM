@@ -238,6 +238,7 @@ class CDoomSector:CQue {
   F64 speed;
   F64 start_tS,door_height_offset;
   F64 target_end,target_start;
+  I64 visplane_idx;
   Bool drawn,closing,opening,activated,waiting,going_up,going_down,reverting;
   Bool paused; //Pause the action on the sector
 };

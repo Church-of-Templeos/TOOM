@@ -3,10 +3,20 @@
 #include "FastTrig.HC";
 #include "Wad.HC";
 #include "Thinker.HC";
+
+
+CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
+  CDoomSubsector *ss;
+  CDoomBSPNode *node=DoomWhichBSPNode(x,y,level,&ss);
+  if(ss) {
+    return ss->sector;
+  }
+  return NULL;
+}
+
 class AmmoType{
   U64 ammo;
-  Bool splash;
-  
+  Bool splash;  
 };
 
 class GunAvail{
@@ -28,6 +38,17 @@ CacheAnimationFrames;
 
 I64 cursor_x = ms.pos.x, cursor_tx = ms.pos.x;
 
+class CVisplane {
+  I64 color;
+  I64 fminx,fmaxx; //floor
+  I64 cminx,cmaxx; //ceil
+  I64 fminy,fmaxy; //floor
+  I64 cminy,cmaxy; //ceil
+  CDoomSector *sector;
+  I16 fbottoms[GR_WIDTH/2];
+  I16 ctops[GR_WIDTH/2];
+};
+
 
 class CDoomCamera {
   F64 x,y,h;
@@ -40,8 +61,28 @@ class CDoomCamera {
   F64 ceil_depths[GR_WIDTH/2];
 //Cordnates are diveded by 2
   CDC *floor_dc; //This is black or white,this is used for reducing floor overdraw
+  I64 visplane_cnt;
+  CVisplane visplanes[256];
   CFifoI64 *visible_sectors;
 };
+U0 InsertVisplane(CDoomCamera *cam,CDoomSector *s) {
+  I64 cnt=cam->visplane_cnt;
+  if(cnt<255) {
+    MemSet(&cam->visplanes[cnt],0,sizeof CVisplane);
+    cam->visplanes[cnt].fminx=GR_WIDTH;
+    cam->visplanes[cnt].fminy=GR_HEIGHT;
+    cam->visplanes[cnt].fmaxy=0;
+    cam->visplanes[cnt].fmaxx=0;
+    cam->visplanes[cnt].cminx=GR_WIDTH;
+    cam->visplanes[cnt].cminy=GR_HEIGHT;
+    cam->visplanes[cnt].cmaxy=0;
+    cam->visplanes[cnt].cmaxx=0;
+    cam->visplanes[cnt].sector=s;
+    cam->visplanes[cnt].color=cnt%14+1;
+    s->visplane_idx=cnt;
+    cam->visplane_cnt++;
+  }
+}
 #define GRID_SZ  128
 #define Y_SCALE 5
 #define DIST_SCALE (GR_HEIGHT*1.4)
@@ -52,12 +93,12 @@ class CDoomCamera {
 #define FLOOR_HPIXEL_HEIGHT 2
 
 /*
- * Listen up,here's the deal
- * A view plane is FLAT,not a point,so when we look at an angle,we 
- * need to "straigten" our line,otherwise we will have a curved lense effect 
- *
- * Ask Nroot about this
- */
+* Listen up,here's the deal
+* A view plane is FLAT,not a point,so when we look at an angle,we 
+* need to "straigten" our line,otherwise we will have a curved lense effect 
+*
+* Ask Nroot about this
+*/
 
 I64 PointToLinedefSegment(CDoomCamera *cam,CDoomLinedef *def,CD2 *coord) {
   CD2 line_s,at;
@@ -81,7 +122,7 @@ I64 YSort(CD2 *a,CD2 *b) {
   if(a->y>b->y)
     return 1;
   else if(a->y<b->y)
-   return -1;
+    return -1;
   return 0;
 }
 
@@ -128,134 +169,71 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
   return TRUE;
 }
 
-
-U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
+U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE,I64 plane) {
   if(FramePtr("F_SKY1")==texture) return;
   I64 x,y;
   I64 w=sector->shape_dc->width*2,h=sector->shape_dc->height*2;
   I64 floorx,floory;
   I32 *db_z;
   U16 *dst,color;
-  I64 maxx=I16_MIN,maxy=I16_MIN;
-  I64 minx=I16_MAX,miny=I16_MAX;
-  F64 angle,dist;
+  I64 maxx,maxy;
+  I64 minx,miny,odd,visplane_under;
+  F64 angle,dist,other_at;
   F64 cos,sin,cos2;
-  CD2 point,point2,point3,point4;
-  point.x=sector->shape_start_x;
-  point.y=sector->shape_start_y;
-
-  point2.x=sector->shape_start_x+w;
-  point2.y=sector->shape_start_y;
-
-  point3.x=sector->shape_start_x;
-  point3.y=sector->shape_start_y+h;
-
-  point4.x=sector->shape_start_x+w;
-  point4.y=sector->shape_start_y+h;
-  if(ClipLineToScrenCoords(cam,&point3,&point4,at)) {
-    maxx=MaxI64(maxx,point3.x);
-    maxy=MaxI64(maxy,point3.y);
-    maxx=MaxI64(maxx,point4.x);
-    maxy=MaxI64(maxy,point4.y);
-
-    minx=MinI64(minx,point3.x);
-    miny=MinI64(miny,point3.y);
-    minx=MinI64(minx,point4.x);
-    miny=MinI64(miny,point4.y);
+  CDoomSector *other_sector;
+  CD2 point;
+  CVisplane *vp=&cam->visplanes[plane];
+  if(floor) {
+    maxx=vp->fmaxx;
+    minx=vp->fminx;
+  } else {
+    maxx=vp->cmaxx;
+    minx=vp->cminx;
   }
-  if(ClipLineToScrenCoords(cam,&point,&point2,at)) {
-    maxx=MaxI64(maxx,point2.x);
-    maxy=MaxI64(maxy,point2.y);
-    maxx=MaxI64(maxx,point.x);
-    maxy=MaxI64(maxy,point.y);
-
-    minx=MinI64(minx,point2.x);
-    miny=MinI64(miny,point2.y);
-    minx=MinI64(minx,point.x);
-    miny=MinI64(miny,point.y);
-  }
-
-  point.x=sector->shape_start_x;
-  point.y=sector->shape_start_y;
-
-  point2.x=sector->shape_start_x+w;
-  point2.y=sector->shape_start_y;
-
-  point3.x=sector->shape_start_x;
-  point3.y=sector->shape_start_y+h;
-
-  point4.x=sector->shape_start_x+w;
-  point4.y=sector->shape_start_y+h;
-
-
-  if(ClipLineToScrenCoords(cam,&point2,&point4,at)) {
-    maxx=MaxI64(maxx,point2.x);
-    maxy=MaxI64(maxy,point2.y);
-    maxx=MaxI64(maxx,point4.x);
-    maxy=MaxI64(maxy,point4.y);
-
-    minx=MinI64(minx,point2.x);
-    miny=MinI64(miny,point2.y);
-    minx=MinI64(minx,point4.x);
-    miny=MinI64(miny,point4.y);
-  }
-  if(ClipLineToScrenCoords(cam,&point,&point3,at)) {
-    maxx=MaxI64(maxx,point3.x);
-    maxy=MaxI64(maxy,point3.y);
-    maxx=MaxI64(maxx,point.x);
-    maxy=MaxI64(maxy,point.y);
-
-    minx=Min(minx,point3.x);
-    miny=MinI64(miny,point3.y);
-    minx=MinI64(minx,point.x);
-    miny=MinI64(miny,point.y);
-  }
-
-
-  if(maxx<minx)
-    return;
-  minx=MaxI64(0,minx)>>1;
-  miny=MaxI64(0,miny)>>1;
-  maxx=MinI64(GR_WIDTH-2,maxx)>>1;
-  maxy=MinI64(GR_HEIGHT-2,maxy)>>1;
-//
+  minx>>=1;
+  maxx>>=1;
   for(x=minx;x<maxx;x++) {
     angle=(ToF64(x*2)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
     cos=FCos(angle+cam->angle);
     sin=FSin(angle+cam->angle);
     cos2=FCos(angle);
+    if(floor) {
+      miny=vp->fbottoms[x]>>1;
+      maxy=vp->fmaxy>>1;
+    } else {
+      miny=vp->cminy>>1;
+      maxy=vp->ctops[x]>>1;
+    }
     for(y=miny;y<maxy;y++) {
-      if(1) { //TODOmagic
-        dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at))/cos2;
-        if(dist<0.) goto next;
-        point.x=cam->x+cos*dist-sector->shape_start_x;
-        point.y=cam->y+sin*dist-sector->shape_start_y;
-        if(0.<=point.x<w)
-	  if(0.<=point.y<h){
-	    db_z=&to_dc->depth_buf[x*2+(y*2)*to_dc->width_internal];
-	    if(*db_z>dist)
-	      if(GrPeek0(sector->shape_dc,point.x/2,point.y/2)) {
-	        db_z[0]=dist;
-	        db_z[1]=dist;
-	        db_z+=to_dc->width_internal;
-	        db_z[0]=dist;
-	        db_z[1]=dist;
-	        floorx=point.x;
-	        floory=point.y;
-	        floorx=(2*floorx%texture->width)&~1;
-	        floory=(2*floory%texture->height)&~1;
-	        if(floorx<0) floorx=-floorx;
-	        if(floory<0) floory=-floory;
-	        color=texture->body[floorx+floory*texture->width](U16);
-	        dst=&to_dc->body[(x*2)+(y*2)*to_dc->width_internal];
-	        *dst=color;
-	        dst(U8*)+=to_dc->width_internal;
-	        color=texture->body[floorx+(1+floory)*texture->width](U16);
-	        *dst=color;
-	      }
-	  }
+      dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at))/cos2;
+      if(dist<0.) goto next;
+      point.x=cam->x+cos*dist-sector->shape_start_x;
+      point.y=cam->y+sin*dist-sector->shape_start_y;
+      if(0.<=point.x<w)
+        if(0.<=point.y<h){
+	  db_z=&to_dc->depth_buf[x*2+(y*2)*to_dc->width_internal];
+	  if(*db_z>dist)
+	    if(GrPeek0(sector->shape_dc,point.x/2,point.y/2)) {
+	      db_z[0]=dist;
+	      db_z[1]=dist;
+	      db_z+=to_dc->width_internal;
+	      db_z[0]=dist;
+	      db_z[1]=dist;
+	      floorx=point.x;
+	      floory=point.y;
+	      floorx=(2*floorx%texture->width)&~1;
+	      floory=(2*floory%texture->height)&~1;
+	      if(floorx<0) floorx=-floorx;
+	      if(floory<0) floory=-floory;
+	      color=texture->body[floorx+floory*texture->width](U16);
+	      dst=&to_dc->body[(x*2)+(y*2)*to_dc->width_internal];
+	      *dst=color;
+	      dst(U8*)+=to_dc->width_internal;
+	      color=texture->body[floorx+(1+floory)*texture->width](U16);
+	      *dst=color;
+	    }
+        }
 next:;
-      }
     }
   }
 } 
@@ -263,6 +241,7 @@ next:;
 //floor is 0 for floor
 //floor is 1 for middle
 //floor is 2 for ceil
+//floor is 3 if visplane only
 U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd) {
   CD2 clone_st,clone_en,zero;
   clone_st.x=st->x,clone_st.y=st->y;
@@ -277,10 +256,11 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   F64 margin;
   CD2 ray,hit,*sw;
   I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y;
+  CVisplane *vp;
   I32 *db_z,idist;
   F64 dist,ratio;
   Bool repeat=FALSE,onesided=ld->front^^ld->back;
-  Bool is_sky=FALSE,is_sky2=FALSE;
+  Bool is_sky=FALSE,is_sky2=FALSE,clipped=FALSE;
   CDoomSidedef *opposite;
   if(ld->front==sd)
     opposite=ld->back;
@@ -301,8 +281,14 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
     st=en;
     en=sw;
   }
-  start_angle=Clamp(start_angle,-cam->fov/2,cam->fov/2);
-  end_angle=Clamp(end_angle,-cam->fov/2,cam->fov/2);
+  if(floor!=3) {
+    start_angle=Clamp(start_angle,-cam->fov/2,cam->fov/2);
+    end_angle=Clamp(end_angle,-cam->fov/2,cam->fov/2); 
+  } else {
+    clipped=!(-cam->fov/2<start_angle<cam->fov/2)||!(-cam->fov/2<end_angle<cam->fov/2);
+    start_angle=Clamp(start_angle,-cam->fov/2,cam->fov/2);
+    end_angle=Clamp(end_angle,-cam->fov/2,cam->fov/2);  
+  }
   repeat=TRUE;
   for(ca=start_angle;ca<=end_angle;ca+=cam->fov/GR_WIDTH*2) {
     ray.x=I16_MAX*FCos(ca);
@@ -314,27 +300,81 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       ix&=~1;
       if(dist<=0.) dist=1;
       tx=(ToI64(Sqrt(Sqr(hit.x-en->x)+Sqr(hit.y-en->y)))*2+xoff*2)%texture->width;
-      if(0<=ix<=GR_WIDTH-2) {
 //The offset from the ground is included in the "height",we dont render the overdraw
-        margin=DIST_SCALE/(dist*FCos(ca))*(cam->h-level);
-        ih=DIST_SCALE/(dist*FCos(ca))*height;
-        ratio=height/ToF64(ih);
-        iy=GR_HEIGHT/2;
-        if(margin>=0.) {
-	  iy-=ih;
-	  iy+=margin;
-	  ih2=ih;
-        } else {
-	  iy-=ih;
-	  iy+=margin;
-	  ih2=ih;
-        }
-        iy&=~1;
-	  if(idist<cam->floor_depths[ix/2]) {
-	    cam->floor_heights[ix/2]=GR_HEIGHT;
-	    cam->ceil_heights[ix/2]=0;
-	    cam->floor_depths[ix/2]=idist;
+      margin=DIST_SCALE/(dist*FCos(ca))*(cam->h-level);
+      ih=DIST_SCALE/(dist*FCos(ca))*height;
+      ih&=~1;
+      ratio=height/ToF64(ih);
+      iy=GR_HEIGHT/2;
+      if(margin>=0.) {
+        iy-=ih;
+        iy+=margin;
+        ih2=ih;
+      } else {
+        iy-=ih;
+        iy+=margin;
+        ih2=ih;
+      }
+      iy&=~1;
+      if(floor==3) { //If a "visplane" draw
+        if(0<=ix<=GR_WIDTH-2) {
+	  vp=&cam->visplanes[sd->sector->visplane_idx];
+	  cam->floor_dc->color=vp->color;
+	  for(ty=0;ty!=2;ty++) {
+	    if(!ty)
+	      ih2=0;
+	    else
+	      ih2=ih;
+	    xoff=ClampI64(ix,0,GR_WIDTH-2);
+	    yoff=ClampI64(iy+ih2,1,GR_HEIGHT-2);
+	    if(ty) { //Y grows down
+	      if(!vp->fbottoms[xoff>>1]) {
+	        vp->fbottoms[xoff>>1]=yoff;
+	      } else {
+	        vp->fbottoms[xoff>>1]=MinI64(vp->fbottoms[xoff>>1],yoff);
+	      }
+//If our line is partialy behind the camera,we draw the floor from GR_HEIGHT
+	      if(clipped)
+	        vp->fmaxy=GR_HEIGHT;
+	      if(xoff<vp->fminx)
+	        vp->fminx=xoff;
+	      if(xoff>vp->fmaxx)
+	        vp->fmaxx=xoff;
+
+	      if(yoff<vp->fminy)
+	        vp->fminy=yoff;
+	      if(yoff>vp->fmaxy)
+	        vp->fmaxy=yoff;
+
+	    } else {
+	      if(!vp->ctops[xoff>>1]) {
+	        vp->ctops[xoff>>1]=yoff;
+	      } else {
+	        vp->ctops[xoff>>1]=MaxI64(vp->ctops[xoff>>1],yoff);
+	      }
+//If our line is partialy behind the camera,we draw the ceil from 0
+	      if(clipped)
+	        vp->cminy=0;
+	      if(xoff<vp->cminx)
+	        vp->cminx=xoff;
+	      if(xoff>vp->cmaxx)
+	        vp->cmaxx=xoff;
+
+	      if(yoff<vp->cminy)
+	        vp->cminy=yoff;
+	      if(yoff>vp->cmaxy)
+	        vp->cmaxy=yoff;
+	    }
 	  }
+        }
+        goto next;
+      }
+      if(0<=ix<=GR_WIDTH-2) {
+        if(idist<cam->floor_depths[ix/2]) {
+	  cam->floor_heights[ix/2]=GR_HEIGHT;
+	  cam->ceil_heights[ix/2]=0;
+	  cam->floor_depths[ix/2]=idist;
+        }
         ih2+=2;
         if(is_sky2) {//Fill in upper pixels Z-buf distance with distnce for sky
 	  ty=iy;
@@ -450,10 +490,9 @@ set_floor_height:
         }
       }
     }
+next:;
   }
 }
-
-
 U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,Bool reflect=FALSE) {
   CD2 copy,copy2;
   F64 new_height,new_width;
@@ -493,31 +532,24 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p
       if(*db_z>dist) {
         dst=&to_dc->body[x+y*to_dc->width_internal];
         if(from->u8[0]!=TRANSPARENT)
-          *dst=*from,*db_z=dist,db_z[1]=dist;
+	  *dst=*from,*db_z=dist,db_z[1]=dist;
         from(U8*)+=sprite->width_internal;
         dst(U8*)+=to_dc->width_internal;
-	db_z+=to_dc->width_internal;
+        db_z+=to_dc->width_internal;
         if(from->u8[0]!=TRANSPARENT)
-          *dst=*from,*db_z=dist,db_z[1]=dist;
+	  *dst=*from,*db_z=dist,db_z[1]=dist;
       }
 nextx:;
     }
   }
 }
 
-CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
-  CDoomSubsector *ss;
-  CDoomBSPNode *node=DoomWhichBSPNode(x,y,level,&ss);
-  if(ss) {
-    return ss->sector;
-  }
-  return NULL;
-}
 
 U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   if(!thing->template) return; //???
   if(thing->template==doom_thing_types[1]) return; //Dont render player
   if(!thing->animation) thing->animation=thing->template->_animation;
+  if(!thing->animation) return; //???
   I64 anim_frame=(tS-thing->anim_start_tS)*4,frame_cnt,face;
   F64 angle,gap;
   CDC *sprite;
@@ -559,8 +591,8 @@ F64 FloorRaise(CDoomLinedef *l,CDoomSector *sector) {
     return ret;
   }
   return Max(l->front->sector->floor_height,Max(
-	l->back->sector->floor_height,ret
-	));
+        l->back->sector->floor_height,ret
+        ));
 }
 
 F64 CeilDepress(CDoomLinedef *l,CDoomSector *sector) {
@@ -571,8 +603,8 @@ F64 CeilDepress(CDoomLinedef *l,CDoomSector *sector) {
     return ret;
   }
   return Min(l->front->sector->ceil_height,Min(
-	l->back->sector->ceil_height,ret
-	));
+        l->back->sector->ceil_height,ret
+        ));
 }
 
 F64 HighestCeil(CDoomLinedef *l,CDoomSector *sector) {
@@ -635,7 +667,7 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
       goto skip;
     sector=sidedef->sector;
     highest_ceil=HighestCeil(seg->linedef,sector);
-    for(wall=0;wall!=3;wall++) {
+    for(wall=0;wall!=4;wall++) {
       if(wall==0&&(texture=GetLowerTexture(sidedef))) {
         floor=Min(sector->floor_height,FloorRaise(seg->linedef,sector));
         ceil=Max(sector->floor_height,FloorRaise(seg->linedef,sector));
@@ -657,17 +689,27 @@ draw_wall:
         end_seg=PointToLinedefSegment(cam,seg->linedef,seg->end);
         h=Abs(start_floor.y-start_ceil.y);
         h2=Abs(end_ceil.y-end_floor.y);
-	if(ToI64(h)&&ToI64(h2)) {
+        if(ToI64(h)&&ToI64(h2)) {
 	  if(fail_cnt!=2) {
-	    if(!no_draw)
-	      RayCastWall(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef);
 	    if(!sector->drawn) {
 	      sector->drawn=TRUE;
 	      FifoI64Ins(cam->visible_sectors,sector);
+	      InsertVisplane(cam,sector);
 	    }
 	    if(opposite&&opposite->sector&&!opposite->sector->drawn) {
 	      opposite->sector->drawn=TRUE;
 	      FifoI64Ins(cam->visible_sectors,opposite->sector);
+	      InsertVisplane(cam,opposite->sector);
+	    }
+	    if(!no_draw) {
+	      RayCastWall(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef);
+	      if(wall==3&&opposite&&opposite->sector) {
+	        sector=opposite->sector;
+	        sidedef=opposite;
+	        floor=sector->floor_height;
+	        ceil=sector->ceil_height;
+	        RayCastWall(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,opposite);
+	      }
 	    }
 	  }
         }
@@ -676,6 +718,11 @@ draw_wall:
         ceil=Max(sector->ceil_height,CeilDepress(seg->linedef,sector));
         goto draw_wall;
       } else if(wall==1&&(texture=GetMiddleTexture(sidedef))) {
+        floor=sector->floor_height;
+        ceil=sector->ceil_height;
+        goto draw_wall;
+      } else if(wall==3) { //This is for generating visplanes
+        texture=gr.dc; //Dummy texture
         floor=sector->floor_height;
         ceil=sector->ceil_height;
         goto draw_wall;
@@ -754,6 +801,9 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   CDoomThing *thing;
   I64 idx=0,idx2,af,tf;
   DrawSky(to_dc,l,cam);
+  cam->visplane_cnt=0;
+  if(!cam->floor_dc) cam->floor_dc=DCNew(GR_WIDTH/2,GR_HEIGHT/2);
+  DCFill(cam->floor_dc,BLACK);
   for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next)
     sector->drawn=FALSE;
   for(idx=0;idx!=GR_WIDTH/2;idx++) {
@@ -771,27 +821,20 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   else
     DCDepthBufRst(to_dc);
   DrawBSP(to_dc,cam,level);
-  idx=0;
-  sorted=MAlloc(8*FifoI64Cnt(cam->visible_sectors));
-  while(FifoI64Rem(cam->visible_sectors,&sector))
-    sorted[idx++]=sector;
-//SectorFloorSort is highest floor first
-  QSortI64(sorted,idx,&SectorFloorSort);
-  af=ToI64(tS*4);
-  for(idx2=0;idx2!=idx;idx2++) {
-    if(sorted[idx2]->floor_dc) {
-      if(sorted[idx2]->floor_height<cam->h)
-        DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->floor_height,sorted[idx2]->floor_dc[af%FrameCnt(sorted[idx2]->floor_dc)],TRUE);
-    }
-    if(sorted[idx2]->ceil_dc) {
-      if(sorted[idx2]->ceil_height>cam->h)
-        DrawTexturedFlat(to_dc,cam,sorted[idx2],sorted[idx2]->ceil_height,sorted[idx2]->ceil_dc[af%FrameCnt(sorted[idx2]->ceil_dc)],FALSE);
+  af=tS*4;
+  for(idx2=0;idx2!=cam->visplane_cnt;idx2++) {
+    sector=cam->visplanes[idx2].sector;
+    if(sector->floor_dc)
+      if(sector->floor_height<cam->h)
+        DrawTexturedFlat(to_dc,cam,sector,sector->floor_height,sector->floor_dc[af%FrameCnt(sector->floor_dc)],TRUE,idx2);
+    if(sector->ceil_dc) {
+      if(sector->ceil_height>cam->h)
+        DrawTexturedFlat(to_dc,cam,sector,sector->ceil_height,sector->ceil_dc[af%FrameCnt(sector->ceil_dc)],FALSE,idx2);
     }
   }
   for(thing=level->things.next;thing!=&level->things;thing=thing->next) {
     DrawAThing(to_dc,thing,cam);
   }
-  Free(sorted);
 }
 
 
@@ -804,10 +847,10 @@ U0 SongTask(I64)
   while (TRUE) {
     I64 i =3;
     while(i!=0)
-    {
-     Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
-     Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#");   
-     i--;
+      {
+      Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
+      Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#");   
+      i--;
     }
     Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
     Play("1AA2A1AA2G1AAtt3BA2F#3BDCB2F#3BCDEDCB2F#..");
@@ -816,12 +859,12 @@ U0 SongTask(I64)
     Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#");   
     Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
     Play("1AA2A1AA2G1AAtt3ECACECEAECECEA..");
-   
+
     Play("1DD2D1DD2C1DDA#1DDG#DDAA#");
     Play("1DD2D1DD2C1DDA#1DDG#G#G#G#");
     Play("1DD2D1DD2C1DDA#1DDG#DDAA#");
     Play("1DD2D1DD2C1DDtt4AGFAFDFADAFAFAFAFD.."); 
-  
+
 
     Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
     Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#D#");    
@@ -830,7 +873,7 @@ U0 SongTask(I64)
 
     Play("1F#F#2F#1F#F#2E1F#F#2D1F#F#2C1F#F#2C#D");
     Play("1EE2E1EE2D1EE2C1D#D1A#A#A#A#");
-  
+
     Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
     Play("1AA2A1AA2G1AA2tt3AC2EC3A2E3CACA2EC3ACEA..");
 
@@ -841,7 +884,7 @@ U0 SongTask(I64)
     Play("1AA2A1AA2G1AAtt2G#FEB3B2G#ED3DB2G#E3EDB2G#..");
     Play("1AA2C1AA2B1AAG#AAGAAG2A");
     Play("1AA2C1AA2B1AAEAAF#F#F#F#");
-  
+
     Play("1F#F#3C1F#F#3B1F#F#3A1F#F#2F#1F#F#2F#A");
     Play("1EE3B1EE3A1EE2G#1D#D2EEEE");
 
@@ -906,14 +949,14 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
 	      diff=Max(diff,sd->sector->floor_height-floor->floor_height);
         }
         if(diff==0.)
-          return floor->base_floor_height;
+	  return floor->base_floor_height;
         return diff+floor->floor_height;
       }
       return lowest;     
     case LIFT_LOW_HIGH_REPEAT:
       if(!floor->going_down) {
-	floor->going_up=TRUE;
-	floor->going_down=FALSE;
+        floor->going_up=TRUE;
+        floor->going_down=FALSE;
         for(idx=0;idx!=floor->linedef_cnt;idx++) {
 	  sd=floor->linedefs[idx]->front;
 	  if(sd&&sd!=floor)
@@ -922,10 +965,10 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
 	  if(sd&&sd!=floor)
 	    highest=Max(highest,sd->sector->floor_height);
         }
-	return highest;
+        return highest;
       } else {
-	floor->going_up=FALSE;
-	floor->going_down=TRUE;
+        floor->going_up=FALSE;
+        floor->going_down=TRUE;
         for(idx=0;idx!=floor->linedef_cnt;idx++) {
 	  sd=floor->linedefs[idx]->front;
 	  if(sd&&sd!=floor)
@@ -938,7 +981,7 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
       }
     case LIFT_CEIL_TOGGLE:
       if(floor->base_floor_height==floor->floor_height)
-	return floor->base_ceil_height;
+        return floor->base_ceil_height;
       return floor->base_floor_height;
   }
 }
@@ -1068,7 +1111,7 @@ floor_defacto:
     dir=Sign(s->target_end-s->target_start);
     if(!s->waiting) 
       s->floor_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;
-     if(s->going_up) {
+    if(s->going_up) {
       if(s->floor_height>=s->target_end) {
         s->floor_height=s->target_end;
         s->going_up=FALSE;
@@ -1232,12 +1275,12 @@ F64 GetTargetCeilHeight(CDoomSector *s,I64 target) {
       return s->floor_height;
     case CEIL_DST_HIGHEST_CEIL:
       for(idx=0;idx!=s->linedef_cnt;idx++) {
-	if(s->linedefs[idx]->back&&s!=s->linedefs[idx]->back->sector) {
+        if(s->linedefs[idx]->back&&s!=s->linedefs[idx]->back->sector) {
 	  other=s->linedefs[idx]->back->sector;
         } else if(s->linedefs[idx]->front&&s!=s->linedefs[idx]->front->sector) {
 	  other=s->linedefs[idx]->front->sector;
-	}
-	if(other)
+        }
+        if(other)
 	  to=Max(to,other->ceil_height);
       }
       return to;
@@ -1245,24 +1288,24 @@ F64 GetTargetCeilHeight(CDoomSector *s,I64 target) {
       return s->floor_height+8;
     case CEIL_DST_LOWEST_CEIL:
       for(idx=0;idx!=s->linedef_cnt;idx++) {
-	if(s->linedefs[idx]->back&&s!=s->linedefs[idx]->back->sector) {
+        if(s->linedefs[idx]->back&&s!=s->linedefs[idx]->back->sector) {
 	  other=s->linedefs[idx]->back->sector;
         } else if(s->linedefs[idx]->front&&s!=s->linedefs[idx]->front->sector) {
 	  other=s->linedefs[idx]->front->sector;
-	}
-	if(other)
+        }
+        if(other)
 	  to=Min(to,other->ceil_height);
       }
       return to;
     case CEIL_DST_HIGHEST_FLOOR:
       to=s->floor_height;
       for(idx=0;idx!=s->linedef_cnt;idx++) {
-	if(s->linedefs[idx]->back&&s!=s->linedefs[idx]->back->sector) {
+        if(s->linedefs[idx]->back&&s!=s->linedefs[idx]->back->sector) {
 	  other=s->linedefs[idx]->back->sector;
         } else if(s->linedefs[idx]->front&&s!=s->linedefs[idx]->front->sector) {
 	  other=s->linedefs[idx]->front->sector;
-	}
-	if(other)
+        }
+        if(other)
 	  to=Min(to,other->floor_height);
       }
       return to;
@@ -1280,13 +1323,13 @@ U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags) {
   if(ld) {
     if((type=ld->special_type)) {
       if(type->type=='Ceil') {
-	ceil=type;
+        ceil=type;
         switch(ceil->trigger) {
 	    break; case 'P1':
 	    if(!(flags&WACTIVATE_PUSH)) return;
 cactivate1:          
 	    if(s->activated) return;
-	    s->activated=TRUE;
+	    $BK,0$s->activated=TRUE;
 cactivate:
 	    if(s->cur_action_linedef)
 	      return;
@@ -1564,7 +1607,7 @@ CDC *AltSwitchTexture(U8 *txt,Bool on=FALSE) {
   while(idx--) {
     StrCpy(buf,switch_textures[idx]);
     if(!FramePtr(buf))
-     goto skip;
+      goto skip;
     if(FramePtr(buf)==txt&&!on) {
       buf[2]='2';
       return FramePtr(buf);
@@ -1597,21 +1640,21 @@ U0 ButtonThinker(CDoomLevel *l,CDoomThinker *t) {
   if(reset_time>tS) {
     on_off_idx='2';
 set_and_ret:
-      switch(which_texture) {
-        case 2: 
-	  if(dc=AltSwitchTexture(sd->upper_texture[0],on_off_idx!='2'))
+    switch(which_texture) {
+      case 2: 
+        if(dc=AltSwitchTexture(sd->upper_texture[0],on_off_idx!='2'))
 	  sd->upper_texture[0]=dc;
-	  break;
-        case 1: 
-	  if(dc=AltSwitchTexture(sd->middle_texture[0],on_off_idx!='2'))
+        break;
+      case 1: 
+        if(dc=AltSwitchTexture(sd->middle_texture[0],on_off_idx!='2'))
 	  sd->middle_texture[0]=dc;
-	  break;
-        case 0: 
-	  if(dc=AltSwitchTexture(sd->lower_texture[0],on_off_idx!='2')) {
+        break;
+      case 0: 
+        if(dc=AltSwitchTexture(sd->lower_texture[0],on_off_idx!='2')) {
 	  sd->lower_texture[0]=dc;
-	  }
-	  break;
-      }
+        }
+        break;
+    }
     return;
   }
   on_off_idx='1';
@@ -1791,66 +1834,66 @@ rem:
 	    goto rem;
 	  break;
 
-//Yeah homie,we bout to get some power ups
-	case 2015:
+	  //Yeah homie,we bout to get some power ups
+        case 2015:
 	  orig=p->armor;
 	  p->armor=ClampI64(p->armor+1,0,200);
 	  if(orig!=p->armor)
 	    goto rem;
 	  break;
-	case 2014:
+        case 2014:
 	  orig=p->health;
 	  p->health=ClampI64(p->health+1,0,200);
 	  if(orig!=p->health)
 	    goto rem;
 	  break;
-	case 83: //Megasphere
+        case 83: //Megasphere
 	  p->health=200;
 	  p->armor=200;
 	  goto rem;
-	case 2013: //Supercharge
+        case 2013: //Supercharge
 	  orig=p->health;
 	  p->health=ClampI64(p->health+20,0,200);
 	  if(orig!=p->health)
 	    goto rem;
 	  break;
-	case 2018: //de-facto Armor
+        case 2018: //de-facto Armor
 	  if(p->armor>=100)
 	    break;
 	  p->armor=100.;
 	  goto rem;
-	case 2019: //megarmor
+        case 2019: //megarmor
 	  if(p->armor>=200)
 	    break;
 	  p->armor=200.;
 	  goto rem;
-	case 2012:
+        case 2012:
 	  if(p->health>=100)
 	    break;
 	  p->health=ClampI64(p->health+25,0,100);
 	  goto rem;
-	case 2011:
+        case 2011:
 	  if(p->health>=100)
 	    break;
 	  p->health=ClampI64(p->health+10,0,100);
 	  goto rem;
 //Keys
-	case 5: //BLue keycard
+        case 5: //BLue keycard
 	  l->has_blue_key=TRUE;
 	  goto rem;
-	case 40: //BLue skull key
+        case 40: //BLue skull key
 	  l->has_blue_key=TRUE;
 	  goto rem;
-	case 38: //Red skull key
+        case 38: //Red skull key
 	  l->has_red_key=TRUE;
 	  goto rem;
-	case 13: //Red keycard
+        case 13: //Red keycard
 	  l->has_red_key=TRUE;
 	  goto rem;
-	case 39: //Yellow skull key
+        case 39: //Yellow skull key
 	  l->has_yellow_key=TRUE;
 	  goto rem;
-	case 6: //Yellow keycard
+        case 6: //Yellow keycard
 	  l->has_yellow_key=TRUE;
 	  goto rem;
       }
@@ -1868,16 +1911,15 @@ U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64
   I64 idx;
   CDoomThing *target=PlayerPickTarget(l,p);
   if(!rocket_type) {
-     if(weaponIndex==2) {//Shotgun
-       for(idx=0;idx!=3;idx++) {
-         r=(Rand-.5)*2;
-	 angle=p->angle+r*9.8*pi/360.; 
-         LineAttack(l,p,target,range,angle,damage);
-       }
-     } else
-       LineAttack(l,p,target,range,angle,damage);
+    if(weaponIndex==2) {//Shotgun
+      for(idx=0;idx!=3;idx++) {
+        r=(Rand-.5)*2;
+        angle=p->angle+r*9.8*pi/360.; 
+        LineAttack(l,p,target,range,angle,damage);
+      }
+    } else
+      LineAttack(l,p,target,range,angle,damage);
   } else {
-PrintI("p",1);
     SpawnMissile(l,p,target,rocket_type);
   }
 }
@@ -1912,32 +1954,32 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
       if(ld->front) sd=ld->front;
       if(ld->back) sd=ld->front;
     } else {
-	ldv=CreateVector(2);
-	ldv->data[0]=ld->end->x-ld->start->x;
-	ldv->data[1]=ld->end->y-ld->start->y;
-	dummy.x=where->x-ld->start->x;
-	dummy.y=where->y-ld->start->y;
-	if(IsFrontSideOfVector2D(ldv,&dummy)) {
-	   sd=ld->front;
-	   floor=ld->front->sector->floor_height;
-	   floor2=FloorRaise(ld,ld->front->sector);
-	   ceil=ld->front->sector->ceil_height;
-	   ceil2=CeilDepress(ld,ld->front->sector);
-	} else {
-	   sd=ld->back;
-	   floor=ld->back->sector->floor_height;
-	   floor2=FloorRaise(ld,ld->back->sector);
-	   ceil=ld->back->sector->ceil_height;
-	   ceil2=CeilDepress(ld,ld->back->sector);
-	}
-	if(height<floor2) which_texture=0;
-	else if(floor2<=height<=ceil2) which_texture=1;
-	else which_texture=2;
-        DestroyVector(ldv);
+      ldv=CreateVector(2);
+      ldv->data[0]=ld->end->x-ld->start->x;
+      ldv->data[1]=ld->end->y-ld->start->y;
+      dummy.x=where->x-ld->start->x;
+      dummy.y=where->y-ld->start->y;
+      if(IsFrontSideOfVector2D(ldv,&dummy)) {
+        sd=ld->front;
+        floor=ld->front->sector->floor_height;
+        floor2=FloorRaise(ld,ld->front->sector);
+        ceil=ld->front->sector->ceil_height;
+        ceil2=CeilDepress(ld,ld->front->sector);
+      } else {
+        sd=ld->back;
+        floor=ld->back->sector->floor_height;
+        floor2=FloorRaise(ld,ld->back->sector);
+        ceil=ld->back->sector->ceil_height;
+        ceil2=CeilDepress(ld,ld->back->sector);
+      }
+      if(height<floor2) which_texture=0;
+      else if(floor2<=height<=ceil2) which_texture=1;
+      else which_texture=2;
+      DestroyVector(ldv);
     }
     switch(which_texture) {
       case 2:
-	if(AltSwitchTexture(sd->upper_texture[0])) {
+        if(AltSwitchTexture(sd->upper_texture[0])) {
 pass:
 	  if(ld->special_type->type=='Door')
 	    trigger=ld->special_type(CDoomDoor*)->trigger;
@@ -1948,20 +1990,20 @@ pass:
 	  else if(ld->special_type->type=='Lift')
 	    trigger=ld->special_type(CDoomLift*)->trigger;
 	  if(trigger.u8[1]=='P')
-            TriggerLinedef(l,ld,WACTIVATE_PUSH);
+	    TriggerLinedef(l,ld,WACTIVATE_PUSH);
 	  else
-            TriggerLinedef(l,ld,WACTIVATE_SWITCH);
+	    TriggerLinedef(l,ld,WACTIVATE_SWITCH);
 	  AddButtonThinker(l,sd,which_texture,trigger.u8[1]!='1');
-	}
-	break;
+        }
+        break;
       case 1:
-	if(AltSwitchTexture(sd->middle_texture[0]))
+        if(AltSwitchTexture(sd->middle_texture[0]))
 	  goto pass;
-	break;
+        break;
       case 0:
-	if(AltSwitchTexture(sd->lower_texture[0]))
+        if(AltSwitchTexture(sd->lower_texture[0]))
 	  goto pass;
-	break;
+        break;
     }
   }
 }
@@ -1970,17 +2012,16 @@ pass:
 U0 AnimateTask(I64)
 {
   while(TRUE)
-  {   
-   AnimateFire(p);
-   Sleep(60);  
+    {   
+    AnimateFire(p);
+    Sleep(60);  
   }
-  
 }
 
 
 U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
   F64 angle;
-  //if were are dead,sink the camera
+//if were are dead,sink the camera
   if(p->health<=0.) {
     cam->h=Clamp(cam->h-12*1/30.,p->height+8,p->height+32);
   } else 
@@ -1988,7 +2029,7 @@ U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
   cam->x=p->x;
   cam->y=p->y;
   if(p->stare_at) {
-    //We are dead(?) and looking at who killed us
+//We are dead(?) and looking at who killed us
     angle=FArg(p->stare_at->x-cam->x,p->stare_at->y-cam->y);
     cam->angle=(cam->angle+angle)/2;
   } else {

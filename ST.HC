@@ -53,6 +53,9 @@ class MultiIcon
     I64 x;
     I64 y;
 
+    I64 x_off;
+    I64 y_off; //Added by nroot
+
     // last icon number
     I64 oldinum;
 
@@ -438,17 +441,17 @@ U0 ST_refreshBackground(CDoomPlayer *p)
          I16 xmodify=0;
          if(weapons.inum<10&&weapons.inum>3)//pistol
          {
-         GrBlot(gr.dc,weapons.x+62,weapons.y-24,
+         GrBlot(gr.dc,weapons.x+62+weapons.x_off,weapons.y-24,
                      weapons.p[weapons.data]);
          }
          if(weapons.inum>=10&&weapons.inum<16)//shotgun
          {
-         GrBlot(gr.dc,weapons.x+38,weapons.y-32,
+         GrBlot(gr.dc,weapons.x+38+weapons.x_off,weapons.y-32,
                      weapons.p[weapons.data]);
          }
          if(weapons.inum>=16&&weapons.inum<20&&weapons.on==TRUE)//chaingun
          {
-         GrBlot(gr.dc,weapons.x+32,weapons.y-32,
+         GrBlot(gr.dc,weapons.x+32+weapons.x_off,weapons.y-32,
                      weapons.p[weapons.data]);
          }
          if(weapons.inum>=20&&weapons.inum<26)//missile launcher 1
@@ -459,7 +462,7 @@ U0 ST_refreshBackground(CDoomPlayer *p)
              xmodify=-28;
           if(weapons.data>24)
              xmodify=-38;  
-         GrBlot(gr.dc,weapons.x+42+xmodify,weapons.y-32+xmodify,
+         GrBlot(gr.dc,weapons.x+42+xmodify+weapons.x_off,weapons.y-32+xmodify,
                      weapons.p[weapons.data]);
          }
          if(weapons.inum>=34&&weapons.inum<38)//bfg
@@ -467,13 +470,13 @@ U0 ST_refreshBackground(CDoomPlayer *p)
           if(weapons.data==38)
              xmodify=-54;
           
-         GrBlot(gr.dc,weapons.x+72+xmodify,weapons.y-16+xmodify,
+         GrBlot(gr.dc,weapons.x+72+xmodify+weapons.x_off,weapons.y-16+xmodify,
                      weapons.p[weapons.data]);
          }
         }
         
        
-	GrBlot(gr.dc,weapons.x,weapons.y,
+	GrBlot(gr.dc,weapons.x+weapons.x_off,weapons.y,
                      weapons.p[weapons.inum]);//weapon
         
 

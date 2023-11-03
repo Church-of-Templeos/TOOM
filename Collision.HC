@@ -414,9 +414,12 @@ skip:;
 
 	  //Things take less precednece than walls
     if(flags&COLLISF_NO_HIT_THING)
-      if(hit_thing=HitsAThing(l,&cur_pos,exclude)) 
+      if(hit_thing=HitsAThing(l,&cur_pos,exclude))  {
+//NOSLIDING agianst things
+	flags&=~COLLISF_SLIDE;
         break;
-    dist2+=24;
+      }
+    dist2+=radius/2;
     cur_pos.x=move1.x+cos*dist2;
     cur_pos.y=move1.y+sin*dist2;
     blockx=(dist2*cos+move1.x-l->block_map_x_off)/128;

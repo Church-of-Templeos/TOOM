@@ -500,7 +500,7 @@ next:;
 }
 U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,Bool reflect=FALSE) {
   CD2 copy,copy2;
-  F64 new_height,new_width;
+  F64 new_height,new_width,angle;
   I64 x,y,tox,fromx,toy,fromy,ix,iy,dist;
   U16 *from,*dst;
   I32 *db_z;
@@ -508,8 +508,10 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p
   copy2.x=p->x,copy2.y=p->y;
   if(!ClipLineToScrenCoords(cam,&copy,&copy2,level))
     return;
+  angle=(ToF64(copy.x)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
+  angle=Clamp(angle,-cam->fov/2,cam->fov/2);
   dist=Sqrt(Sqr(p->x-cam->x)+Sqr(p->y-cam->y));
-  new_height=DIST_SCALE/(1+ToF64(dist))*sprite->height/2;
+  new_height=DIST_SCALE/(ToF64(1+dist)*FCos(angle))*sprite->height/2;
   new_width=new_height/sprite->height*sprite->width;
   fromx=copy.x-new_width/2;
   tox=ClampI64(copy.x+new_width/2,0,GR_WIDTH-2);;
@@ -1929,7 +1931,12 @@ U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64
   F64 angle=p->angle,r;
   F64 damage=Rand*(max_damage-min_damage)+min_damage;
   I64 idx;
+//Use mouse angle as real angle,then restore
+  r=p->angle;
+  angle=p->angle+=(cursor_x-GR_WIDTH/2)/ToF64(GR_WIDTH/2)*cam.fov/2;
   CDoomThing *target=PlayerPickTarget(l,p);
+  p->angle=r;
+//Account for mouse aim
   if(!rocket_type) {
     if(weaponIndex==2) {//Shotgun
       for(idx=0;idx!=3;idx++) {
@@ -2091,9 +2098,15 @@ try {
       }
       cursor_x=ms.pos.x;   
       cursor_tx = cursor_x;
-
-
+      weapons.x_off=cursor_x-GR_WIDTH/2;
     }
+#define SCRN_MARGIN 200
+#define SCRN_TURN_RATE (pi/1.5/30.)
+      if(SCRN_MARGIN>cursor_x) {
+	p->angle-=Lerp((SCRN_MARGIN-cursor_x)/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
+      } else if(GR_WIDTH-SCRN_MARGIN<cursor_x) {
+	p->angle+=Lerp((cursor_x-(GR_WIDTH-SCRN_MARGIN))/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
+      }
 
     if(p->health>0.) {
       if(Bt(kbd.down_bitmap,SC_CURSOR_UP)||Bt(kbd.down_bitmap,Char2ScanCode('w')))
@@ -2109,28 +2122,17 @@ try {
         UpdateCameraFromPlayer(&cam,p);
         ST_Key(0);
       }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('q'))) {
+      if(Bt(kbd.down_bitmap,Char2ScanCode('a'))||Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
         p->running=Bt(kbd.down_bitmap,SC_SHIFT);
         PlayerMove(l,p,1,-pi/2);
         UpdateCameraFromPlayer(&cam,p);
-        ST_Key(0);
+        ST_Key(2);
       }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('e'))) {
+      if(Bt(kbd.down_bitmap,Char2ScanCode('d'))||Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)) {
         p->running=Bt(kbd.down_bitmap,SC_SHIFT);
         PlayerMove(l,p,1,pi/2);
         UpdateCameraFromPlayer(&cam,p);
-        ST_Key(0);
-      }
-      if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)||Bt(kbd.down_bitmap,Char2ScanCode('a'))) {
-        p->angle-=pi/16.;
-        ST_Key(2);
-      }
-      if(Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)||Bt(kbd.down_bitmap,Char2ScanCode('d'))) {
-        p->angle+=pi/16.;
         ST_Key(1);
-      }
-      if(!Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)&&!Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
-        ST_Key(0);
       }
       if(ms.lb) {
         ST_Fire(p);

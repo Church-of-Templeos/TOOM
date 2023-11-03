@@ -158,11 +158,16 @@ Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F6
   DestroyVector(v);
 }
 
-CDoomThing *HitsAThing(CDoomLevel *l,CD2 *dummy,CDoomThing *exclude=NULL) {
+CDoomThing *HitsAThing(CDoomLevel *l,CD2 *dummy,CDoomThing *exclude=NULL,CDoomThing *test_for=NULL) {
   F64 ceil_height,bbt_l,bbt_r,bbt_t,bbt_b;
   CDoomThing *cur,*head=&l->things,*max=NULL;
   F64 min_dist=I16_MAX,dist;
+  if(test_for) {
+    cur=test_for;
+    goto enter;
+  }
   for(cur=head->next;cur!=head;cur=cur->next) {
+enter:
     bbt_l=cur->x-cur->template->radius;
     bbt_r=cur->x+cur->template->radius;
     bbt_b=cur->y-cur->template->radius;
@@ -177,6 +182,8 @@ CDoomThing *HitsAThing(CDoomLevel *l,CD2 *dummy,CDoomThing *exclude=NULL) {
 	  }
 	}
       }
+    if(test_for)
+      break;
   }
   return max;
 }
@@ -276,11 +283,18 @@ CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_
     if(cur==exclude||!(cur->flags&TF_SHOOTABLE)||(cur->health<=0.))
       goto next;
     wall_dist=ValidateLineOfSightShot(l,at,angle,
-	  cd=Sqrt(Sqr(cur->x-at->x)+Sqr(cur->y-at->y)),
+	  (cd=Sqrt(Sqr(cur->x-at->x)+Sqr(cur->y-at->y)))*1.5, //1.5 for partly missed angle
 	  shoot_h,
 	  cur->height+cur->template->height-2
 	  );
-    if(wall_dist==-1) {
+    if(wall_dist==-1||wall_dist>cd*1.5) {
+      do {
+        dummy.x=at->x+wall_dist*cos;
+        dummy.y=at->y+wall_dist*cos;
+	if(HitsAThing(l,&dummy,NULL,cur))
+	  break;
+        wall_dist-=cur->template->radius/2.+1;
+      } while(wall_dist>=0.);
       if(cd<closest_dist) {
         closest=cur;
         closest_dist=wall_dist;

@@ -2110,13 +2110,15 @@ try {
         ST_Key(0);
       }
       if(Bt(kbd.down_bitmap,Char2ScanCode('q'))) {
-        MoveInLevel(l,&cam.x,cam.angle+90,-GRID_SZ/4,16,cam.h-90);
-        PlayerMove(l,p,-GRID_SZ/4);
+        p->running=Bt(kbd.down_bitmap,SC_SHIFT);
+        PlayerMove(l,p,1,-pi/2);
+        UpdateCameraFromPlayer(&cam,p);
         ST_Key(0);
       }
       if(Bt(kbd.down_bitmap,Char2ScanCode('e'))) {
-        MoveInLevel(l,&cam.x,cam.angle-90,-GRID_SZ/4,16,cam.h-90);
-        PlayerMove(l,p,-GRID_SZ/4);
+        p->running=Bt(kbd.down_bitmap,SC_SHIFT);
+        PlayerMove(l,p,1,pi/2);
+        UpdateCameraFromPlayer(&cam,p);
         ST_Key(0);
       }
       if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)||Bt(kbd.down_bitmap,Char2ScanCode('a'))) {

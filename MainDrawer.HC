@@ -66,19 +66,24 @@ class CDoomCamera {
   CFifoI64 *visible_sectors;
 };
 U0 InsertVisplane(CDoomCamera *cam,CDoomSector *s) {
-  I64 cnt=cam->visplane_cnt;
+  I64 cnt=cam->visplane_cnt,cnt2=0;
+  CVisplane *vp;
   if(cnt<255) {
-    MemSet(&cam->visplanes[cnt],0,sizeof CVisplane);
-    cam->visplanes[cnt].fminx=GR_WIDTH;
-    cam->visplanes[cnt].fminy=GR_HEIGHT;
-    cam->visplanes[cnt].fmaxy=0;
-    cam->visplanes[cnt].fmaxx=0;
-    cam->visplanes[cnt].cminx=GR_WIDTH;
-    cam->visplanes[cnt].cminy=GR_HEIGHT;
-    cam->visplanes[cnt].cmaxy=0;
-    cam->visplanes[cnt].cmaxx=0;
-    cam->visplanes[cnt].sector=s;
-    cam->visplanes[cnt].color=cnt%14+1;
+    vp=&cam->visplanes[cnt];
+    vp->fminx=GR_WIDTH;
+    vp->fminy=GR_HEIGHT;
+    vp->fmaxy=0;
+    vp->fmaxx=0;
+    vp->cminx=GR_WIDTH;
+    vp->cminy=GR_HEIGHT;
+    vp->cmaxy=0;
+    vp->cmaxx=0;
+    vp->sector=s;
+    vp->color=cnt%14+1;
+    for(cnt2=0;cnt2!=GR_WIDTH/2;cnt2++) {
+      vp->fbottoms[cnt2]=0;
+      vp->ctops[cnt2]=0;
+    }
     s->visplane_idx=cnt;
     cam->visplane_cnt++;
   }
@@ -2148,6 +2153,7 @@ try {
     }
     UpdateLevel(l);
     Refresh;
+PrintI("fpfs",winmgr.fps);
   }} catch PutExcept(TRUE);
 DCFill;
 #endif

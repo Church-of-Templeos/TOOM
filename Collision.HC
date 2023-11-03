@@ -283,8 +283,8 @@ CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_
 	        shoot_h,
 	        cur->height+cur->template->height-2
 	        );
-	  if(wall_dist<=cd+32.) {
-	    if(wall_dist<closest_dist) {
+	  if(wall_dist==-1) {
+	    if(cd<closest_dist) {
 	      closest=cur;
 	      closest_dist=wall_dist;
 	    }

@@ -594,12 +594,12 @@ U0 PosAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 angle,damage;
   if(t->target) {
     if(t->self->flags&MF_JUST_ATTACKED) return;
-    t->self->flags|=MF_JUST_ATTACKED;
     FaceTarget(l,t);
+    t->self->flags|=MF_JUST_ATTACKED;
 //TODO start sound
     angle=t->self->angle;
     angle+=(.5-Rand)*pi/5;
-    damage=((RandU64&7)+1)*3;
+    damage=((RandU64%4)+1)*3;
     LineAttack(l,t->self,t->target,MISSILE_RANGE,angle,damage);
   }
 }
@@ -608,15 +608,15 @@ U0 SPosAttack(CDoomLevel *l,CMonsterThinker *t) {
   I64 i;
   if(t->target) {
     if(t->self->flags&MF_JUST_ATTACKED) return;
-    t->self->flags|=MF_JUST_ATTACKED;
 //TODO sound start 
     FaceTarget(l,t);
+    t->self->flags|=MF_JUST_ATTACKED;
     bangle=t->self->angle;
     for(i=0;i!=3;i++) {
       angle=bangle;
-      if(!i) //Direct straight shot
-      angle+=(Rand-.5)*180./pi*5;
-      damage=((RandU64&7)+1)*3;
+      if(!i)  //Ensure one direct shot
+        angle+=(Rand-.5)*180./pi*5;
+      damage=((RandU64%4)+1)*3;
       LineAttack(l,t->self,t->target,MISSILE_RANGE,angle,damage);
     }
   }
@@ -897,7 +897,7 @@ U0 LoadMonsterInfo() {
   t->pain_chance=200./255;
   AddState(t->spawn_state="IMP.S_POSS_STND",10*4,t->_idle_frames,&Look,"IMP.S_POSS_STND");
   AddState(t->see_state="IMP.S_POSS_RUN",9*4,t->_chase_frames,&Chase,"IMP.S_POSS_RUN");
-  AddState(t->missile_state="IMP.S_POSS_ATK1",0,t->_idle_frames,&FaceTarget,"IMP.S_POSS_ATK2");
+  AddState(t->missile_state="IMP.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"IMP.S_POSS_ATK2");
   AddState("IMP.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&TroopAttack,"IMP.S_POSS_RUN");
   AddState(t->pain_state="IMP.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"IMP.S_POSS_RUN");
   AddState(t->death_state="IMP.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
@@ -930,8 +930,8 @@ U0 LoadMonsterInfo() {
   t->_gib_frames=GenerateCacheFrames(t,"NOPQRSTU");
   AddState(t->spawn_state="BARON.S_POSS_STND",10*4,t->_idle_frames,&Look,"BARON.S_POSS_STND");
   AddState(t->see_state="BARON.S_POSS_RUN",20*4,t->_chase_frames,&Chase,"BARON.S_POSS_RUN");
-  AddState(t->missile_state="BARON.S_POSS_ATK1",0,t->_idle_frames,&FaceTarget,"BARON.S_POSS_ATK2");
-  AddState(t->missile_state="BARON.S_POSS_ATK2",0,t->_idle_frames,&FaceTarget,"BARON.S_POSS_ATK3");
+  AddState(t->missile_state="BARON.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"BARON.S_POSS_ATK2");
+  AddState(t->missile_state="BARON.S_POSS_ATK2",t->reaction_time*4,t->_idle_frames,&FaceTarget,"BARON.S_POSS_ATK3");
   AddState("BARON.S_POSS_ATK3",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&BarronOfHellAttack,"BARON.S_POSS_RUN");
   AddState(t->pain_state="BARON.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"BARON.S_POSS_RUN");
   AddState(t->death_state="BARON.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"BARON.S_POSS_DIE2");
@@ -963,8 +963,8 @@ U0 LoadMonsterInfo() {
 //Kako in greek
   AddState(t->spawn_state="CACO.S_POSS_STND",5*4,t->_idle_frames,&Look,"CACO.S_POSS_STND");
   AddState(t->see_state="CACO.S_POSS_RUN",1*4,t->_chase_frames,&Chase,"CACO.S_POSS_RUN");
-  AddState(t->missile_state="CACO.S_POSS_ATK1",0,t->_idle_frames,&FaceTarget,"CACO.S_POSS_ATK2");
-  AddState(t->missile_state="CACO.S_POSS_ATK2",0,t->_idle_frames,&FaceTarget,"CACO.S_POSS_ATK3");
+  AddState(t->missile_state="CACO.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"CACO.S_POSS_ATK2");
+  AddState(t->missile_state="CACO.S_POSS_ATK2",t->reaction_time*4,t->_idle_frames,&FaceTarget,"CACO.S_POSS_ATK3");
   AddState("CACO.S_POSS_ATK3",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&SkullAttack,"CACO.S_POSS_RUN");
   AddState(t->pain_state="CACO.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"CACO.S_POSS_RUN");
   AddState(t->death_state="CACO.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
@@ -1020,7 +1020,7 @@ U0 LoadMonsterInfo() {
   t->_dying_frames=GenerateCacheFrames(t,"IJKLMN");
   AddState(t->spawn_state="PANKY.S_POSS_STND",10*4,t->_idle_frames,&Look,"PANKY.S_POSS_STND");
   AddState(t->see_state="PANKY.S_POSS_RUN",6*4,t->_chase_frames,&Chase,"PANKY.S_POSS_RUN");
-  AddState(t->missile_state="PANKY.S_POSS_ATK1",0,t->_idle_frames,&FaceTarget,"PANKY.S_POSS_ATK2");
+  AddState(t->missile_state="PANKY.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"PANKY.S_POSS_ATK2");
   AddState(t->missile_state="PANKY.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&SkullAttack,"PANKY.S_POSS_RUN");
   AddState(t->pain_state="PANKY.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"PANKY.S_POSS_RUN");
   AddState(t->death_state="PANKY.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
@@ -1042,7 +1042,7 @@ U0 LoadMonsterInfo() {
   t->_dying_frames=GenerateCacheFrames(t,"FGHIJK");
   AddState(t->spawn_state="SKULL.S_POSS_STND",10*4,t->_idle_frames,&Look,"SKULL.S_POSS_STND");
   AddState(t->see_state="SKULL.S_POSS_RUN",STATE_UNTIL_ANIM_DONE,t->_chase_frames,&Chase,"SKULL.S_POSS_RUN");
-  AddState(t->missile_state="SKULL.S_POSS_ATK1",0,t->_idle_frames,&FaceTarget,"SKULL.S_POSS_ATK2");
+  AddState(t->missile_state="SKULL.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"SKULL.S_POSS_ATK2");
   AddState(t->missile_state="SKULL.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&SkullAttack,"SKULL.S_POSS_RUN");
   AddState(t->pain_state="SKULL.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"SKULL.S_POSS_RUN");
   AddState(t->death_state="SKULL.S_POSS_DIE",0,t->_hurt_frames,&Fall,"ST_NULL");
@@ -1065,7 +1065,7 @@ U0 LoadMonsterInfo() {
 
   AddState(t->spawn_state="SHOTGUN.S_POSS_STND",STATE_UNTIL_ANIM_DONE,t->_idle_frames,&Look,"SHOTGUN.S_POSS_STND");
   AddState(t->see_state="SHOTGUN.S_POSS_RUN",STATE_UNTIL_ANIM_DONE,t->_chase_frames,&Chase,"SHOTGUN.S_POSS_RUN");
-  AddState(t->missile_state="SHOTGUN.S_POSS_ATK1",0,t->_idle_frames,&FaceTarget,"SHOTGUN.S_POSS_ATK2");
+  AddState(t->missile_state="SHOTGUN.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"SHOTGUN.S_POSS_ATK2");
   AddState("SHOTGUN.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&SPosAttack,"SHOTGUN.S_POSS_RUN");
   AddState(t->pain_state="SHOTGUN.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"SHOTGUN.S_POSS_RUN");
   AddState(t->death_state="SHOTGUN.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
@@ -1089,7 +1089,7 @@ U0 LoadMonsterInfo() {
 //TODO fix
   AddState(t->spawn_state="TRANS.S_POSS_STND",10*4,t->_idle_frames,&Look,"TRANS.S_POSS_STND");
   AddState(t->see_state="TRANS.S_POSS_RUN",6*4,t->_chase_frames,&Chase,"TRANS.S_POSS_RUN");
-  AddState(t->missile_state="TRANS.S_POSS_ATK1",0,t->_idle_frames,&FaceTarget,"TRANS.S_POSS_ATK2");
+  AddState(t->missile_state="TRANS.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"TRANS.S_POSS_ATK2");
   AddState(t->missile_state="TRANS.S_POSS_ATK2",10*4,t->_idle_frames,&SkullAttack,"TRANS.S_POSS_RUN");
   AddState(t->pain_state="TRANS.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"TRANS.S_POSS_RUN");
   AddState(t->death_state="TRANS.S_POSS_DIE",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Fall,"TRANS.S_POSS_DIE2");

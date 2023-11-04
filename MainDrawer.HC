@@ -1957,7 +1957,8 @@ U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64
   I64 idx;
 //Use mouse angle as real angle,then restore
   r=p->angle;
-  angle=p->angle+=(cursor_x-GR_WIDTH/2)/ToF64(GR_WIDTH/2)*cam.fov/2;
+  p->angle+=(cursor_x-GR_WIDTH/2)/ToF64(GR_WIDTH/2)*cam.fov/2;
+  angle=p->angle;
   CDoomThing *target=PlayerPickTarget(l,p);
   if(target)
     angle=FArg(target->x-p->x,target->y-p->y);
@@ -2095,12 +2096,26 @@ U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
 Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
 WinMax;
 U0 InitLevel(CDoomLevel *l) {
-  CDoomThing *t,*head=&l->things;
+  CDoomThing *t,*head=&l->things,*next;
   CDoomSector *s;
   p=PlayerNew(l);
-  for(t=head->next;t!=head;t=t->next) {
-    if(s=GetSectorForCoord(l,t->x,t->y))
-      t->height=s->floor_height;
+  for(t=head->next;t!=head;t=next) { {
+      next=t->next;
+      if(p!=t)
+        switch(t->template->type) {
+//Players
+	  case 1:
+	  case 2:
+	  case 3:
+	  case 4:
+	    QueRem(t);
+	    Free(t);
+	    break;
+	  default:
+	    if(s=GetSectorForCoord(l,t->x,t->y))
+	      t->height=s->floor_height;
+        }
+    }
   }
   InitMonsters(l);
 }

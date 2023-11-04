@@ -298,15 +298,15 @@ CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_
     if(wall_dist==-1||wall_dist>cd*1.5) {
       do {
         dummy.x=at->x+wall_dist*cos;
-        dummy.y=at->y+wall_dist*cos;
-	if(HitsAThing(l,&dummy,1.,NULL,cur))
-	  break;
-        wall_dist-=cur->template->radius/2.+1;
+        dummy.y=at->y+wall_dist*sin;
+        if(HitsAThing(l,&dummy,16.,NULL,cur)) {
+	  if(cd<closest_dist) {
+	    closest=cur;
+	    closest_dist=wall_dist;
+	  }
+        }
+        wall_dist-=1;
       } while(wall_dist>=0.);
-      if(cd<closest_dist) {
-        closest=cur;
-        closest_dist=wall_dist;
-      }
     }
 next:;
   }
@@ -509,5 +509,4 @@ look_for_hot:
   DestroyVector(vector);
   return best;
 }
-#endif
-        0                    "      '         !      !   õÿÿÿ   .   ÷ÿÿÿ   ÷ÿÿÿ   ,      ³   ×ÿÿÿ   -   ûÿÿÿ.   ñÿÿÿ;   ñÿÿÿ   ¨   áÿÿÿ¦      º      µ   Üÿÿÿ§   áÿÿÿ   º   ÜÿÿÿÃ   ÓÿÿÿÈ   Ûÿÿÿ   Á   ÒÿÿÿÁ   Äÿÿÿ   Ê   Èÿÿÿ¶   Çÿÿÿ   ¹   ÁÿÿÿÌ   ÅÿÿÿÌ   »ÿÿÿ¶   ¹ÿÿÿº   Áÿÿÿ   êÿÿÿ    
+#endif        0                    "      '         !      !   õÿÿÿ   .   ÷ÿÿÿ   ÷ÿÿÿ   ,      ³   ×ÿÿÿ   -   ûÿÿÿ.   ñÿÿÿ;   ñÿÿÿ   ¨   áÿÿÿ¦      º      µ   Üÿÿÿ§   áÿÿÿ   º   ÜÿÿÿÃ   ÓÿÿÿÈ   Ûÿÿÿ   Á   ÒÿÿÿÁ   Äÿÿÿ   Ê   Èÿÿÿ¶   Çÿÿÿ   ¹   ÁÿÿÿÌ   ÅÿÿÿÌ   »ÿÿÿ¶   ¹ÿÿÿº   Áÿÿÿ   êÿÿÿ    

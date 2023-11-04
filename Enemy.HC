@@ -37,12 +37,18 @@ U0 AddState(U8 *name,F64 ticks,CDoomAnimationFrame *f,U8 *fptr=NULL,U8 *next=NUL
   s->next_state=next;
   FramePtrAdd(name,s);
 }
+class CBarrelThinker:CDoomThinkerBase {
+  U64 signature;
+  CDoomThing *self;
+  F64 explode_start_tS; //0 for not started  
+};
 #define MF_JUST_ATTACKED (1<<16)
 #define MF_ALLOW_FLOAT (2<<16)
 #define MF_AMBUSH (4<<16)
 #define MF_SKULL_ATTACK (8<<16)
 #define MF_MISSILE (0x10<<16)
 class CMonsterThinker:CDoomThinkerBase {
+  U64 signature;
   CDoomThing *self;
   CDoomThing *parent; //Who shot the missle
   CDoomThing *target;
@@ -202,7 +208,6 @@ U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
   CDoomMonsterTemplate *template=target->template;
   CMonsterThinker*thinker=target->thinker;
   F64 angle,thrust;
-  if(!thinker) return;
   if(!(target->flags&TF_SHOOTABLE))
     return;
   if(target->health<=0.) return;
@@ -223,17 +228,18 @@ U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
     target->health=0.;
     if(p==target)
       p->stare_at=opp;
-    if(thinker) SetState(l,thinker,template->death_state);
+    if(thinker&&thinker->signature=='Monster')
+      SetState(l,thinker,template->death_state);
     return;
   }
-  if(Rand<template->pain_chance&&thinker) { //TODO check skull fly
+  if(Rand<template->pain_chance&&thinker&&thinker->signature=='Monster') { //TODO check skull fly
     if(template->pain_state)
       SetState(l,thinker,template->pain_state);
   }
 
-  if(thinker) thinker->reaction_time=0;
+  if(thinker&&thinker->signature=='Monster') thinker->reaction_time=0;
 
-  if(opp&&thinker) {
+  if(opp&&thinker&&thinker->signature=='Monster') {
     thinker->target=opp;
     if(template->see_state&&thinker->state==template->spawn_state) {
        SetState(l,thinker,template->see_state);
@@ -242,6 +248,31 @@ U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
 //TODO skull fly
 }
 
+U0 BarrelThinker(CDoomLevel *l,CBarrelThinker *m) {
+  CDoomThing *self=m->self,*hit,*head=&l->things;
+  F64 dist;
+  if(self->health<=0.) {
+    if(!m->explode_start_tS) {
+      m->explode_start_tS=tS;
+      self->animation=self->template(CDoomMonsterTemplate*)->_dying_frames;
+      self->anim_no_repeat=TRUE;
+      for(hit=head->next;hit!=head;hit=hit->next) {
+	  dist=Sqrt(Sqr(hit->x-self->x)+Sqr(hit->y-self->y));
+        if(hit!=self&&(hit->thinker||p==hit)&&hit->flags&TF_SHOOTABLE) {
+	  if(dist<128)
+	    DamageMob(l,hit,NULL,dist);
+        }
+      }
+    } else {
+      if(tS-m->explode_start_tS>=AnimationTime(self->animation)) {
+        QueRem(m);
+        Free(m);
+        QueRem(self);
+        Free(self);
+      }
+    }
+  }
+}
 
 
 U0 MonsterThinker(CDoomLevel *l,CMonsterThinker *m) {
@@ -261,6 +292,13 @@ U0 InitMonsters(CDoomLevel *l) {
   CMonsterThinker *einstein;
   for(thing=head->next;thing!=head;thing=thing->next) {
     switch(thing->template->type) {
+      case 2035:
+        thing->health=thing->template(CDoomMonsterTemplate*)->health;
+        einstein=AddThinker(l,&BarrelThinker,sizeof CBarrelThinker);
+	einstein->signature='Barrel';
+        einstein(CBarrelThinker*)->self=thing;
+        thing->thinker=einstein;
+        break;
 ///See Things.TXT homedog
       case 68:
       case 64:
@@ -283,9 +321,10 @@ U0 InitMonsters(CDoomLevel *l) {
       case 3004:
         thing->health=thing->template(CDoomMonsterTemplate*)->health;
         einstein=AddThinker(l,&MonsterThinker,sizeof CMonsterThinker);
-	einstein->self=thing;
-	thing->thinker=einstein;
-	SetState(l,einstein,thing->template(CDoomMonsterTemplate*)->spawn_state);
+	einstein->signature='Monster';
+        einstein->self=thing;
+        thing->thinker=einstein;
+        SetState(l,einstein,thing->template(CDoomMonsterTemplate*)->spawn_state);
     }
   }
 }
@@ -580,7 +619,7 @@ hit_target:
        puff_pos.x=self->x+dist*Cos(angle2);
        puff_pos.y=self->y+dist*Sin(angle2);
        SpawnSmokePuff(l,&puff_pos,dst_h,dist+5.);
-    } if(dist<dist2) {
+    } if(dist<0.) {
 //Hit by chance
       hit=target;
       goto hit_target;
@@ -674,7 +713,7 @@ U0 SpawnMissile(CDoomLevel *l,CDoomThing *t,CDoomThing *target,U64 type) {
   think=AddThinker(l,&MissileThinker,sizeof CMissileThinker);
   think->self=self;
   think->shooter=t;
-  if(target) {
+  if(target&&target->template) { //???
     dist=Sqrt(Sqr(target->x-self->x)+Sqr(target->y-self->y));
     think->vslope=(target->height+target->template->height/2
 	-self->height)/dist;
@@ -892,9 +931,17 @@ U0 SkullHit(CDoomLevel *l,CMonsterThinker *t,CDoomThing *hit_thang) {
 //I am NOT messing around with the C sprite names(they dont map to real sprite names)
 U0 LoadMonsterInfo() {
   CDoomProjectileTemplate *p;
+  CDoomMonsterTemplate *t;
+  //https://doomwiki.org/wiki/Barrel
+  t=doom_thing_types[2035];
+  t->mass=100.;
+  t->health=20;
+  t->_idle_frames=t->_animation;
+  StrCpy(t->spr_base_name,"BEXP");
+  t->_dying_frames=GenerateCacheFrames(t,"ABCDE");
   //https://doomwiki.org/wiki/Imp
   AddState("ST_NULL",0.,NULL,&NullState,"ST_NULL");
-  CDoomMonsterTemplate *t=doom_thing_types[0xbb9];
+  t=doom_thing_types[0xbb9];
   t->_idle_frames=GenerateCacheFrames(t,"AB");
   t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
   t->_melee_frames=GenerateCacheFrames(t,"EFG");

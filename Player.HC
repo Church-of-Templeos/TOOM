@@ -100,18 +100,19 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
 
 CDoomThing *PlayerPickTarget(CDoomLevel *l,CDoomPlayer *p) {
   CDoomThing *cur,*head=&l->things,*best;
-  F64 dist,angle,margin=5.6*pi/180;
+  F64 dist,angle,margin=5.6*(pi/180);
   for(cur=head->next;head!=cur;cur=cur->next) 
     if(cur->flags&TF_SHOOTABLE&&cur!=p) {
-    dist=Sqrt(Sqr(cur->x-p->x)+Sqr(cur->y-p->y));
-    if(dist<=16.*64) {
-      angle=Wrap(FArg(cur->x-p->x,cur->y-p->y)-p->angle);
-      if(-margin<=angle<=margin) {
-        if(ValidateLineOfSightShot(l,&p->x,angle,dist+16,p->height,cur->height)<dist+16.)
-	  return cur;
-}
+      dist=Sqrt(Sqr(cur->x-p->x)+Sqr(cur->y-p->y));
+      if(dist<=16.*64) {
+        angle=(FArg(cur->x-p->x,cur->y-p->y)-p->angle)%(2*pi);
+        if(-margin<=angle<=margin) {
+	  if(ValidateLineOfSightShot(l,&p->x,angle,dist+1,p->height,cur->height)<dist) {
+	    return cur;
+	  }
+        }
+      }
     }
-  }
   return NULL;
 }
 

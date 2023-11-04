@@ -834,7 +834,7 @@ class CWadBlockMapHeader {
   I16 num_cols,num_rows;
 };
 
-CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name) {
+CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name,I64 skill=1) {
   I64 idx,cnt,x,y,min,max;
   U16 *offs;
   U8 name[9];
@@ -882,6 +882,27 @@ found:
   cnt=wad_dir->lump_size/sizeof(CWadThing);
   wthing=wad_dir->ptr+wad->body;
   for(idx=0;idx!=cnt;idx++) {
+   if(wthing->flags&WAD_THINGF_MULTIPLAYER)
+      goto skip_thing;
+     switch(skill) {
+      case 0:
+      case 1:
+      case 2:
+	if(wthing->flags&WAD_THINGF_SKILL12)
+	  goto pass_thing;
+	break;
+      case 3:
+	if(wthing->flags&WAD_THINGF_SKILL3)
+	  goto pass_thing;
+	break;
+      case 4:
+      case 5:
+	if(wthing->flags&WAD_THINGF_SKILL45)
+	  goto pass_thing;
+	break;
+    }
+    goto skip_thing;
+pass_thing:
     dthing=CAlloc(sizeof CDoomThing);
     dthing->x=wthing->x;
     dthing->y=wthing->y;
@@ -890,6 +911,7 @@ found:
     dthing->template=doom_thing_types[wthing->thing_type];
     dthing->flags=dthing->template->flags;
     QueIns(dthing,level->things.last);
+skip_thing:
     wthing++;
   }
 //Load vertexes first P
@@ -1224,7 +1246,7 @@ U0 DumpWad(CWad *wad) {
 
 //
 CDoomGr *dgr=LoadWadGr(wad);
-CDoomLevel *l=LoadWadLevel(wad,"E1M1");;
+CDoomLevel *l=NULL;
 /*
 DCFill;
 if(l)

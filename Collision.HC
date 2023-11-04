@@ -131,7 +131,7 @@ F64 IntersectDist(CDoomLinedef *ld,CD2 *a,CD2 *b) {
   return d1/FCos(angle);*/
 }
 
-Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F64 cur_h,F64 to_travel) {
+Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F64 cur_h,F64 to_travel,CDoomThing *exclude) {
   I64 i;
   CD2 closest_point,side,rel_point;
   F64 ld_normal1,ld_normal2,angle2;
@@ -148,12 +148,12 @@ Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F6
   if(IsFrontSideOfVector2D(v,&rel_point)) {
     angle2=ld_normal1-angle;
     x=-to_travel*FSin(angle2);
-    MoveInLevel(l,point,ld_normal1+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS);
+    MoveInLevel(l,point,ld_normal1+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING);
   } else{
     dist=radius-DistFromLine(point,ld->start,ld->end);
     angle2=ld_normal2-angle;
     x=-to_travel*FSin(angle2);
-    MoveInLevel(l,point,ld_normal2+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS);
+    MoveInLevel(l,point,ld_normal2+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING);
   }
   DestroyVector(v);
 }
@@ -473,7 +473,7 @@ found:
   if(flags&COLLISF_SLIDE&&best) {
     if(dist>0.)
       odist=odist-dist;
-    SlideWalk(l,best,result,angle,radius,cur_height,odist);
+    SlideWalk(l,best,result,angle,radius,cur_height,odist,exclude);
   }
   if(!best&&walked_over_hot) {
     min_dist=I16_MAX;

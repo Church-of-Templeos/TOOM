@@ -550,6 +550,7 @@ U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 an
   F64 dist,src_h,dst_h,dist2;
   if(hit) {
      target=hit;
+hit_target:
 //I will make some distance between the blood-puff and the target to avoid z-clipping
 //Angle from hit->self 
      angle2=FArg(self->x-hit->x,self->y-hit->y);
@@ -572,8 +573,14 @@ U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 an
        puff_pos.x=self->x+dist*Cos(angle2);
        puff_pos.y=self->y+dist*Sin(angle2);
        SpawnSmokePuff(l,&puff_pos,dst_h,dist+5.);
-    }
+    } if(dist<dist2) {
+//Hit by chance
+      hit=target;
+      goto hit_target;
+    } else
+     goto defacto;
   } else {
+defacto:
 //Make shot right in front of us
     src_h=self->height+self->template->height/2;
     dist=ValidateLineOfSightShot(l,&self->x,angle,range,src_h,src_h); 

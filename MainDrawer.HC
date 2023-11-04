@@ -926,10 +926,6 @@ U0 SongTask(I64)
 
 
 CDoomCamera cam;
-CDoomSector *sect=l->sectors.last;
-"%x,$ER$%x\n",sect->linedef_cnt,sect->linedefs[0];
-cam.x=sect->linedefs[0]->start->x;
-cam.y=sect->linedefs[0]->start->y;
 cam.fov=pi/4;
 //cam.angle=-pi;
 cam.h=0;
@@ -1721,7 +1717,7 @@ extern U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range
 #include "Player.HC";
 #include "Enemy.HC";
 #include "Physics.HC";
-CDoomPlayer *p=PlayerNew(l);
+CDoomPlayer *p=NULL;
 U0 CheckPowerupPickup(CDoomLevel *l) {
   CDoomThing *t,*head=&l->things,*next;
   AmmoType *load;
@@ -1957,6 +1953,8 @@ U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64
   r=p->angle;
   angle=p->angle+=(cursor_x-GR_WIDTH/2)/ToF64(GR_WIDTH/2)*cam.fov/2;
   CDoomThing *target=PlayerPickTarget(l,p);
+  if(target)
+    angle=FArg(target->x-p->x,target->y-p->y);
   p->angle=r;
 //Account for mouse aim
   if(!rocket_type) {
@@ -2087,21 +2085,44 @@ U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
 }
 
 
-PlayerMove(l,p,0);
 
 Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
 WinMax;
 U0 InitLevel(CDoomLevel *l) {
   CDoomThing *t,*head=&l->things;
   CDoomSector *s;
+  p=PlayerNew(l);
   for(t=head->next;t!=head;t=t->next) {
     if(s=GetSectorForCoord(l,t->x,t->y))
       t->height=s->floor_height;
   }
   InitMonsters(l);
 }
-InitLevel(l);
-try {
+U0 FreeLevel(CDoomLevel *l) {
+  CDoomSector *s,*head;
+  QueDel(&l->things);
+  QueDel(&l->sidedefs);
+  QueDel(&l->subsectors);
+  QueDel(&l->thinkers);
+  Free(l->segs);
+  head=&l->sectors;
+  for(s=head->next;s!=head;s=s->next) {
+    DCDel(s->shape_dc);
+  }
+  QueDel(&l->sectors);
+  QueDel(&l->sidedefs);
+  Free(l->vertices);
+  QueDel(&l->linedefs);
+  Free(l->block_map_data);
+  Free(l->action_linedefs);
+  Free(l);
+}
+
+U0 PlayLevel(U8 *name,I64 difficulty) { 
+  l=LoadWadLevel(wad,name,difficulty);
+  p=PlayerNew(l);
+  PlayerMove(l,p,0);
+  InitLevel(l);
   while(TRUE) {
 
     DCFill;
@@ -2123,12 +2144,12 @@ try {
       weapons.x_off=cursor_x-GR_WIDTH/2;
     }
 #define SCRN_MARGIN 200
-#define SCRN_TURN_RATE (pi/1.5/30.)
-      if(SCRN_MARGIN>cursor_x) {
-	p->angle-=Lerp((SCRN_MARGIN-cursor_x)/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
-      } else if(GR_WIDTH-SCRN_MARGIN<cursor_x) {
-	p->angle+=Lerp((cursor_x-(GR_WIDTH-SCRN_MARGIN))/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
-      }
+    #define SCRN_TURN_RATE (pi/1.5/30.)
+    if(SCRN_MARGIN>cursor_x) {
+      p->angle-=Lerp((SCRN_MARGIN-cursor_x)/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
+    } else if(GR_WIDTH-SCRN_MARGIN<cursor_x) {
+      p->angle+=Lerp((cursor_x-(GR_WIDTH-SCRN_MARGIN))/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
+    }
 
     if(p->health>0.) {
       if(Bt(kbd.down_bitmap,SC_CURSOR_UP)||Bt(kbd.down_bitmap,Char2ScanCode('w')))
@@ -2194,6 +2215,9 @@ try {
     }
     UpdateLevel(l);
     Refresh;
-  }} catch PutExcept(TRUE);
-DCFill;
+  }
+  DCFill;
+  FreeLevel(l);
+}
+PlayLevel("E1M1",1);
 #endif

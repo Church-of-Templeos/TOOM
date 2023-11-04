@@ -67,9 +67,15 @@ class CMissileThinker:CDoomThinkerBase {
 U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
   CDoomThing *self=t->self,*hit,*head=&l->things;
   CDoomProjectileTemplate *template=self->template;
-  F64 dist,splash;
+  F64 dist=template->speed,splash;
+  CDoomLinedef *ld=NULL;
+//No speeding through targets
+  while(dist>0.) {
+    if(ld=MoveInLevel(l,&self->x,self->angle,Max(dist,template->radius),template->radius,self->height,COLLISF_NO_HIT_THING,NULL,self))
+      break;
+    dist-=template->radius;
+  }
   self->height+=t->vslope*template->speed;
-  CDoomLinedef *ld=MoveInLevel(l,&self->x,self->angle,template->speed,template->radius,self->height,COLLISF_NO_HIT_THING,NULL,self);
   CDoomSector *s=GetSectorForCoord(l,self->x,self->y);
   if(!t->hit) {
     self->animation=template->_idle_frames;
@@ -196,6 +202,7 @@ U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
   CDoomMonsterTemplate *template=target->template;
   CMonsterThinker*thinker=target->thinker;
   F64 angle,thrust;
+  if(!thinker) return;
   if(!(target->flags&TF_SHOOTABLE))
     return;
   if(target->health<=0.) return;
@@ -669,7 +676,8 @@ U0 SpawnMissile(CDoomLevel *l,CDoomThing *t,CDoomThing *target,U64 type) {
   think->shooter=t;
   if(target) {
     dist=Sqrt(Sqr(target->x-self->x)+Sqr(target->y-self->y));
-    think->vslope=(target->height-self->height)/dist;
+    think->vslope=(target->height+target->template->height/2
+	-self->height)/dist;
   } else
     think->vslope=0.;
 }

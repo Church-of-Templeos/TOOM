@@ -158,10 +158,14 @@ Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F6
   DestroyVector(v);
 }
 
-CDoomThing *HitsAThing(CDoomLevel *l,CD2 *dummy,CDoomThing *exclude=NULL,CDoomThing *test_for=NULL) {
+CDoomThing *HitsAThing(CDoomLevel *l,CD2 *dummy,F64 dummy_radius,CDoomThing *exclude=NULL,CDoomThing *test_for=NULL) {
   F64 ceil_height,bbt_l,bbt_r,bbt_t,bbt_b;
   CDoomThing *cur,*head=&l->things,*max=NULL;
   F64 min_dist=I16_MAX,dist;
+  F64 bbl_t=dummy->y+dummy_radius;
+  F64 bbl_b=dummy->y-dummy_radius;
+  F64 bbl_r=dummy->x+dummy_radius;
+  F64 bbl_l=dummy->x-dummy_radius;
   if(test_for) {
     cur=test_for;
     goto enter;
@@ -172,16 +176,20 @@ enter:
     bbt_r=cur->x+cur->template->radius;
     bbt_b=cur->y-cur->template->radius;
     bbt_t=cur->y+cur->template->radius;
-    if(exclude!=cur&&cur->flags&TF_OBSTACLE) {
-      if(bbt_l<=dummy->x<=bbt_r)
-        if(bbt_b<=dummy->y<=bbt_t) {
-	  dist=Sqrt(Sqr(cur->x-dummy->x)+Sqr(cur->y-dummy->y));
-	  if(dist<min_dist) {
-	    max=cur;
-	    min_dist=dist;
-	  }
-	}
+    if(bbl_r<bbt_l
+	  ||bbl_l>bbt_r
+	  ||bbl_t<bbt_b
+	  ||bbl_b>bbt_t)
+      ; //Fail
+    else  {
+      if(exclude!=cur&&cur->flags&TF_OBSTACLE) {
+        dist=Sqrt(Sqr(cur->x-dummy->x)+Sqr(cur->y-dummy->y));
+        if(dist<min_dist) {
+	  max=cur;
+	  min_dist=dist;
+        }
       }
+    }
     if(test_for)
       break;
   }
@@ -291,7 +299,7 @@ CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_
       do {
         dummy.x=at->x+wall_dist*cos;
         dummy.y=at->y+wall_dist*cos;
-	if(HitsAThing(l,&dummy,NULL,cur))
+	if(HitsAThing(l,&dummy,1.,NULL,cur))
 	  break;
         wall_dist-=cur->template->radius/2.+1;
       } while(wall_dist>=0.);
@@ -414,7 +422,7 @@ skip:;
 
 	  //Things take less precednece than walls
     if(flags&COLLISF_NO_HIT_THING)
-      if(hit_thing=HitsAThing(l,&cur_pos,exclude))  {
+      if(hit_thing=HitsAThing(l,&cur_pos,radius,exclude))  {
 //NOSLIDING agianst things
 	flags&=~COLLISF_SLIDE;
         break;
@@ -463,6 +471,8 @@ fin:
     for(i=0;i!=wall_idx;i++) {
       if(CheckLineWithBox(walls[i],&cur_pos,radius))
         goto found;
+      if(HitsAThing(l,&cur_pos,radius,exclude))
+	goto found;
     }
     result->x=cur_pos.x;
     result->y=cur_pos.y;

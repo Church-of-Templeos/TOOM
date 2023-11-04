@@ -672,8 +672,14 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
     else
       sidedef=seg->linedef->back,opposite=seg->linedef->front;
     no_draw=FALSE;
-    if(!sidedef)
-      goto skip;
+    if(!sidedef) {
+//If our thing is 1 sided,alsays draw it in case we clip throuh a wall
+      if(sidedef^^opposite) {
+	sidedef=opposite;
+	opposite=NULL;
+      }else
+        goto skip;
+    }
     sector=sidedef->sector;
     highest_ceil=HighestCeil(seg->linedef,sector);
     for(wall=0;wall!=4;wall++) {

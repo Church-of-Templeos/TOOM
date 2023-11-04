@@ -1,4 +1,4 @@
-//See enemy.c in doom3do
+ //See enemy.c in doom3do
 CDoomThingTemplate *imp_fireball;
 CDoomThingTemplate *baron_fireball;
 CDoomThingTemplate *cacodemon_fireball;
@@ -254,6 +254,7 @@ U0 BarrelThinker(CDoomLevel *l,CBarrelThinker *m) {
   if(self->health<=0.) {
     if(!m->explode_start_tS) {
       m->explode_start_tS=tS;
+      self->flags&=~TF_OBSTACLE;
       self->animation=self->template(CDoomMonsterTemplate*)->_dying_frames;
       self->anim_no_repeat=TRUE;
       for(hit=head->next;hit!=head;hit=hit->next) {
@@ -595,36 +596,40 @@ U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 an
   F64 angle2;
   F64 dist,src_h,dst_h,dist2;
   if(hit) {
-     target=hit;
+    target=hit;
 hit_target:
 //I will make some distance between the blood-puff and the target to avoid z-clipping
-//Angle from hit->self 
-     angle2=FArg(self->x-hit->x,self->y-hit->y);
+    //Angle from hit->self 
+    angle2=FArg(self->x-hit->x,self->y-hit->y);
 //Spawn a BLOOD PUFF,and I AINT talkin marshmellow
-     dst_h=target->height+target->template->height/2;
-     puff_pos.x=hit->x+5*Cos(angle2);
-     puff_pos.y=hit->y+5*Sin(angle2);
-     SpawnBloodPuff(l,&puff_pos,dst_h,damage);
-     DamageMob(l,target,self,damage);
+    dst_h=target->height+target->template->height/2;
+    puff_pos.x=hit->x+5*Cos(angle2);
+    puff_pos.y=hit->y+5*Sin(angle2);
+//Smoke puffs come out of barrels
+    if(hit->template&&hit->template->type==2035)
+      SpawnSmokePuff(l,&puff_pos,dst_h,damage);
+    else
+      SpawnBloodPuff(l,&puff_pos,dst_h,damage);
+    DamageMob(l,target,self,damage);
   } else if(target) {
 //Spawn a smoke puff as we missed
     src_h=self->height+self->template->height/2;
     dst_h=target->height+target->template->height/2;
     dist2=Sqrt(Sqr(self->x-target->x)+Sqr(self->y-target->y));
     dist=ValidateLineOfSightShot(l,&self->x,angle,dist2,src_h,dst_h); 
-    if(dist>=5.) {
+    if(dist>0.) {
       angle2=FArg(target->x-self->x,target->y-self->y);
       dst_h=Lerp(dist/dist2,src_h,dst_h); //Good enough?
       dist-=5.;
-       puff_pos.x=self->x+dist*Cos(angle2);
-       puff_pos.y=self->y+dist*Sin(angle2);
-       SpawnSmokePuff(l,&puff_pos,dst_h,dist+5.);
-    } if(dist<0.) {
+      puff_pos.x=self->x+dist*Cos(angle2);
+      puff_pos.y=self->y+dist*Sin(angle2);
+      SpawnSmokePuff(l,&puff_pos,dst_h,dist+5.);
+    } if(dist<=0.) {
 //Hit by chance
       hit=target;
       goto hit_target;
     } else
-     goto defacto;
+      goto defacto;
   } else {
 defacto:
 //Make shot right in front of us

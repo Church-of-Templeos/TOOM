@@ -1342,18 +1342,109 @@ F64 GetTargetCeilHeight(CDoomSector *s,I64 target) {
       return to;
   }
 }
+
+class CDonutThinker:CDoomThinkerBase {
+  F64 start_tS;
+  CDoomLinedef *ld;
+};
+
+U0 DonutThinker(CDoomLevel *l,CDonutThinker *t) {
+  CDoomSector *s1,*s2,*s3;
+  CDoomLinedef *ld;
+  F64 time=tS-t->start_tS;
+  I64 i;
+  for(s1=l->sectors.next;s1!=&l->sectors;s1=s1->next) {
+    if(s1->tag_number==t->ld->sector_tag) {
+      if(s1->cur_action_linedef)
+	goto next;
+      ld=s1->linedefs[0];
+      if(ld->front^^ld->back) goto next;
+      if(ld->front->sector==s1) {
+	s2=ld->back->sector;
+      } else
+	s2=ld->front->sector;
+      i=0;
+      do {
+	ld=s2->linedefs[i];
+	if(!(ld->front&&ld->back)||ld->back->sector==s1)
+	  goto next2;
+	s3=ld->back->sector;
+//Rising slime
+	if(s2->floor_height<s3->floor_height) {
+	  s2->cur_action_linedef=t->ld;
+	  s2->floor_height+=1.5;
+        } else {
+	  s2->floor_height=s3->floor_height;
+	  MemCpy(s2->floor_dc,s3->floor_dc,sizeof(CDC*)*4);
+	  s2->cur_action_linedef=NULL;
+	}
+//Decending poo poo
+	if(s1->floor_height>s3->floor_height) {
+	  s1->cur_action_linedef=t->ld;
+	  s1->floor_height-=1.5;
+        } else {
+	  s1->floor_height=s3->floor_height;
+	  s1->cur_action_linedef=NULL;
+	}
+
+next2:;
+      } while(++i<s2->linedef_cnt);
+    }
+next:;
+  }
+}
+
 U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags) {
   CDoomActionSector *type;
   CDoomFloor *fl;
   CDoomDoor *door;
   CDoomLift *lift;
   CDoomCeil *ceil;
+  CDoomDonut *donut;
   I64 idx;
   CDoomLinedef *ld2;
+  CDonutThinker *dt;
   F64 dst;
   if(ld) {
     if((type=ld->special_type)) {
-      if(type->type=='Ceil') {
+      if(type->type=='Donut') {
+	donut=type;
+        switch(donut->trigger) {
+	    break; case 'P1':
+	    if(!(flags&WACTIVATE_PUSH)) return;
+donut_activate1:          
+	    if(s->activated) return;
+	    $BK,0$s->activated=TRUE;
+donut_activate:
+	    if(s->cur_action_linedef)
+	      return;
+	    s->cur_action_linedef=ld;
+            dt=AddThinker(l,&DonutThinker,sizeof(CDonutThinker));
+	    dt->ld=ld;
+	    dt->start_tS=tS;
+	    break; case 'S1':
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto donut_activate1;
+	    break; case 'W1':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto donut_activate1;
+	    break; case 'G1':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto donut_activate1;
+	    break; case 'PR':
+	    if(!(flags&WACTIVATE_PUSH)) return;
+	    goto donut_activate;
+	    break; case 'SR':
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto donut_activate;
+	    break; case 'GR':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto donut_activate;
+	    break; case 'WR':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto donut_activate;
+        }
+      } else if(type->type=='Ceil') {
         ceil=type;
         switch(ceil->trigger) {
 	    break; case 'P1':
@@ -1517,9 +1608,9 @@ activate1:
 	    s->activated=TRUE;
 activate:
 //Check for keys
-	    if(l->has_red_key^^(door->key&DOOR_LOCK_RED)) return;
-	    if(l->has_blue_key^^(door->key&DOOR_LOCK_BLUE)) return;
-	    if(l->has_yellow_key^^(door->key&DOOR_LOCK_YELLOW)) return;
+	    //if(l->has_red_key^^(door->key&DOOR_LOCK_RED)) return;
+	    //if(l->has_blue_key^^(door->key&DOOR_LOCK_BLUE)) return;
+	    //if(l->has_yellow_key^^(door->key&DOOR_LOCK_YELLOW)) return;
 //Do the door action
 	    s->target_start=s->ceil_height;
 	    switch(door->action) {
@@ -2001,12 +2092,12 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
   Vector *ldv;
   dummy.x=where->x;
   dummy.y=where->y;
-  ld=MoveInLevel(l,&dummy,angle,64.,1.,height,0);
+  ld=MoveInLevel(l,&dummy,angle,64.,16.,height,0);
   if(ld) {
     if(ld->front^^ld->back) {
-      which_texture=0;
+      which_texture=1;
       if(ld->front) sd=ld->front;
-      if(ld->back) sd=ld->front;
+      else if(ld->back) sd=ld->back;
     } else {
       ldv=CreateVector(2);
       ldv->data[0]=ld->end->x-ld->start->x;
@@ -2240,5 +2331,5 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
   DCFill;
   FreeLevel(l);
 }
-PlayLevel("E1M1",1);
+PlayLevel("E1M2",1);
 #endif

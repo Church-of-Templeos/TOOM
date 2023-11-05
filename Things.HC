@@ -31,13 +31,11 @@ class CDoomProjectileTemplate:CDoomThingTemplate {
   CDoomAnimationFrame *_hit_frames;
   F64 direct,splash,speed;
 };
-
-
 class CDoomMonsterTemplate:CDoomThingTemplate {
   F64 x,y,angle,pain_chance,pain_time,reaction_time;
   F64 damage;
   F64 health,speed,mass,skull_attack_speed;
-//These P Pushers are used with FramePtr("state name");n
+//These P Pushers are used with FramePtr("state name");
 //See CState Enemy.HC
   U8 *spawn_state;
   U8 *see_state;

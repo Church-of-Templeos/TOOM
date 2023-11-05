@@ -227,6 +227,7 @@ class CDoomSector:CQue {
   I64 special_type;
   I64 tag_number;
   I64 linedef_cnt;
+  I64 idx;
   CDoomLinedef **linedefs;
 //Private
 //I will render the floors then I will cast them to the screen
@@ -387,37 +388,6 @@ I64 W_CheckNumForName (U8 *name,CWad *doom_wad)
    return -1;
 }
 
-#if 0 //Sorry,make sure the code compiles
-
-//
-// W_GetNumForName
-// Calls W_CheckNumForName, but bombs out if not found.
-//
-U0 W_GetNumForName (U8 *name)
-{
-    int	i;
-
-    i = W_CheckNumForName (name);
-    
-    if (i == -1)
-      PutExcept("W_GetNumForName: %s not found!", name);
-      
-    return i;
-}
-
-
-//
-// W_LumpLength
-// Returns the buffer size needed to load the given lump.
-//
-U0 W_LumpLength (I64 lump)
-{
-    if (lump >= numlumps)
-	PutExcept("W_LumpLength: %i >= numlumps",lump);
-
-    return lumpinfo[lump].size;
-}
-#endif
 //
 //Nroot,get lump by num
 //
@@ -882,24 +852,24 @@ found:
   cnt=wad_dir->lump_size/sizeof(CWadThing);
   wthing=wad_dir->ptr+wad->body;
   for(idx=0;idx!=cnt;idx++) {
-   if(wthing->flags&WAD_THINGF_MULTIPLAYER)
+    if(wthing->flags&WAD_THINGF_MULTIPLAYER)
       goto skip_thing;
-     switch(skill) {
+    switch(skill) {
       case 0:
       case 1:
       case 2:
-	if(wthing->flags&WAD_THINGF_SKILL12)
+        if(wthing->flags&WAD_THINGF_SKILL12)
 	  goto pass_thing;
-	break;
+        break;
       case 3:
-	if(wthing->flags&WAD_THINGF_SKILL3)
+        if(wthing->flags&WAD_THINGF_SKILL3)
 	  goto pass_thing;
-	break;
+        break;
       case 4:
       case 5:
-	if(wthing->flags&WAD_THINGF_SKILL45)
+        if(wthing->flags&WAD_THINGF_SKILL45)
 	  goto pass_thing;
-	break;
+        break;
     }
     goto skip_thing;
 pass_thing:
@@ -955,47 +925,47 @@ skip_thing:
 	  MemCpy(name,wside->lower_texture_name,8);
       }
       if(!StrNCmp(name,"BLODGR1",5)) {
-	arr[0]=FramePtr("BLODGR1");
+        arr[0]=FramePtr("BLODGR1");
         arr[1]=FramePtr("BLODGR2");
         arr[2]=FramePtr("BLODGR3");
         arr[3]=FramePtr("BLODGR4");
       }
       if(!StrNCmp(name,"BLODRIP1",7)) {
-	arr[0]=FramePtr("BLODRIP1");
+        arr[0]=FramePtr("BLODRIP1");
         arr[1]=FramePtr("BLODRIP2");
         arr[2]=FramePtr("BLODRIP3");
         arr[3]=FramePtr("BLODRIP4");
       }
       if(!StrNCmp(name,"FIREBLU1",7)) {
-	arr[0]=FramePtr("FIREBLU1");
+        arr[0]=FramePtr("FIREBLU1");
         arr[1]=FramePtr("FIREBLU2");
       }
       if(!StrNCmp(name,"FIRELAV3",7)) {
-	arr[0]=FramePtr("FIRELAVA3");
+        arr[0]=FramePtr("FIRELAVA3");
         arr[1]=FramePtr("FIRELAVA");
       }
       if(!StrNCmp("FIREMAG1",name,7)) {
-	arr[0]=FramePtr("FIREMAG1");
+        arr[0]=FramePtr("FIREMAG1");
         arr[1]=FramePtr("FIREMAG2");
         arr[2]=FramePtr("FIREMAG3");
       }
       if(!StrNCmp("FIREWALA",name,7)) {
-	arr[0]=FramePtr("FIREMALA");
+        arr[0]=FramePtr("FIREMALA");
         arr[1]=FramePtr("FIREWALB");
         arr[2]=FramePtr("FIREWALL");
       }
       if(!StrNCmp("GSTFONT1",name,7)) {
-	arr[0]=FramePtr("GSTFONT1");
+        arr[0]=FramePtr("GSTFONT1");
         arr[1]=FramePtr("GSTFONT2");
         arr[2]=FramePtr("GSTFONT3");
       }
       if(!StrNCmp("ROCKRED1",name,7)) {
-	arr[0]=FramePtr("ROCKRED1");
+        arr[0]=FramePtr("ROCKRED1");
         arr[1]=FramePtr("ROCKRED2");
         arr[2]=FramePtr("ROCKRED3");
       }
       if(!StrNCmp("SLADRIP1",name,7)) {
-	arr[0]=FramePtr("SLADRIP1");
+        arr[0]=FramePtr("SLADRIP1");
         arr[1]=FramePtr("SLADRIP2");
         arr[2]=FramePtr("SLADRIP3");
       }
@@ -1019,6 +989,9 @@ skip_thing:
     dlinedef->sector_tag=wlinedef->sector_tag;
     dlinedef->flags=wlinedef->flags;
     dlinedef->special_type=action_sector_types[wlinedef->special_type];
+    if(wlinedef->special_type&&!dlinedef->special_type) {
+      DbgPrint("Unimp special linedef(%d) at ld %d",wlinedef->special_type,idx);
+    }
     dlinedef_list[idx]=dlinedef;
     QueIns(dlinedef,level->linedefs.last);
     wlinedef++;
@@ -1103,7 +1076,8 @@ skip_thing:
   if(StrCmp8("SECTORS",wad_dir[7].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
     dsect=CAlloc(sizeof(CDoomSector));
-    QueIns(dsect,&level->sectors);
+    QueIns(dsect,level->sectors.last);
+    dsect->idx=idx;
     dsect->floor_height=wsect->floor_height;
     dsect->ceil_height=wsect->ceil_height;
     dsect->base_floor_height=wsect->floor_height;
@@ -1200,7 +1174,7 @@ skip_thing:
     }
   }
 //Assign sectors to subsectors
-   for(dss=level->subsectors.next;dss!=&level->subsectors;dss=dss->next) {
+  for(dss=level->subsectors.next;dss!=&level->subsectors;dss=dss->next) {
     if(!dss->first->back_side)
       dss->sector=dss->first->linedef->front->sector;
     else

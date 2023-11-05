@@ -114,6 +114,11 @@ union CDoomActionSector {
   CDoomLift lift;
 };
 
+class CDoomDonut {
+  U64 type;
+  U64 trigger;
+};
+
 CDoomActionSector *action_sector_types[0x10000];
 MemSet(action_sector_types,0,0x10000*8);
 
@@ -132,6 +137,27 @@ U8 *ReadALine(U8 **fbuf) {
   }
   *fbuf+=StrLen(st);
   return StrNew(st);
+}
+
+#define DOOM_DONUTS_FILE "Donuts.TXT"
+U0 LoadDonuts() {
+  CDoomDonut *d;
+  U8 *optr=FileRead(DOOM_DONUTS_FILE),*fptr=optr,*ln;
+  I64 num;
+  U8 cls[STR_LEN],*cls_ptr=cls;
+  U8 trig[STR_LEN],*trig_ptr=trig;
+  while(ln=ReadALine(&fptr)) {
+    if(*ln=='#'||*ln==0)
+      goto skip;
+    StrScan(ln,"%d\t%s\t%s\n",&num,&cls_ptr,&trig_ptr);
+    d=CAlloc(sizeof CDoomDonut);
+    d->type='Donut';
+    d->trigger=trig[0](U16);
+    action_sector_types[num]=d;
+skip:;
+    Free(ln);
+  }
+  Free(optr);
 }
 
 #define DOOM_CEILS_FILE "Ceils.TXT"
@@ -513,4 +539,5 @@ LoadDoors;
 LoadFloors;
 LoadLifts;
 LoadCeils;
+LoadDonuts;
 #endif

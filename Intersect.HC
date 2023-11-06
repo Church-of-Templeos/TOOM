@@ -4,7 +4,7 @@
   return high-.1<=x<=low+.1;
 }
 
-Bool PlaneIntersect(CD2 *dst,CD2 *a,CD2 *b,CD2 *a2,CD2 *b2) {  
+Bool PlaneIntersect(CD2 *dst,CD2 *a,CD2 *b,CD2 *a2,CD2 *b2,Bool check=TRUE) {  
 /*
 * Nroot here,Heres the deal,I make a system of 2 linear equations and solve for an intersect
 * I solve for the intersect and check if they are in bounds of points
@@ -54,6 +54,7 @@ Check for intersection basically.
   dst->x=((off2-off1)/(slope1-slope2));
   dst->y=slope1*(dst->x)+off1;
 fin:
+  if(!check) return TRUE;
   return InRange(a->x,dst->x,b->x)&&
         InRange(a2->x,dst->x,b2->x)&&
         InRange(a->y,dst->y,b->y)&&

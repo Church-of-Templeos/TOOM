@@ -3,7 +3,7 @@
 #include "FastTrig.HC";
 #include "Wad.HC";
 #include "Thinker.HC";
-
+//#define mp_cnt 1
 I64 draw_job_cnt=0;
 I64 draw_jobs_lock[mp_cnt];
 I64 draw_jobs_done[mp_cnt];
@@ -21,7 +21,7 @@ U0 JobRunnerTask(CTask *parent) {
   CJobRunnerData *d;
   LBts(&draw_jobs_done[core],0);
   while(TRUE) {
-    Sleep(DYING_JIFFIES/4);
+    Sleep(5);
     if(!Bt(&draw_jobs_done[core],0)) {
       ran_one=TRUE;
       while(ran_one) {
@@ -66,24 +66,22 @@ U0 TaskEndCb() {
 Fs->task_end_cb=&TaskEndCb;
 
 U0 QueJobRun(CJobRunnerData *d,I64 core=-1) {
-  I64 best=0,inserted=FALSE;
-  F64 best_factor=Gs->idle_factor;
+  I64 inserted=FALSE;
+  static I64 use_next=0;
   if(core==-1) {
-    core=mp_cnt;
-    while(--core>=0) {
-      if(cpu_structs[core].idle_factor>best_factor) {
-        best_factor=cpu_structs[core].idle_factor;
-        best=core;
-      }
-    }
-    core=best;
+    use_next=(use_next+1)%mp_cnt;
+    if(mp_cnt>1&&!use_next)
+      use_next=1;
+    if(!use_next&&mp_cnt>1)
+      use_next=1;
+    core=use_next;
   }
   if(core==0) {
     (*d->fptr)(d);
     return;
   }
   while(LBts(&draw_jobs_lock[core],0))
-    PAUSE;
+    ;
   inserted=FifoI64Ins(draw_jobs_fifo[core],d);
   LBtr(&draw_jobs_lock[core],0);
   if(!inserted) {
@@ -163,7 +161,8 @@ class CDoomCamera {
   CDC *floor_dc; //This is black or white,this is used for reducing floor overdraw
   I64 visplane_cnt;
   CVisplane visplanes[256];
-};
+} cam;
+cam.fov=pi/4;
 U0 InsertVisplane(CDoomCamera *cam,CDoomSector *s) {
   I64 cnt=cam->visplane_cnt,cnt2=0;
   CVisplane *vp;
@@ -345,6 +344,18 @@ next:;
     }
   }
 } 
+F64 ray_cast_table_cos[GR_WIDTH/2];
+F64 ray_cast_table_sin[GR_WIDTH/2];
+U0 PopulateTables() {
+  I64 inc=0;
+  F64 angle=-cam.fov/2;
+  for(inc=0;inc!=GR_WIDTH/2;inc++) {
+    ray_cast_table_cos[inc]=Cos(angle);
+    ray_cast_table_sin[inc]=Sin(angle);
+    angle+=cam.fov/GR_WIDTH*2;
+  }
+}
+PopulateTables;
 //floor is 0 for floor
 //floor is 1 for middle
 //floor is 2 for ceil
@@ -358,11 +369,11 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   TransformPointToCamera(cam,&clone_en);
   st=&clone_st;
   en=&clone_en;
-  F64 start_angle=FArg(st->x,st->y),ca;
+  F64 start_angle=FArg(st->x,st->y);
   F64 end_angle=FArg(en->x,en->y),tmp,tyf;
   F64 margin;
   CD2 ray,hit,*sw;
-  I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y;
+  I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex;
   CVisplane *vp;
   I32 *db_z,idist;
   F64 dist,ratio;
@@ -398,19 +409,21 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
     end_angle=Clamp(end_angle,-cam->fov/2,cam->fov/2);  
   }
   repeat=TRUE;
-  for(ca=start_angle;ca<=end_angle;ca+=cam->fov/GR_WIDTH*2) {
-    ray.x=I16_MAX*FCos(ca);
-    ray.y=I16_MAX*FSin(ca); 
+  ix=GR_WIDTH/2.+start_angle/(cam->fov/2.)*GR_WIDTH/2.;
+  ix&=~1;
+  ex=GR_WIDTH/2.+end_angle/(cam->fov/2.)*GR_WIDTH/2.;
+  ex&=~1;
+  for(;ix<=ex;ix+=2) {
+    ray.x=I16_MAX*ray_cast_table_cos[ix/2];
+    ray.y=I16_MAX*ray_cast_table_sin[ix/2]; 
     if(PlaneIntersect(&hit,&ray,&zero,st,en)) {
       dist=Sqrt(Sqr(hit.x)+Sqr(hit.y));
       idist=dist;
-      ix=GR_WIDTH/2.+ca/(cam->fov/2.)*GR_WIDTH/2.;
-      ix&=~1;
       if(dist<=0.) dist=1;
       tx=(ToI64(Sqrt(Sqr(hit.x-en->x)+Sqr(hit.y-en->y)))*2+xoff*2)%texture->width;
 //The offset from the ground is included in the "height",we dont render the overdraw
-      margin=DIST_SCALE/(dist*FCos(ca))*(cam->h-level);
-      ih=DIST_SCALE/(dist*FCos(ca))*height;
+      margin=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-level);
+      ih=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*height;
       ih&=~1;
       ratio=height/ToF64(ih);
       iy=GR_HEIGHT/2;
@@ -1089,10 +1102,6 @@ U0 SongTask(I64)
 
 
 
-CDoomCamera cam;
-cam.fov=pi/4;
-//cam.angle=-pi;
-cam.h=0;
 Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
 
 F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
@@ -2489,5 +2498,5 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
   DCFill;
   FreeLevel(l);
 }
-PlayLevel("E1M2",1);
+PlayLevel("E1M1",1);
 #endif

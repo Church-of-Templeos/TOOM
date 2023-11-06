@@ -2,8 +2,9 @@
 #define DOOM_MAIN "Doom" 
 #include "FastTrig.HC";
 #include "Wad.HC";
+CTask *doom_task=Fs;
 #include "Thinker.HC";
-//#define mp_cnt 1
+#define mp_cnt 1 //Reduces flickering
 I64 draw_job_cnt=0;
 I64 draw_jobs_lock[mp_cnt];
 I64 draw_jobs_done[mp_cnt];
@@ -21,7 +22,6 @@ U0 JobRunnerTask(CTask *parent) {
   CJobRunnerData *d;
   LBts(&draw_jobs_done[core],0);
   while(TRUE) {
-    Sleep(5);
     if(!Bt(&draw_jobs_done[core],0)) {
       ran_one=TRUE;
       while(ran_one) {
@@ -38,11 +38,14 @@ U0 JobRunnerTask(CTask *parent) {
         LBtr(&draw_jobs_lock[core],0);
       }
       LBts(&draw_jobs_done[core],0);;
-    }
-    if(Bt(&draw_jobs_kill[core],0)) {
-      LBts(&draw_jobs_kill[core],1);
-      LBts(&draw_jobs_done[core],0);;
-      Exit;
+    } else {
+      Fs->wake_jiffy=I64_MAX;
+      Yield;
+      if(Bt(&draw_jobs_kill[core],0)) {
+        LBts(&draw_jobs_kill[core],1);
+        LBts(&draw_jobs_done[core],0);;
+        Exit;
+      }
     }
   }
 }
@@ -57,6 +60,7 @@ U0 TaskEndCb() {
   while(--cnt>=1) {
     LBts(&draw_jobs_kill[cnt],0);
     LBts(&draw_jobs_done[cnt],0);
+    lock draw_jobs_task[cnt]->wake_jiffy=__GetTicksHP;
     while(!Bt(&draw_jobs_kill[cnt],1))
       ;
   }
@@ -80,10 +84,8 @@ U0 QueJobRun(CJobRunnerData *d,I64 core=-1) {
     (*d->fptr)(d);
     return;
   }
-  while(LBts(&draw_jobs_lock[core],0))
-    ;
+//Here's the 
   inserted=FifoI64Ins(draw_jobs_fifo[core],d);
-  LBtr(&draw_jobs_lock[core],0);
   if(!inserted) {
     (*d->fptr)(d);
     return;
@@ -92,10 +94,16 @@ U0 QueJobRun(CJobRunnerData *d,I64 core=-1) {
 U0 WaitForJobsDone() {
   I64 cnt=mp_cnt;
   while(--cnt>=1) {
-    while(!LBtr(&draw_jobs_done[cnt],0))
+    while(!LBtr(&draw_jobs_done[cnt],0)) {
+     lock draw_jobs_task[cnt]->wake_jiffy=0;
+     MPAwake(cnt);
      Yield;
-    while(!Bt(&draw_jobs_done[cnt],0))
+    }
+    while(!Bt(&draw_jobs_done[cnt],0)) {
+     lock draw_jobs_task[cnt]->wake_jiffy=0;
+     MPAwake(cnt);
      Yield;
+    }
   }
 }
 
@@ -273,7 +281,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
 }
 
 U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
-  if(FramePtr("F_SKY1")==texture) return;
+  if(FramePtr("F_SKY1",doom_task)==texture) return;
   I64 x,y;
   I64 w=sector->shape_dc->width*2,h=sector->shape_dc->height*2;
   I64 plane=sector->visplane_idx;
@@ -386,10 +394,10 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   else
     opposite=ld->front;
   if(opposite)
-    is_sky=opposite->sector->ceil_dc[0]==FramePtr("F_SKY1")&&floor==2;
+    is_sky=opposite->sector->ceil_dc[0]==FramePtr("F_SKY1",doom_task)&&floor==2;
   if(is_sky) return;
   if(onesided)
-    is_sky2=sd->sector->ceil_dc[0]==FramePtr("F_SKY1");
+    is_sky2=sd->sector->ceil_dc[0]==FramePtr("F_SKY1",doom_task);
   U16 *color,*to;
   if(start_angle>end_angle) {
     tmp=start_angle;
@@ -897,26 +905,88 @@ draw_wall:
 skip:;
   }
 }
+Bool FrontSide(Vector *v,CD2 *p) {
+  return v->data[0]*p->y-v->data[1]*p->x>=0.;
+}
+
+
+//box will either inteserect viewport,or point will be inside of it
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+$SP,"<1>",BI=1$
+
+
+
+
+
+
+
+
+
 Bool HitsBBox(CDoomCamera *cam,CBoundBoxF64 *bbox) {
-  F64 x=cam->x,y=cam->y,angle;
+  F64 x=cam->x,y=cam->y,angle,base;
+  Vector *v,*v2;
+  Bool ret=FALSE;
+  CD2 a,b,c,d,zero,ra,rb;
+  zero.x=0,zero.y=0;
   if(InRange(bbox->x,x,bbox->x2))
     if(InRange(bbox->y,y,bbox->y2)) {
       return TRUE;
     }
+  ra.x=I16_MAX*Cos(cam->angle-cam->fov/2.);
+  ra.y=I16_MAX*Sin(cam->angle-cam->fov/2.);
+  rb.x=I16_MAX*Cos(cam->angle+cam->fov/2.);
+  rb.y=I16_MAX*Sin(cam->angle+cam->fov/2.);
 //Check if points are behind camera
-  angle=FArg(bbox->x-x,bbox->y-y);
-  if(Cos(angle-cam->angle)>=0.)
-    return TRUE;
-  angle=FArg(bbox->x-x,bbox->y2-y);
-  if(Cos(angle-cam->angle)>=0.)
-    return TRUE;
-  angle=FArg(bbox->x2-x,bbox->y-y);
-  if(Cos(angle-cam->angle)>=0.)
-    return TRUE;
-  angle=FArg(bbox->x2-x,bbox->y2-y);
-  if(Cos(angle-cam->angle)>=0.)
-    return TRUE;
-  return FALSE;
+  a.x=bbox->x-x;
+  a.y=bbox->y-y;
+  b.x=bbox->x2-x;
+  b.y=bbox->y-y;
+  c.x=bbox->x2-x;
+  c.y=bbox->y2-y;
+  d.x=bbox->x-x;
+  d.y=bbox->y2-y;
+
+  v=CreateVector(2);
+  v2=CreateVector(2);
+  v2->data[0]=rb.x;
+  v2->data[1]=rb.y;
+  v->data[0]=ra.x;
+  v->data[1]=ra.y;
+  if(!FrontSide(v2,&a)&&FrontSide(v,&a))  {
+    ret=TRUE;
+  } else if(!FrontSide(v2,&b)&&FrontSide(v,&b)) {
+    ret=TRUE;
+  } else if(!FrontSide(v2,&c)&&FrontSide(v,&c)) {
+    ret=TRUE;
+  } else if(!FrontSide(v2,&d)&&FrontSide(v,&d)) {
+    ret=TRUE;
+  } else if(PlaneIntersect(NULL,&a,&b,&zero,&ra)||
+	PlaneIntersect(NULL,&b,&c,&zero,&ra)||
+	PlaneIntersect(NULL,&c,&d,&zero,&ra)||
+	PlaneIntersect(NULL,&d,&a,&zero,&ra)) {
+    ret=TRUE;
+  } else if(PlaneIntersect(NULL,&a,&b,&zero,&rb)||
+	PlaneIntersect(NULL,&b,&c,&zero,&rb)||
+	PlaneIntersect(NULL,&c,&d,&zero,&rb)||
+	PlaneIntersect(NULL,&d,&a,&zero,&rb)) {
+    ret=TRUE;
+  }
+  DestroyVector(v);
+  DestroyVector(v2);
+  return ret;
 }
 U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
   if(node->signature!='NODE') {
@@ -971,7 +1041,7 @@ I64 CeilSort(CVisplane *va,CVisplane *vb)  {
 
 
 U0 DrawSky(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
-  CDC *texture=FramePtr("SKY1");
+  CDC *texture=FramePtr("SKY1",doom_task);
   I64 iy,ix,off=texture->width*cam->angle/pi,tx,ty;
   U16 *to,*from;
   for(iy=0;iy!=GR_HEIGHT;iy+=2) {
@@ -2500,3 +2570,8 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
 }
 PlayLevel("E1M1",1);
 #endif
+        ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      
+!   Éÿÿÿ0   ûÿÿÿ
+0   ûÿÿÿb   ðÿÿÿ
+b   ðÿÿÿQ   ¼ÿÿÿ
+Q   ¼ÿÿÿ   Êÿÿÿ 

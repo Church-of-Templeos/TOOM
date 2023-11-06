@@ -4,7 +4,107 @@
 #include "Wad.HC";
 #include "Thinker.HC";
 
+I64 draw_job_cnt=0;
+I64 draw_jobs_lock[mp_cnt];
+I64 draw_jobs_done[mp_cnt];
+I64 draw_jobs_kill[mp_cnt];
+MemSetU64(draw_jobs_done,0,mp_cnt);
+MemSetU64(draw_jobs_lock,0,mp_cnt);
+MemSetU64(draw_jobs_kill,0,mp_cnt);
+CFifoI64 *draw_jobs_fifo[mp_cnt];
+CTask *draw_jobs_task[mp_cnt];
+class CJobRunnerData {
+  U0 (*fptr)(I64);
+};
+U0 JobRunnerTask(CTask *parent) {
+  I64 core=Gs->num,ran_one;
+  CJobRunnerData *d;
+  LBts(&draw_jobs_done[core],0);
+  while(TRUE) {
+    Sleep(DYING_JIFFIES/4);
+    if(!Bt(&draw_jobs_done[core],0)) {
+      ran_one=TRUE;
+      while(ran_one) {
+        while(LBts(&draw_jobs_lock[core],0))
+	  Yield;
+        if(Bt(&draw_jobs_kill[core],0)) {
+          LBts(&draw_jobs_done[core],0);;
+	  LBts(&draw_jobs_kill[core],1);
+	  Exit;
+        }
+        if(ran_one=FifoI64Rem(draw_jobs_fifo[core],&d)) {
+	  (*d->fptr)(d);
+        }
+        LBtr(&draw_jobs_lock[core],0);
+      }
+      LBts(&draw_jobs_done[core],0);;
+    }
+    if(Bt(&draw_jobs_kill[core],0)) {
+      LBts(&draw_jobs_kill[core],1);
+      LBts(&draw_jobs_done[core],0);;
+      Exit;
+    }
+  }
+}
+I64 draw_job_cnt;
+for(draw_job_cnt=mp_cnt-1;draw_job_cnt>=1;draw_job_cnt--) {
+  draw_jobs_fifo[draw_job_cnt]=FifoI64New(2048);
+  draw_jobs_task[draw_job_cnt]=Spawn(&JobRunnerTask,Fs,"Drawer",draw_job_cnt);
+}
 
+U0 TaskEndCb() {
+  I64 cnt=mp_cnt;
+  while(--cnt>=1) {
+    LBts(&draw_jobs_kill[cnt],0);
+    LBts(&draw_jobs_done[cnt],0);
+    while(!Bt(&draw_jobs_kill[cnt],1))
+      ;
+  }
+  Sleep(10);
+  Exit;
+}
+Fs->task_end_cb=&TaskEndCb;
+
+U0 QueJobRun(CJobRunnerData *d,I64 core=-1) {
+  I64 best=0,inserted=FALSE;
+  F64 best_factor=Gs->idle_factor;
+  if(core==-1) {
+    core=mp_cnt;
+    while(--core>=0) {
+      if(cpu_structs[core].idle_factor>best_factor) {
+        best_factor=cpu_structs[core].idle_factor;
+        best=core;
+      }
+    }
+    core=best;
+  }
+  if(core==0) {
+    (*d->fptr)(d);
+    return;
+  }
+  while(LBts(&draw_jobs_lock[core],0))
+    PAUSE;
+  inserted=FifoI64Ins(draw_jobs_fifo[core],d);
+  LBtr(&draw_jobs_lock[core],0);
+  if(!inserted) {
+    (*d->fptr)(d);
+    return;
+  }
+}
+U0 WaitForJobsDone() {
+  I64 cnt=mp_cnt;
+  while(--cnt>=1) {
+    while(!LBtr(&draw_jobs_done[cnt],0))
+     Yield;
+    while(!Bt(&draw_jobs_done[cnt],0))
+     Yield;
+  }
+}
+
+
+CDC *doom_scrn=DCNew(GR_WIDTH,GR_HEIGHT);
+doom_scrn->flags|=DCF_NO_TRANSPARENTS;
+I64 doom_scrn_in_draw=0;
 CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
   CDoomSubsector *ss;
   CDoomBSPNode *node=DoomWhichBSPNode(x,y,level,&ss);
@@ -63,7 +163,6 @@ class CDoomCamera {
   CDC *floor_dc; //This is black or white,this is used for reducing floor overdraw
   I64 visplane_cnt;
   CVisplane visplanes[256];
-  CFifoI64 *visible_sectors;
 };
 U0 InsertVisplane(CDoomCamera *cam,CDoomSector *s) {
   I64 cnt=cam->visplane_cnt,cnt2=0;
@@ -500,6 +599,44 @@ set_floor_height:
 next:;
   }
 }
+class CRayJobData:CJobRunnerData {
+  CDC *to_dc,*texture;
+  CD2 *st,*en;
+  CDoomCamera *cam;
+  I64 level,height,flrh,ceilh,floor;
+  CDoomLinedef *ld;
+  CDoomSidedef *sd;
+};
+U0 RayCastJob(CRayJobData *data) {
+  RayCastWall(
+	data->to_dc,data->texture,data->st,data->en,data->cam,
+	data->level,
+	data->height,
+	data->flrh,
+	data->ceilh,
+	data->floor,
+	data->ld,
+	data->sd,
+	);
+  Free(data);
+}
+U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd) {
+  CRayJobData *j=CAlloc(sizeof(CRayJobData),adam_task);
+  j->to_dc=to_dc;
+  j->texture=texture;
+  j->st=st;
+  j->en=en;
+  j->cam=cam;
+  j->height=height;
+  j->level=level;
+  j->flrh=flrh;
+  j->ceilh=ceilh;
+  j->floor=floor;
+  j->ld=ld;
+  j->sd=sd;
+  j->fptr=&RayCastJob;
+  QueJobRun(j);
+}
 U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,Bool reflect=FALSE) {
   CD2 copy,copy2;
   F64 new_height,new_width,angle;
@@ -708,22 +845,20 @@ draw_wall:
 	  if(fail_cnt!=2) {
 	    if(!sector->drawn) {
 	      sector->drawn=TRUE;
-	      FifoI64Ins(cam->visible_sectors,sector);
 	      InsertVisplane(cam,sector);
 	    }
 	    if(opposite&&opposite->sector&&!opposite->sector->drawn) {
 	      opposite->sector->drawn=TRUE;
-	      FifoI64Ins(cam->visible_sectors,opposite->sector);
 	      InsertVisplane(cam,opposite->sector);
 	    }
 	    if(!no_draw) {
-	      RayCastWall(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef);
+	      QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef);
 	      if(wall==3&&opposite&&opposite->sector) {
 	        sector=opposite->sector;
 	        sidedef=opposite;
 	        floor=sector->floor_height;
 	        ceil=sector->ceil_height;
-	        RayCastWall(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,opposite);
+	        QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,opposite);
 	      }
 	    }
 	  }
@@ -827,6 +962,7 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   CDoomThing *thing;
   CVisplane *sorted[256];
   I64 idx=0,idx2,af,tf;
+  LBts(&doom_scrn_in_draw,0);
   DrawSky(to_dc,l,cam);
   cam->visplane_cnt=0;
   if(!cam->floor_dc) cam->floor_dc=DCNew(GR_WIDTH/2,GR_HEIGHT/2);
@@ -839,15 +975,14 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     cam->floor_depths[idx]=I16_MAX;
     cam->ceil_depths[idx]=I16_MAX;
   }
-  if(!cam->visible_sectors)
-    cam->visible_sectors=FifoI64New(512);
-
-  FifoI64Flush(cam->visible_sectors);
   if(!to_dc->depth_buf)
     DCDepthBufAlloc(to_dc);
   else
     DCDepthBufRst(to_dc);
   DrawBSP(to_dc,cam,level);
+
+  WaitForJobsDone;
+   
   af=tS*4;
   for(idx2=0;idx2!=cam->visplane_cnt;idx2++) {
     sorted[idx2]=&cam->visplanes[idx2];
@@ -870,6 +1005,7 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   for(thing=level->things.next;thing!=&level->things;thing=thing->next) {
     DrawAThing(to_dc,thing,cam);
   }
+  LBtr(&doom_scrn_in_draw,0);
 }
 
 
@@ -1429,7 +1565,7 @@ donut_activate:
 	    if(!(flags&WACTIVATE_WALK)) return;
 	    goto donut_activate1;
 	    break; case 'G1':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return;
 	    goto donut_activate1;
 	    break; case 'PR':
 	    if(!(flags&WACTIVATE_PUSH)) return;
@@ -2229,18 +2365,16 @@ U0 FreeLevel(CDoomLevel *l) {
   Free(l->action_linedefs);
   Free(l);
 }
-
 U0 PlayLevel(U8 *name,I64 difficulty) { 
   l=LoadWadLevel(wad,name,difficulty);
+  WinBorder;
   p=PlayerNew(l);
   PlayerMove(l,p,0);
   InitLevel(l);
   while(TRUE) {
-
-    DCFill;
     UpdateCameraFromPlayer(&cam,p);
 
-    DrawDoomWorld(&cam,l,gr.dc);
+    DrawDoomWorld(&cam,l,doom_scrn);
     ST_Start(p);
 
     //mouse camera pan.
@@ -2326,6 +2460,8 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
       break;
     }
     UpdateLevel(l);
+    if(!Bt(&doom_scrn_in_draw,0))
+      DCBlotColor8(gr.dc,doom_scrn);
     Refresh;
   }
   DCFill;

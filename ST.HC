@@ -379,13 +379,13 @@ U0 DrawNumber(CDoomPlayer *p, U32 x, U32 y,U32 xInc, U16 weapon,Bool small)
         
     if(hundreds>0)
     {
-     GrBlot(gr.dc,x,y,ReturnSprite(hundreds,small));
-     GrBlot(gr.dc,x+xInc,y,ReturnSprite(tens,small));
-     GrBlot(gr.dc,x+xInc+xInc,y,ReturnSprite(ones,small));
+     GrBlot(doom_scrn,x,y,ReturnSprite(hundreds,small));
+     GrBlot(doom_scrn,x+xInc,y,ReturnSprite(tens,small));
+     GrBlot(doom_scrn,x+xInc+xInc,y,ReturnSprite(ones,small));
 
      if(weapon>=12)
      {
-       GrBlot(gr.dc,x+xInc+xInc+xInc,y,NUMPCT);
+       GrBlot(doom_scrn,x+xInc+xInc+xInc,y,NUMPCT);
 
      }
     }
@@ -394,16 +394,16 @@ U0 DrawNumber(CDoomPlayer *p, U32 x, U32 y,U32 xInc, U16 weapon,Bool small)
      if(tens>0)
      {
       if(!small){
-        GrBlot(gr.dc,x,y,ReturnSprite(tens,small));
-        GrBlot(gr.dc,x+xInc,y,ReturnSprite(ones,small));
+        GrBlot(doom_scrn,x,y,ReturnSprite(tens,small));
+        GrBlot(doom_scrn,x+xInc,y,ReturnSprite(ones,small));
       }
       else
       {
-        GrBlot(gr.dc,x+(xInc/2),y,ReturnSprite(tens,small));
-        GrBlot(gr.dc,x+xInc+(xInc/2),y,ReturnSprite(ones,small));
+        GrBlot(doom_scrn,x+(xInc/2),y,ReturnSprite(tens,small));
+        GrBlot(doom_scrn,x+xInc+(xInc/2),y,ReturnSprite(ones,small));
         if(weapon>=12)
         {
-         GrBlot(gr.dc,x+xInc+xInc+(xInc/2),y,NUMPCT);
+         GrBlot(doom_scrn,x+xInc+xInc+(xInc/2),y,NUMPCT);
 
         }
       }
@@ -411,14 +411,14 @@ U0 DrawNumber(CDoomPlayer *p, U32 x, U32 y,U32 xInc, U16 weapon,Bool small)
      else
      {
       if(!small){
-        GrBlot(gr.dc,x,y,ReturnSprite(ones,small));
+        GrBlot(doom_scrn,x,y,ReturnSprite(ones,small));
       }
       else
       {
-        GrBlot(gr.dc,x+xInc,y,ReturnSprite(ones,small));
+        GrBlot(doom_scrn,x+xInc,y,ReturnSprite(ones,small));
         if(weapon>=12)
         {
-         GrBlot(gr.dc,x+xInc+xInc,y,NUMPCT);
+         GrBlot(doom_scrn,x+xInc+xInc,y,NUMPCT);
  
         } 
       }
@@ -441,17 +441,17 @@ U0 ST_refreshBackground(CDoomPlayer *p)
          I16 xmodify=0;
          if(weapons.inum<10&&weapons.inum>3)//pistol
          {
-         GrBlot(gr.dc,weapons.x+62+weapons.x_off,weapons.y-24,
+         GrBlot(doom_scrn,weapons.x+62+weapons.x_off,weapons.y-24,
                      weapons.p[weapons.data]);
          }
          if(weapons.inum>=10&&weapons.inum<16)//shotgun
          {
-         GrBlot(gr.dc,weapons.x+38+weapons.x_off,weapons.y-32,
+         GrBlot(doom_scrn,weapons.x+38+weapons.x_off,weapons.y-32,
                      weapons.p[weapons.data]);
          }
          if(weapons.inum>=16&&weapons.inum<20&&weapons.on==TRUE)//chaingun
          {
-         GrBlot(gr.dc,weapons.x+32+weapons.x_off,weapons.y-32,
+         GrBlot(doom_scrn,weapons.x+32+weapons.x_off,weapons.y-32,
                      weapons.p[weapons.data]);
          }
          if(weapons.inum>=20&&weapons.inum<26)//missile launcher 1
@@ -462,7 +462,7 @@ U0 ST_refreshBackground(CDoomPlayer *p)
              xmodify=-28;
           if(weapons.data>24)
              xmodify=-38;  
-         GrBlot(gr.dc,weapons.x+42+xmodify+weapons.x_off,weapons.y-32+xmodify,
+         GrBlot(doom_scrn,weapons.x+42+xmodify+weapons.x_off,weapons.y-32+xmodify,
                      weapons.p[weapons.data]);
          }
          if(weapons.inum>=34&&weapons.inum<38)//bfg
@@ -470,20 +470,20 @@ U0 ST_refreshBackground(CDoomPlayer *p)
           if(weapons.data==38)
              xmodify=-54;
           
-         GrBlot(gr.dc,weapons.x+72+xmodify+weapons.x_off,weapons.y-16+xmodify,
+         GrBlot(doom_scrn,weapons.x+72+xmodify+weapons.x_off,weapons.y-16+xmodify,
                      weapons.p[weapons.data]);
          }
         }
         
        
-	GrBlot(gr.dc,weapons.x+weapons.x_off,weapons.y,
+	GrBlot(doom_scrn,weapons.x+weapons.x_off,weapons.y,
                      weapons.p[weapons.inum]);//weapon
         
 
        //STATUSBAR
         
-        GrBlot(gr.dc,0,SCREENHEIGHT-64,ST); //Read the ST
-        GrBlot(gr.dc,SCREENWIDTH/2-25,SCREENHEIGHT-64,
+        GrBlot(doom_scrn,0,SCREENHEIGHT-64,ST); //Read the ST
+        GrBlot(doom_scrn,SCREENWIDTH/2-25,SCREENHEIGHT-64,
                       toom_faces.p[toom_faces.inum]);//faces
         
         //bullets max

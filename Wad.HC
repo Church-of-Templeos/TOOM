@@ -140,7 +140,7 @@ class CDoomSidedef:CQue {
 
 
 class CBoundBoxI16 {
-  I16 y,y2,x,x2;
+  I16 y2,y,x2,x;
 };
 
 class CWadBSPNode {

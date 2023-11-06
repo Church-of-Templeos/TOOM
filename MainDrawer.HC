@@ -549,8 +549,10 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	       break;
 	    if(idist>cam->floor_depths[ix/2]) {
 	      if(iy+ih2>=cam->floor_heights[ix/2]) {
-	        break;;
-	      }
+	        break;
+	      } else if(iy+ih2<cam->ceil_heights[ix/2])
+		goto skip_p;
+	      
 	    }
 	    ty=tyf;
 	    if(opposite) //Why is this here????
@@ -576,18 +578,19 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	        *to=color;
 	      }
 	    }
+skip_p:;
 	  }
         }
       }
       if(texture->flags&DCF_NO_TRANSPARENTS) {
         if(!is_sky) {
-	  if(iy<cam->floor_heights[ix/2]) {
+	  if(0) {
 set_floor_height:
-	    if(floor==0)
-	      cam->floor_heights[ix/2]=ClampI64(iy,0,GR_HEIGHT);
-	    else
-	      cam->ceil_heights[ix/2]=ClampI64(iy+ih,0,GR_HEIGHT);
-	    cam->floor_depths[ix/2]=idist;
+	  if(floor==0||floor==1) 
+	    cam->floor_heights[ix/2]=ClampI64(iy,0,GR_HEIGHT);
+	  if(floor)
+	    cam->ceil_heights[ix/2]=ClampI64(iy+ih,0,GR_HEIGHT);
+	  cam->floor_depths[ix/2]=idist;
 //	  cam->ceil_depths[ix/2]=idist;
 	    //	  GrVLine(cam->floor_dc,ix/2,0,(iy+ih)/2);
 	  } else if(cam->floor_depths[ix/2]>=idist) {
@@ -881,7 +884,27 @@ draw_wall:
 skip:;
   }
 }
-
+Bool HitsBBox(CDoomCamera *cam,CBoundBoxF64 *bbox) {
+  F64 x=cam->x,y=cam->y,angle;
+  if(InRange(bbox->x,x,bbox->x2))
+    if(InRange(bbox->y,y,bbox->y2)) {
+      return TRUE;
+    }
+//Check if points are behind camera
+  angle=FArg(bbox->x-x,bbox->y-y);
+  if(Cos(angle-cam->angle)>=0.)
+    return TRUE;
+  angle=FArg(bbox->x-x,bbox->y2-y);
+  if(Cos(angle-cam->angle)>=0.)
+    return TRUE;
+  angle=FArg(bbox->x2-x,bbox->y-y);
+  if(Cos(angle-cam->angle)>=0.)
+    return TRUE;
+  angle=FArg(bbox->x2-x,bbox->y2-y);
+  if(Cos(angle-cam->angle)>=0.)
+    return TRUE;
+  return FALSE;
+}
 U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
   if(node->signature!='NODE') {
     DrawSubsector(to_dc,cam,node);
@@ -899,21 +922,20 @@ U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
   if(IsFrontSideOfVector2D(vect,&cam_cord)) {
     DestroyVector(vect);
     DrawBSP0(to_dc,cam,node->left_child);
-    DrawBSP0(to_dc,cam,node->right_child);
+    if(HitsBBox(cam,&node->right))
+      DrawBSP0(to_dc,cam,node->right_child);
   } else {
     DestroyVector(vect);
     DrawBSP0(to_dc,cam,node->right_child);
-    DrawBSP0(to_dc,cam,node->left_child);
+    if(HitsBBox(cam,&node->left))
+      DrawBSP0(to_dc,cam,node->left_child);
   }
   if(node->parent) DrawBSP0(to_dc,cam,node->parent);
   node->visited=FALSE;
 }
 
 U0 DrawBSP(CDC *to_dc,CDoomCamera *cam,CDoomLevel *level) {
-  CDoomSubsector *ss;
-  CDoomBSPNode *node=DoomWhichBSPNode(cam->x,cam->y,level,&ss);
-  if(node)
-    DrawBSP0(to_dc,cam,node);
+    DrawBSP0(to_dc,cam,level->root_node);
 }
 
 I64 FloorSort(CVisplane *va,CVisplane *vb)  {

@@ -1195,9 +1195,8 @@ U0 LoadMonsterInfo() {
   t->_gib_frames=GenerateCacheFrames(t,"MNOPQRSTU");
   AddState(t->spawn_state="ZOMBIE.S_POSS_STND",10*4,t->_idle_frames,&Look,"ZOMBIE.S_POSS_STND");
   AddState(t->see_state="ZOMBIE.S_POSS_RUN",0,t->_chase_frames,&Chase,"ZOMBIE.S_POSS_RUN");
-  AddState(t->missile_state="ZOMBIE.S_POSS_ATK1",STATE_UNTIL_ANIM_DONE,t->_idle_frames,&FaceTarget,"ZOMBIE.S_POSS_ATK2");
-  AddState("ZOMBIE.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&PosAttack,"ZOMBIE.S_POSS_ATK3");
-  AddState("ZOMBIE.S_POSS_ATK3",STATE_UNTIL_ANIM_DONE,t->_chase_frames,NULL,"ZOMBIE.S_POSS_RUN");
+  AddState(t->missile_state="ZOMBIE.S_POSS_ATK1",0,t->_idle_frames,&FaceTarget,"ZOMBIE.S_POSS_ATK2");
+  AddState("ZOMBIE.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&PosAttack,"ZOMBIE.S_POSS_RUN");
   AddState(t->pain_state="ZOMBIE.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"ZOMBIE.S_POSS_RUN");
   AddState(t->death_state="ZOMBIE.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
   AddState(t->gib_state="ZOMBIE.S_POSS_GIB",STATE_NO_REPEAT,t->_gib_frames,&XFall,"ST_NULL");

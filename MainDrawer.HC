@@ -686,20 +686,14 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p
     for(x=fromx;x<tox;x+=2) {
       if(x<0) x=0;
       if(x>tox) break;
-      if(y>cam->floor_heights[x/2])
-        if(dist>cam->floor_depths[x/2])
-	  goto nextx;
-      if(y<cam->ceil_heights[x/2])
-        if(dist>cam->ceil_depths[x/2])
-	  goto nextx;
-      if(!reflect)
-        ix=Lerp((x-fromx)/new_width,0,sprite->width-1);
-      else
-        ix=Lerp((x-fromx)/new_width,sprite->width-1,0);
-      iy=Lerp((y-fromy)/new_height,0,sprite->height-1);
-      from=&sprite->body[(ix&~1)+(iy&~1)*sprite->width_internal];
       db_z=&to_dc->depth_buf[x+y*to_dc->width_internal];
       if(*db_z>dist) {
+        if(!reflect)
+	  ix=Lerp((x-fromx)/new_width,0,sprite->width-1);
+        else
+	  ix=Lerp((x-fromx)/new_width,sprite->width-1,0);
+        iy=Lerp((y-fromy)/new_height,0,sprite->height-1);
+        from=&sprite->body[(ix&~1)+(iy&~1)*sprite->width_internal];
         dst=&to_dc->body[x+y*to_dc->width_internal];
         if(from->u8[0]!=TRANSPARENT)
 	  *dst=*from,*db_z=dist,db_z[1]=dist;
@@ -1087,7 +1081,7 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   DrawBSP(to_dc,cam,level);
 
   WaitForJobsDone;
-   
+
   af=tS*4;
   for(idx2=0;idx2!=cam->visplane_cnt;idx2++) {
     sorted[idx2]=&cam->visplanes[idx2];
@@ -1108,7 +1102,9 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     }
   }
   for(thing=level->things.next;thing!=&level->things;thing=thing->next) {
-    DrawAThing(to_dc,thing,cam);
+    sector=GetSectorForCoord(level,thing->x,thing->y);
+    if(sector->drawn)
+      DrawAThing(to_dc,thing,cam);
   }
   LBtr(&doom_scrn_in_draw,0);
 }

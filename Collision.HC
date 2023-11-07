@@ -17,30 +17,6 @@ Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
   en.x=ld->end->x;
   en.y=ld->end->y;
   return PlaneIntersect(NULL,a,b,ld->start,ld->end);
-/*
-  F64 angle=FArg(en.x-st.x,en.y-st.y);
-  F64 bbl_t=Max(a->y,b->y)+1.;
-  F64 bbl_b=Min(a->y,b->y)-1.;
-  F64 bbl_r=Max(a->x,b->x)+1.;
-  F64 bbl_l=Min(a->x,b->x)-1.;
-
-  F64 bbld_t=Max(st.y,en.y)+1.;
-  F64 bbld_b=Min(st.y,en.y)-1.;
-  F64 bbld_r=Max(st.x,en.x)+1.;
-  F64 bbld_l=Min(st.x,en.x)-1.;
-
-  if(bbl_r<=bbld_l
-	||bbld_l>=bbl_r
-        ||bbl_t<=bbld_b
-        ||bbld_b>=bbld_t
-	)
-    return FALSE;
-  return (((a->x-st.x)*(en.y-st.y) - (a->y-st.y)*(en.x-st.x))
-  * ((b->x-st.x)*(en.y-st.y) - (b->y-st.y)*(en.x-st.x)) < 0.)
-  &&
-        (((st.x-a->x)*(b->y-a->y) - (st.y-a->y)*(b->x-a->x))
-  * ((en.x-a->x)*(b->y-a->y) - (en.y-a->y)*(b->x-a->x)) < 0.);
-*/
 }
 
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line

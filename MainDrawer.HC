@@ -739,7 +739,7 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   if(angle<0.)
     angle+=2.*pi;
   face=1;
-  for(gap=-2.*pi/8.;gap<2*pi;gap+=2.*pi/8.) {
+  for(gap=-2.*pi/8./2;gap<2*pi;gap+=2.*pi/8.) {
     if(gap<=angle<=gap+2.*pi/8.)
       break;
     face++;

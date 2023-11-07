@@ -7,7 +7,7 @@
 #define COLLISF_NO_HIT_THING 4
 #define COLLISF_MONSTER 8
 #define COLLISF_ADJUST_FOR_RADIUS 0x10
-extern Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=0,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL);
+extern Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=0,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL,CDoomThing **hit=NULL);
 
 //https://stackoverflow.com/questions/14176776/find-out-if-2-lines-intersect
 Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
@@ -182,7 +182,7 @@ enter:
 	  ||bbl_b>bbt_t)
       ; //Fail
     else  {
-      if(exclude!=cur&&cur->flags&TF_OBSTACLE) {
+      if(exclude!=cur&&cur->flags&(TF_OBSTACLE|TF_SHOOTABLE)) {
         dist=Sqrt(Sqr(cur->x-dummy->x)+Sqr(cur->y-dummy->y));
         if(dist<min_dist) {
 	  max=cur;
@@ -315,11 +315,12 @@ next:;
 
 
 //walked_over_hot is "hot" linedefs that have a walkover action on them
-CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=COLLISF_SLIDE,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL) {
+CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=COLLISF_SLIDE,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL,CDoomThing **_hit_thing=NULL) {
   if(dist<0) {
     dist=-dist;
     angle+=pi;
   }
+  if(_hit_thing) _hit_thing[0]=NULL;
   Vector *vector;
   Bool hit=FALSE;
   I64 blockx=(at->x-l->block_map_x_off)/128,i,try_cnt;
@@ -424,6 +425,7 @@ skip:;
     if(flags&COLLISF_NO_HIT_THING)
       if(hit_thing=HitsAThing(l,&cur_pos,radius,exclude))  {
 //NOSLIDING agianst things
+	if(_hit_thing) *_hit_thing=hit_thing;
 	flags&=~COLLISF_SLIDE;
         break;
       }

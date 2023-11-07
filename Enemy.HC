@@ -74,13 +74,17 @@ U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
   CDoomThing *self=t->self,*hit,*head=&l->things;
   CDoomProjectileTemplate *template=self->template;
   F64 dist=template->speed,splash;
-  CDoomLinedef *ld=NULL;
+  CDoomLinedef *ld=NULL;  
+  //If we hit ourself,move without checking for things
+  //Exlucude the shooter,remove missile from the Que to avoid checking for it
+  QueRem(self);
 //No speeding through targets
   while(dist>0.) {
-    if(ld=MoveInLevel(l,&self->x,self->angle,Max(dist,template->radius),template->radius,self->height,COLLISF_NO_HIT_THING,NULL,self))
+    if(ld=MoveInLevel(l,&self->x,self->angle,Min(dist,template->radius),template->radius,self->height,COLLISF_NO_HIT_THING,NULL,t->shooter,&hit))
       break;
     dist-=template->radius;
   }
+  QueIns(self,&l->things);
   self->height+=t->vslope*template->speed;
   CDoomSector *s=GetSectorForCoord(l,self->x,self->y);
   if(!t->hit) {
@@ -95,8 +99,8 @@ U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
     }
     return;
   }
-  if(hit=HitsAThing(l,&self->x,t->self)) {
-    if(!(hit->flags&TF_SHOOTABLE))
+  if(hit) {
+    if(!(hit->flags&TF_SHOOTABLE)||hit==t->shooter)
       goto next;
     DamageMob(l,hit,t->shooter,template->direct*(Rand&7+1));
 explode:
@@ -710,7 +714,7 @@ U0 SpawnMissile(CDoomLevel *l,CDoomThing *t,CDoomThing *target,U64 type) {
     angle=t->angle;
 //Spawn outsdie of radius of both t and self
 //1.5 for square bound box
-  dist=1.5*(template->radius+t->template->radius);
+  dist=1*5*template->radius+1.5*t->template->radius;
   self->x=t->x+dist*Cos(angle);
   self->y=t->y+dist*Sin(angle);
   self->angle=angle;

@@ -596,6 +596,7 @@ U0 SpawnSmokePuff(CDoomLevel *l,CD2 *at,F64 h,F64 attack_range) {
 } 
 U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 angle,F64 damage) {
   CDoomThing *hit=ShotSmacksAHomie(l,&self->x,angle,range,self->height+self->template->height-2,self);
+  CDoomLinedef *ld;
   CD2 puff_pos,dummy;
   F64 angle2;
   F64 dist,src_h,dst_h,dist2;
@@ -651,8 +652,11 @@ defacto:
       SpawnSmokePuff(l,&puff_pos,src_h,dist);
     }
 //Check to see if we hit a shootable wall
-   dummy.x=self->x;
-   dummy.x=self->x;
+    dummy.x=self->x;
+    dummy.y=self->y;
+    ld=MoveInLevel(l,&dummy,angle,dist+8,8.,self->height,);
+    if(ld)
+      TriggerLinedef(l,ld,WACTIVATE_SHOOT);
   }
 }
 U0 PosAttack(CDoomLevel *l,CMonsterThinker *t) {

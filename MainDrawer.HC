@@ -1588,8 +1588,8 @@ U0 DonutThinker(CDoomLevel *l,CDonutThinker *t) {
   I64 i;
   for(s1=l->sectors.next;s1!=&l->sectors;s1=s1->next) {
     if(s1->tag_number==t->ld->sector_tag) {
-      if(s1->cur_action_linedef)
-	goto next;
+//      if(s1->cur_action_linedef)
+//	goto next;
       ld=s1->linedefs[0];
       if(ld->front^^ld->back) goto next;
       if(ld->front->sector==s1) {
@@ -1605,7 +1605,7 @@ U0 DonutThinker(CDoomLevel *l,CDonutThinker *t) {
 //Rising slime
 	if(s2->floor_height<s3->floor_height) {
 	  s2->cur_action_linedef=t->ld;
-	  s2->floor_height+=1.5;
+	  s2->floor_height+=1.5*(1/35.);
         } else {
 	  s2->floor_height=s3->floor_height;
 	  MemCpy(s2->floor_dc,s3->floor_dc,sizeof(CDC*)*4);
@@ -1614,12 +1614,12 @@ U0 DonutThinker(CDoomLevel *l,CDonutThinker *t) {
 //Decending poo poo
 	if(s1->floor_height>s3->floor_height) {
 	  s1->cur_action_linedef=t->ld;
-	  s1->floor_height-=1.5;
+	  s1->floor_height-=1.5*(1/35.);
         } else {
 	  s1->floor_height=s3->floor_height;
 	  s1->cur_action_linedef=NULL;
 	}
-
+PrintF("s1",s1->floor_height);
 next2:;
       } while(++i<s2->linedef_cnt);
     }
@@ -1641,6 +1641,7 @@ U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags) {
   if(ld) {
     if((type=ld->special_type)) {
       if(type->type=='Donut') {
+PrintI("DN",1);
 	donut=type;
         switch(donut->trigger) {
 	    break; case 'P1':
@@ -2564,7 +2565,7 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
   DCFill;
   FreeLevel(l);
 }
-PlayLevel("E1M1",1);
+PlayLevel("E1M2",1);
 #endif
         ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      
 !   Éÿÿÿ0   ûÿÿÿ

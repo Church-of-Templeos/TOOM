@@ -622,11 +622,22 @@ found_pstart:
 
 
   LoadGrLump(wad,"STBAR");
+  LoadGrLump(wad,"STARMS");
   for(idx=0;idx!=10;idx++) {
     lump_name[0]=0;
     CatPrint(lump_name,"STTNUM%d",idx);
     LoadGrLump(wad,lump_name);
+    lump_name[0]=0;
+    CatPrint(lump_name,"STGNUM%d",idx);
+    LoadGrLump(wad,lump_name);
   }
+
+  for(idx=0;idx!=6;idx++) {
+    lump_name[0]=0;
+    CatPrint(lump_name,"STKEYS%d",idx);
+    LoadGrLump(wad,lump_name);
+  }
+
   LoadGrLump(wad,"STTPRCNT");
   for(idx=0;idx!=10;idx++) {
     lump_name[0]=0;

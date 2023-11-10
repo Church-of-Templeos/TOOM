@@ -353,7 +353,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
 		      lds[0]->front->sector->ceil_height);
 	      }
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-	      if(floor_height-STEP_HEIGHT>cur_height||ceil_height-56.<=cur_height||floor_height==ceil_height) {
+	      if(floor_height-STEP_HEIGHT>cur_height||ceil_height-48.<=cur_height||floor_height==ceil_height) {
 fail_walk:
 	        if(wall_idx<64)
 		  walls[wall_idx++]=*lds;

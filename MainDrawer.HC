@@ -1842,9 +1842,9 @@ activate1:
 	    s->activated=TRUE;
 activate:
 //Check for keys
-	    //if(l->has_red_key^^(door->key&DOOR_LOCK_RED)) return;
-	    //if(l->has_blue_key^^(door->key&DOOR_LOCK_BLUE)) return;
-	    //if(l->has_yellow_key^^(door->key&DOOR_LOCK_YELLOW)) return;
+	    if(!l->has_red_key&&(door->key&DOOR_LOCK_RED)) return;
+	    if(!l->has_blue_key&&(door->key&DOOR_LOCK_BLUE)) return;
+	    if(!l->has_yellow_key&&(door->key&DOOR_LOCK_YELLOW)) return;
 //Do the door action
 	    s->target_start=s->ceil_height;
 	    switch(door->action) {

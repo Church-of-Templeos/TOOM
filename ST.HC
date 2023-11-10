@@ -173,6 +173,9 @@ static CDC*		NUMS7;
 static CDC*		NUMS8;
 static CDC*		NUMS9;
 
+static CDC*		STGNUM[10];
+static CDC*		STKEYS[6];
+static CDC		*STARMS;
 static Bool st_stopped = TRUE;
 
 /*
@@ -200,55 +203,6 @@ U0GrChar(CDC*dc,U8 ch,I64 x,I64 y,I64 scale)
   }
 }
 
-U0 DrawPatch(CDC *to_dc, I64 sx,I64 sy,I64 ex,I64 ey, CDoomImage r) 
-{
-  F64 cx,cy;
-  I64 i=0,j=0;
-  I64 texture_w = r.w,texture_h = r.h; 
-  I64 texture_l = r.left,texture_r = r.top;
-  for(cy=sy;cy<=ey;cy++,i++) 
-  {
-    CDoomImageCol *curr = &r.col_offs[i];
-    if(curr->rowstart==255)
-    {
-     if(i==texture_w)
-     {
-       i=0;
-     }
-     
-    }
-
-    for(cx=sx;cx<=ex;cx++,j++) 
-    {
-      if(j==curr->px_cnt)
-      {
-       j=0; 
-      }
-      to_dc->color=curr->data[j];
-     // to_dc->color=GrPeek0(texture,point.x,point.y)
-     // GrPlot3(to_dc,cx,cy,0);
-      
-    }
-  }
-}
-
-U0 CopyPatch(CDC *to_dc,CDC*texture, I64 sx, I64 sy, I64 ex, I64 ey)
-{
-  F64 cx,cy;
-  I64 i=0,j=0;
-  
-  for(cy=sy;cy<=ey;cy++) 
-  {
-
-    for(cx=sx;cx<=ex;cx++,j++) 
-    {
-     // to_dc->color=GrPeek0(texture,point.x,point.y)
-     // GrPlot3(to_dc,cx,cy,0);
-     // GrBlot(to_dc,0,0,texture);
-      
-    }
-  }
-}
 
 CDC*ReturnSprite(U16 value,Bool large)
 {
@@ -429,83 +383,127 @@ U0 DrawNumber(CDoomPlayer *p, U32 x, U32 y,U32 xInc, U16 weapon,Bool small)
 
 U0 ST_refreshBackground(CDoomPlayer *p)
 {
-    CDoomImageCol *curr = NULL;
-    if (st_statusbaron)
+  I64 idx,ix,iy;
+  if (st_statusbaron)
     {
-       //
-       //WEAPONS
-       //
+//
+    //WEAPONS
+    //
 
-        if(weapons.data>0)
-        {//draw weapons flash
-         I16 xmodify=0;
-         if(weapons.inum<10&&weapons.inum>3)//pistol
-         {
-         GrBlot(doom_scrn,weapons.x+62+weapons.x_off,weapons.y-24,
-                     weapons.p[weapons.data]);
-         }
-         if(weapons.inum>=10&&weapons.inum<16)//shotgun
-         {
-         GrBlot(doom_scrn,weapons.x+38+weapons.x_off,weapons.y-32,
-                     weapons.p[weapons.data]);
-         }
-         if(weapons.inum>=16&&weapons.inum<20&&weapons.on==TRUE)//chaingun
-         {
-         GrBlot(doom_scrn,weapons.x+32+weapons.x_off,weapons.y-32,
-                     weapons.p[weapons.data]);
-         }
-         if(weapons.inum>=20&&weapons.inum<26)//missile launcher 1
-         {
-          if(weapons.data>22)
-             xmodify=-16;
-          if(weapons.data>23)
-             xmodify=-28;
-          if(weapons.data>24)
-             xmodify=-38;  
-         GrBlot(doom_scrn,weapons.x+42+xmodify+weapons.x_off,weapons.y-32+xmodify,
-                     weapons.p[weapons.data]);
-         }
-         if(weapons.inum>=34&&weapons.inum<38)//bfg
-         {
-          if(weapons.data==38)
-             xmodify=-54;
-          
-         GrBlot(doom_scrn,weapons.x+72+xmodify+weapons.x_off,weapons.y-16+xmodify,
-                     weapons.p[weapons.data]);
-         }
-        }
-        
-       
-	GrBlot(doom_scrn,weapons.x+weapons.x_off,weapons.y,
-                     weapons.p[weapons.inum]);//weapon
-        
+    if(weapons.data>0)
+      {//draw weapons flash
+      I16 xmodify=0;
+      if(weapons.inum<10&&weapons.inum>3)//pistol
+        {
+        GrBlot(doom_scrn,weapons.x+62+weapons.x_off,weapons.y-24,
+	      weapons.p[weapons.data]);
+      }
+      if(weapons.inum>=10&&weapons.inum<16)//shotgun
+        {
+        GrBlot(doom_scrn,weapons.x+38+weapons.x_off,weapons.y-32,
+	      weapons.p[weapons.data]);
+      }
+      if(weapons.inum>=16&&weapons.inum<20&&weapons.on==TRUE)//chaingun
+        {
+        GrBlot(doom_scrn,weapons.x+32+weapons.x_off,weapons.y-32,
+	      weapons.p[weapons.data]);
+      }
+      if(weapons.inum>=20&&weapons.inum<26)//missile launcher 1
+        {
+        if(weapons.data>22)
+	  xmodify=-16;
+        if(weapons.data>23)
+	  xmodify=-28;
+        if(weapons.data>24)
+	  xmodify=-38;  
+        GrBlot(doom_scrn,weapons.x+42+xmodify+weapons.x_off,weapons.y-32+xmodify,
+	      weapons.p[weapons.data]);
+      }
+      if(weapons.inum>=34&&weapons.inum<38)//bfg
+        {
+        if(weapons.data==38)
+	  xmodify=-54;
 
-       //STATUSBAR
-        
-        GrBlot(doom_scrn,0,SCREENHEIGHT-64,ST); //Read the ST
-        GrBlot(doom_scrn,SCREENWIDTH/2-25,SCREENHEIGHT-64,
-                      toom_faces.p[toom_faces.inum]);//faces
-        
-        //bullets max
-        DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-55,10,8,FALSE);
-        DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-43,10,9,FALSE);        
-        DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-30,10,10,FALSE);
-        DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-18,10,11,FALSE);
-        
-        //current ammo
-        DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-55,10,1,FALSE);
-        DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-43,10,2,FALSE);        
-        DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-30,10,4,FALSE);
-        DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-18,10,6,FALSE);
-        
-        //current ammo large
-        DrawNumber(p,8,SCREENHEIGHT-52,28,weaponIndex,TRUE);
-        //current health
-        DrawNumber(p,SCREENWIDTH-542,SCREENHEIGHT-52,28,12,TRUE);
-        //current armor
-        DrawNumber(p,SCREENWIDTH-282,SCREENHEIGHT-52,28,13,TRUE);
-    
+        GrBlot(doom_scrn,weapons.x+72+xmodify+weapons.x_off,weapons.y-16+xmodify,
+	      weapons.p[weapons.data]);
+      }
     }
+
+
+    if(weapons.p[weapons.inum])
+      GrBlot(doom_scrn,weapons.x+weapons.x_off,weapons.y,
+	    weapons.p[weapons.inum]);//weapon
+
+
+    //STATUSBAR
+
+    GrBlot(doom_scrn,0,SCREENHEIGHT-64,ST); //Read the ST
+    GrBlot(doom_scrn,SCREENWIDTH/2-25,SCREENHEIGHT-64,
+	  toom_faces.p[toom_faces.inum]);//faces
+
+    //bullets max
+    DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-55,10,8,FALSE);
+    DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-43,10,9,FALSE);        
+    DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-30,10,10,FALSE);
+    DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-18,10,11,FALSE);
+
+    //current ammo
+    DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-55,10,1,FALSE);
+    DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-43,10,2,FALSE);        
+    DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-30,10,4,FALSE);
+    DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-18,10,6,FALSE);
+
+    //current ammo large
+    DrawNumber(p,8,SCREENHEIGHT-52,28,weaponIndex,TRUE);
+//current health
+    DrawNumber(p,SCREENWIDTH-542,SCREENHEIGHT-52,28,12,TRUE);
+//current armor
+    DrawNumber(p,SCREENWIDTH-282,SCREENHEIGHT-52,28,13,TRUE);    
+  }
+
+  GrBlot(doom_scrn,208,SCREENHEIGHT-64,STARMS);
+
+  for(idx=2;idx<=7;idx++) {
+    switch(idx) {
+      start:
+	iy=212*2;
+        case 2:
+	  ix=111*2+2*12*0;
+	  break;
+        case :
+	  ix=111*2+2*12*1;
+	  break;
+        case :
+	  ix=111*2+2*12*2;
+	  break;
+      end:
+        break;
+      start:
+	iy=222*2;
+        case :
+	  ix=111*2+2*12*0;
+	  break;
+        case :
+	  ix=111*2+2*12*1;
+	  break;
+        case :
+	  ix=111*2+2*12*2;
+	  break;
+      end:;
+    }
+    if(!p->arsenal[idx]->available) {
+      GrBlot(doom_scrn,ix,iy,STGNUM[idx]);
+    } else
+      GrBlot(doom_scrn,ix,iy,ReturnSprite(idx,FALSE));
+    if(l->has_red_key) {
+      GrBlot(doom_scrn,2*239,212*2,STKEYS[2]);
+    } else if(l->has_blue_key) {
+      GrBlot(doom_scrn,2*239,222*2,STKEYS[1]);
+    } else if(l->has_yellow_key) {
+      GrBlot(doom_scrn,2*239,232*2,STKEYS[0]);
+    }
+
+  }
 }
 
 U0 ST_refresh(CDoomPlayer *p)
@@ -532,6 +530,8 @@ U0 InitWidgets()
 
 U0 ST_ReadOnce()
 {
+  U8 dummy[16];
+  I64 idx;
   if(st_firsttime ==FALSE)
     {
 //not efficent
@@ -540,6 +540,20 @@ U0 ST_ReadOnce()
 
     //STATUS BARS
     CWadDirectory *wad_dir=wad->body+wad->directory_ptr;  //Wads have a base pointer where the "directories" are stored
+
+    for(idx=0;idx!=10;idx++) {
+      StrPrint(dummy,"STGNUM%d",idx);
+      STGNUM[idx]=FramePtr(dummy);
+    }
+
+    for(idx=0;idx!=6;idx++) {
+      StrPrint(dummy,"STKEYS%d",idx);
+      STKEYS[idx]=FramePtr(dummy);
+    }
+
+    STARMS=FramePtr("STARMS");
+
+
     ST = FramePtr("STBAR");
     NUM0=FramePtr("STTNUM0");
     NUM1=FramePtr("STTNUM1");

@@ -505,30 +505,38 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  cam->floor_depths[ix/2]=idist;
         }
         ih2+=2;
-        if(is_sky2) {//Fill in upper pixels Z-buf distance with distnce for sky
+        if(is_sky2&&!is_sky) {//Fill in upper pixels Z-buf distance with distnce for sky
 	  ty=iy;
 	  while(ty>=0) {
 	    db_z=&to_dc->depth_buf[ix+ty*to_dc->width_internal];
+	    to=&to_dc->body[ix+ty*to_dc->width_internal];
 	    if(*db_z>idist) {
 	      db_z[0]=idist;
 	      db_z[1]=idist;
+	      *to=TRANSPARENT|TRANSPARENT<<8;
 	      db_z+=to_dc->width_internal;
+	      to(U8*)+=to_dc->width_internal;
 	      db_z[0]=idist;
 	      db_z[1]=idist;
+	      *to=TRANSPARENT|TRANSPARENT<<8;
 	    }
 	    ty-=2;
 	  }
         }
         if(is_sky) {
-	  ih2+=iy;
+	  ih2=ClampI64(ih2+iy,0,GR_HEIGHT-2);
 	  while(ih2>=0) {
 	    db_z=&to_dc->depth_buf[ix+ih2*to_dc->width_internal];
+	    to=&to_dc->body[ix+(iy+ih2)*to_dc->width_internal];
 	    if(*db_z>idist) {
 	      db_z[0]=idist;
 	      db_z[1]=idist;
+	      *to=TRANSPARENT|TRANSPARENT<<8;
 	      db_z+=to_dc->width_internal;
+	      to(U8*)+=to_dc->width_internal;
 	      db_z[0]=idist;
 	      db_z[1]=idist;
+	      *to=TRANSPARENT|TRANSPARENT<<8;
 	    }
 	    ih2-=2;
 	  }
@@ -1043,15 +1051,18 @@ U0 DrawSky(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
     if(ty>texture->height-2)
       ty=texture->height-2;
     for(ix=0;ix!=GR_WIDTH;ix+=2) {
+      to=&to_dc->body[ix+iy*to_dc->width_internal];
+      if(*to&TRANSPARENT!=TRANSPARENT)
+        goto skip;
+      *to=*from;
       tx=(ix+off)/ToF64(GR_WIDTH)*texture->width;
       tx%=texture->width-2;
       tx=AbsI64(tx);
       from=&texture->body[tx+ty*texture->width_internal];
-      to=&to_dc->body[ix+iy*to_dc->width_internal];
-      *to=*from;
       from(U8*)+=texture->width_internal;
       to(U8*)+=to_dc->width_internal;
       *to=*from;
+skip:;
     }
   }
 }
@@ -1062,7 +1073,6 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   CVisplane *sorted[256];
   I64 idx=0,idx2,af,tf;
   LBts(&doom_scrn_in_draw,0);
-  DrawSky(to_dc,l,cam);
   cam->visplane_cnt=0;
   if(!cam->floor_dc) cam->floor_dc=DCNew(GR_WIDTH/2,GR_HEIGHT/2);
   DCFill(cam->floor_dc,BLACK);
@@ -1106,6 +1116,7 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     if(sector->drawn)
       DrawAThing(to_dc,thing,cam);
   }
+  DrawSky(to_dc,l,cam);
   LBtr(&doom_scrn_in_draw,0);
 }
 

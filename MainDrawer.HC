@@ -381,7 +381,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   F64 end_angle=FArg(en->x,en->y),tmp,tyf;
   F64 margin;
   CD2 ray,hit,*sw;
-  I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex;
+  I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex,dir;
   CVisplane *vp;
   I32 *db_z,idist;
   F64 dist,ratio;
@@ -389,6 +389,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   Bool is_sky=FALSE,is_sky2=FALSE,clipped=FALSE,recompute_ty;
   I64 low_ih,high_ih;
   CDoomSidedef *opposite;
+  U16 *color,*to;
   if(ld->front==sd)
     opposite=ld->back;
   else
@@ -398,30 +399,29 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   if(is_sky) return;
   if(onesided)
     is_sky2=sd->sector->ceil_dc[0]==FramePtr("F_SKY1",doom_task);
-  U16 *color,*to;
-  if(start_angle>end_angle) {
-    tmp=start_angle;
-    start_angle=end_angle;
-    end_angle=tmp;
-
-    sw=st;
-    st=en;
-    en=sw;
-  }
+  start_angle=Wrap(start_angle);
+  end_angle=Wrap(end_angle);
   if(floor!=3) {
-    start_angle=Clamp(start_angle,-cam->fov/2,cam->fov/2);
-    end_angle=Clamp(end_angle,-cam->fov/2,cam->fov/2); 
+//Angles are strange so i will just assume whole range if out of bound
+    if(!(-cam->fov/2<start_angle<cam->fov/2)||!(-cam->fov/2<end_angle<cam->fov/2)) {
+      start_angle=-cam->fov/2;
+      end_angle=cam->fov/2;
+    }
   } else {
     clipped=!(-cam->fov/2<start_angle<cam->fov/2)||!(-cam->fov/2<end_angle<cam->fov/2);
     start_angle=Clamp(start_angle,-cam->fov/2,cam->fov/2);
-    end_angle=Clamp(end_angle,-cam->fov/2,cam->fov/2);  
+    end_angle=Clamp(end_angle,-cam->fov/2,cam->fov/2);
   }
   repeat=TRUE;
   ix=GR_WIDTH/2.+start_angle/(cam->fov/2.)*GR_WIDTH/2.;
   ix&=~1;
   ex=GR_WIDTH/2.+end_angle/(cam->fov/2.)*GR_WIDTH/2.;
   ex&=~1;
-  for(;ix<=ex;ix+=2) {
+  if(ix<ex)
+    dir=2;
+  else
+    dir=-2;
+  for(;ix!=ex;ix+=dir) {
     ray.x=I16_MAX*ray_cast_table_cos[ix/2];
     ray.y=I16_MAX*ray_cast_table_sin[ix/2]; 
     if(PlaneIntersect(&hit,&ray,&zero,st,en)) {

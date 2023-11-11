@@ -5,6 +5,7 @@
 #include "Intermission.HC";
 CTask *doom_task=Fs;
 #include "Thinker.HC";
+#include "Music.HC";
 #define mp_cnt 1 //Reduces flickering
 I64 draw_job_cnt=0;
 I64 draw_jobs_lock[mp_cnt];
@@ -1130,7 +1131,7 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
 
 
 
-U0 SongTask(I64)
+/*U0 SongTask(I64)
 {//Song by Robert Prince
   Fs->task_end_cb=&SndTaskEndCB;
   MusicSettingsRst;
@@ -1183,6 +1184,15 @@ U0 SongTask(I64)
     Play("1AA2C1AA2B1AAtt3DB2G#EDB1G#E3E3DB2G#EDB..");
     Play("1G#2A");
   }
+}*/
+U0 SongTask(I64) {
+  CWadDirectory *wad_dir=wad->body+wad->directory_ptr;
+  U8 lump_name[9],*m;
+  StrCpy(lump_name,"D_E1M1");
+  wad_dir+=W_CheckNumForName(lump_name,wad);
+  m=MUS2Freqs(wad->body+wad_dir->ptr);
+  Fs->task_end_cb=&SndTaskEndCB;
+  PlayMusicTask(m);
 }
 
 

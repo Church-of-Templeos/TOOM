@@ -405,8 +405,14 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   if(floor!=3) {
 //Angles are strange so i will just assume whole range if out of bound
     if(!(-cam->fov/2<start_angle<cam->fov/2)||!(-cam->fov/2<end_angle<cam->fov/2)) {
-      start_angle=-cam->fov/2;
-      end_angle=cam->fov/2;
+      if(-cam->fov/2<start_angle<cam->fov/2) {
+	end_angle=Sign(st->x*en->y-st->y*en->x)*cam->fov/2.;
+      } else if(-cam->fov/2<end_angle<cam->fov/2) {
+	start_angle=Sign(en->x*st->y-en->y*st->x)*cam->fov/2.;
+      } else {
+        start_angle=-cam->fov/2;
+        end_angle=cam->fov/2;
+      }
     }
   } else {
     clipped=!(-cam->fov/2<start_angle<cam->fov/2)||!(-cam->fov/2<end_angle<cam->fov/2);
@@ -2619,7 +2625,7 @@ ret:
 fin_level:
   return;
 }
-PlayLevel("E1M1",1);
+PlayLevel("E1M2",1);
 #endif
         ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      
 !   Éÿÿÿ0   ûÿÿÿ

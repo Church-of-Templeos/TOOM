@@ -244,6 +244,12 @@ class CDoomSector:CQue {
   Bool paused; //Pause the action on the sector
 };
 
+class CLevelStats {
+  I64 have_kills,max_kills;
+  I64 have_items,max_items;
+  I64 have_secrets,max_secrets;
+  F64 time;
+};
 
 
 class CDoomLevel {
@@ -263,7 +269,9 @@ class CDoomLevel {
   I64 skill;
   CDoomSector **block_map_data;
   CDoomLinedef **action_linedefs;
-  Bool has_red_key,has_blue_key,has_yellow_key;
+  CLevelStats stats;
+//ended is TRUE if we exited the level by pressing a button etc
+  Bool has_red_key,has_blue_key,has_yellow_key,ended;
 };
 
 class CWadTexturePatch {
@@ -534,6 +542,7 @@ I64 PNameIndex(U8 *name,CDoomGr *gr) {
 }
 
 U0 LoadGrLump(CWad *wad,U8 *name) {
+  if(FramePtr(name)) return;
   CWadDirectory *wad_dir=wad->body+wad->directory_ptr;
   U8 lump_name[9];
   wad_dir+=W_CheckNumForName(name,wad);
@@ -643,6 +652,26 @@ found_pstart:
     lump_name[0]=0;
     CatPrint(lump_name,"STYSNUM%d",idx);
     LoadGrLump(wad,lump_name);
+  }
+
+//Intermission
+  LoadGrLump(wad,"WIURH0");
+  LoadGrLump(wad,"WIURH1");
+  LoadGrLump(wad,"WISPLAT");
+  LoadGrLump(wad,"WIPCNT");
+  LoadGrLump(wad,"WIF");
+  LoadGrLump(wad,"WIENTER");
+  LoadGrLump(wad,"WIOSTK");
+  LoadGrLump(wad,"WIOSTI");
+  LoadGrLump(wad,"WIOSTS");
+  LoadGrLump(wad,"WISCRT2");
+  LoadGrLump(wad,"WIFRGS");
+  LoadGrLump(wad,"WICOLON");
+  LoadGrLump(wad,"WIPAR");
+  for(idx=0;idx!=10;idx++) {
+    StrPrint(lump_name,"WINUM%d",idx);
+    LoadGrLump(wad,lump_name);
+
   }
 //FACES
 
@@ -890,6 +919,10 @@ pass_thing:
     dthing->angle=wthing->angle/ToF64(I16_MAX)*2*pi;
     dthing->thing_type=wthing->thing_type;
     dthing->template=doom_thing_types[wthing->thing_type];
+    if(dthing->template->flags&TF_ARTIFACT)
+      level->stats.max_items++;
+    if(dthing->template->flags&TF_MONSTER)
+      level->stats.max_kills++;
     dthing->flags=dthing->template->flags;
     QueIns(dthing,level->things.last);
 skip_thing:

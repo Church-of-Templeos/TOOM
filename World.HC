@@ -105,6 +105,11 @@ class CDoomCeil {
   Bool crush;
 };
 
+class CDoomExit {
+  U64 type;
+  U64 trigger;
+  Bool secret;
+};
 
 union CDoomActionSector {
   U64 type;
@@ -118,6 +123,8 @@ class CDoomDonut {
   U64 type;
   U64 trigger;
 };
+
+
 
 CDoomActionSector *action_sector_types[0x10000];
 MemSet(action_sector_types,0,0x10000*8);
@@ -535,6 +542,33 @@ skip:
   }
   Free(optr);
 }
+
+#define DOOM_EXITS_FILE "Exits.TXT"
+
+U0 LoadExits() {
+  I64 num;
+  CDoomExit *exit;
+  U8 cls[STR_LEN],*cls_ptr=cls;
+  U8 trig[STR_LEN],*trig_ptr=trig;
+  U8 secret[STR_LEN],*sec_ptr=secret;
+  U8 *fptr=FileRead(DOOM_EXITS_FILE),*optr=fptr,*ln;
+  while(ln=ReadALine(&fptr)) {
+    if(*ln=='#') goto skip;
+    StrScan(ln,"%d\t%s\t%s\t%s\n",
+	&num,
+	&cls_ptr,
+	&trig_ptr,
+	&sec_ptr);
+    exit=CAlloc(sizeof CDoomExit);
+    exit->type='Exit';
+    action_sector_types[num]=exit;
+    exit->trigger=trig[0](U16);
+    exit->secret=!StrCmp("Secret",secret);
+skip:
+  }
+  Free(optr);
+}
+LoadExits;
 LoadDoors;
 LoadFloors;
 LoadLifts;

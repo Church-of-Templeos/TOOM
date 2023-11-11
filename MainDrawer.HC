@@ -2,6 +2,7 @@
 #define DOOM_MAIN "Doom" 
 #include "FastTrig.HC";
 #include "Wad.HC";
+#include "Intermission.HC";
 CTask *doom_task=Fs;
 #include "Thinker.HC";
 #define mp_cnt 1 //Reduces flickering
@@ -1075,6 +1076,7 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   LBts(&doom_scrn_in_draw,0);
   cam->visplane_cnt=0;
   if(!cam->floor_dc) cam->floor_dc=DCNew(GR_WIDTH/2,GR_HEIGHT/2);
+  DCFill(doom_scrn);
   DCFill(cam->floor_dc,BLACK);
   for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next)
     sector->drawn=FALSE;
@@ -1645,14 +1647,48 @@ U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags) {
   CDoomLift *lift;
   CDoomCeil *ceil;
   CDoomDonut *donut;
+  CDoomExit *exit;
   I64 idx;
   CDoomLinedef *ld2;
   CDonutThinker *dt;
   F64 dst;
   if(ld) {
     if((type=ld->special_type)) {
-      if(type->type=='Donut') {
-PrintI("DN",1);
+      if(type->type=='Exit') {
+	exit=type;
+	switch(exit->trigger) {
+	   break;case 'P1':
+exit_activate1:
+	    if(s->activated) return;
+	    s->activated=TRUE;
+exit_activate:
+	    if(s->cur_action_linedef)
+	      return;
+	    s->cur_action_linedef=ld;
+	    l->ended=TRUE;
+	    break; case 'S1':    
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	   goto exit_activate1;
+	    break; case 'W1':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto exit_activate1;
+	    break; case 'G1':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto exit_activate1;
+	    break; case 'PR':
+	    if(!(flags&WACTIVATE_PUSH)) return;
+	    goto exit_activate;
+	    break; case 'SR':
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto exit_activate;
+	    break; case 'GR':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto exit_activate;
+	    break; case 'WR':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto exit_activate;
+	}
+      } else if(type->type=='Donut') {
 	donut=type;
         switch(donut->trigger) {
 	    break; case 'P1':
@@ -2085,6 +2121,8 @@ cell:
 	  load->ammo=ClampI64(load->ammo,0,maxCells);
 	  if(load->ammo!=orig) {
 rem:
+	    if(t->template->flags&TF_ARTIFACT)
+	      l->stats.have_items++;
 	    QueRem(t);
 	    Free(t);
 	  }
@@ -2480,7 +2518,7 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
   p=PlayerNew(l);
   PlayerMove(l,p,0);
   InitLevel(l);
-  while(TRUE) {
+  while(!l->ended) {
     UpdateCameraFromPlayer(&cam,p);
 
     DrawDoomWorld(&cam,l,doom_scrn);
@@ -2563,7 +2601,7 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
         PressAWall(l,&p->x,p->angle,p->height);
       }
     }
-    if(Bt(kbd.down_bitmap,Char2ScanCode('\n')&0xff)) {
+    if(Bt(kbd.down_bitmap,Char2ScanCode(CH_ESC)&0xff)) {
       DCFill;
       ST_Exit();
       break;
@@ -2573,10 +2611,15 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
       DCBlotColor8(gr.dc,doom_scrn);
     Refresh;
   }
+ret:
+  if(l->ended) Intermission(l,name[1]-'1',name[3]-'1');
   DCFill;
   FreeLevel(l);
+  return;
+fin_level:
+  return;
 }
-PlayLevel("E1M2",1);
+PlayLevel("E1M1",1);
 #endif
         ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      
 !   Éÿÿÿ0   ûÿÿÿ

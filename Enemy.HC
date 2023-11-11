@@ -200,10 +200,10 @@ Bool SetState(CDoomLevel *l,CMonsterThinker *m,U8 *st) {
       m->self->anim_start_tS=tS;
       m->self->animation=s->anim_frames;
     }
-    m->state_start_tS=tS;
-    m->state_length=s->time;
     m->self->anim_no_repeat=s->no_repeat;
   }
+  m->state_start_tS=tS;
+  m->state_length=s->time;
   m->ran_state=FALSE;
 }
 
@@ -847,6 +847,7 @@ U0 Fall(CDoomLevel *l,CMonsterThinker *t) {
     DropItem(l,t);
   t->self->flags&=~(TF_SHOOTABLE|TF_OBSTACLE);
   t->self->solid=FALSE;
+  l->stats.have_kills++;
 }
 U0 XFall(CDoomLevel *l,CMonsterThinker *t) {
 //Alive ???(Only drop once)
@@ -854,6 +855,7 @@ U0 XFall(CDoomLevel *l,CMonsterThinker *t) {
     DropItem(l,t);
   t->self->flags&=~(TF_SHOOTABLE|TF_OBSTACLE);
   t->self->solid=FALSE;
+  l->stats.have_kills++;
 }
 U0 NullState(CDoomLevel *l,CMonsterThinker *t) {
   //Remove the thinker but not the thing

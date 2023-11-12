@@ -13,7 +13,7 @@ CWad *LoadWad(U8 *filename) {
   return FileRead(filename);
 }
 
-static CWad *wad=LoadWad("freedoom1.wad");
+static CWad *wad=LoadWad("freedoom1.wad");
 
 
 #define TICK_TIME (1/30.)
@@ -675,9 +675,9 @@ found_pstart:
   }
 //FACES
 
-  LoadGrLump(wad,"STFST01T");
-  LoadGrLump(wad,"STFST00T");
-  LoadGrLump(wad,"STFST02T");
+  LoadGrLump(wad,"STFST01");
+  LoadGrLump(wad,"STFST00");
+  LoadGrLump(wad,"STFST02");
 
 
   //WEAPONS

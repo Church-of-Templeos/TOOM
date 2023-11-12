@@ -29,7 +29,7 @@ CMusicUnit *MUS2Freqs(U8 *lump,I64 *freq_cnt=NULL) {
   CMusicUnit *freqs=CAlloc(0x100*sizeof(CMusicUnit)),*tmp;
   if(StrNCmp("MUS",hd->mus,3))
     throw('DoomMUS');
-  I64 note_cnt=0,idx,idx2;
+  I64 note_cnt=0,idx,idx2;
   I64 cur_inst=0;
   F64 time,avg,sum,hits;
   score_ptr=hd->score_start;
@@ -149,8 +149,9 @@ again:
         Snd;
       else
         Snd(22+freqs->body[s]>>1);
-      Sleep(JIFFY_FREQ*1/140.);
+      Sleep(JIFFY_FREQ/140.);
     }
+    Snd;
     music.mute--;
   } else {
     wad_dir=wad->body+wad->directory_ptr;

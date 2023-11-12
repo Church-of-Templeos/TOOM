@@ -583,7 +583,7 @@ U0 ST_ReadOnce()
 
     FACE00=FramePtr("STFST01");
     FACE0R=FramePtr("STFST00");
-    FACE0L=FramePtr("STFST02");
+    FACE0L=FramePtr("STFST02");
 
 
     //WEAPONS

@@ -2092,6 +2092,7 @@ U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
   CDoomSector *sector,*head=&l->sectors;
   if(!ld->special_type) return;
 //Push operators on the linedef that called it
+PrintI(&ld->special_type(CDoomDoor*)->trigger,1);
   if(ld->special_type(CDoomDoor*)->trigger.u8[0]=='P') {
     _TriggerLinedef(l,ld->back->sector,ld,flags);
   } else
@@ -2383,7 +2384,7 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
   CD2 dummy;
   F64 floor,floor2,ceil,ceil2;
   I64 which_texture=0;
-  Bool repeat=FALSE;
+  Bool repeat=FALSE,passed=FALSE;
   U64 trigger;
   CDoomLinedef *ld;
   CDoomSidedef *sd;
@@ -2436,6 +2437,7 @@ pass:
 	    TriggerLinedef(l,ld,WACTIVATE_PUSH);
 	  else
 	    TriggerLinedef(l,ld,WACTIVATE_SWITCH);
+	  passed=TRUE;
 	  AddButtonThinker(l,sd,which_texture,trigger.u8[1]!='1');
         }
         break;
@@ -2449,6 +2451,8 @@ pass:
         break;
     }
   }
+  if(!passed&&ld)
+    TriggerLinedef(l,ld,WACTIVATE_SWITCH);
 }
 
 

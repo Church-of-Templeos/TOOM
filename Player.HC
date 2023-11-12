@@ -100,7 +100,7 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
 
 CDoomThing *PlayerPickTarget(CDoomLevel *l,CDoomPlayer *p) {
   CDoomThing *cur,*head=&l->things,*best;
-  F64 dist,angle,margin=5.6*(pi/180);
+  F64 dist,angle,margin=22*(pi/180);
   for(cur=head->next;head!=cur;cur=cur->next) 
     if(cur->flags&TF_SHOOTABLE&&cur!=p) {
       dist=Sqrt(Sqr(cur->x-p->x)+Sqr(cur->y-p->y));

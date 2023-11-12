@@ -189,7 +189,10 @@ static Bool st_stopped = TRUE;
 static I64 st_palette = 0;
 
 
-
+I16 GetWeaponIndex()
+{
+ return weaponIndex;
+}
 
 U0GrChar(CDC*dc,U8 ch,I64 x,I64 y,I64 scale)
 {
@@ -583,7 +586,7 @@ U0 ST_ReadOnce()
 
     FACE00=FramePtr("STFST01");
     FACE0R=FramePtr("STFST00");
-    FACE0L=FramePtr("STFST02");
+    FACE0L=FramePtr("STFST02");
 
 
     //WEAPONS
@@ -750,7 +753,7 @@ U0 AnimateFire(CDoomPlayer *p)
            weapons.inum=0;
            break;
 	  case 5:
-           weapons.oldinum=0;           
+           weapons.oldinum=0;          
            weapons.inum=0;
            weapons.on=FALSE;
            break;

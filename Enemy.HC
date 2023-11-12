@@ -37,6 +37,8 @@ U0 AddState(U8 *name,F64 ticks,CDoomAnimationFrame *f,U8 *fptr=NULL,U8 *next=NUL
   s->next_state=next;
   FramePtrAdd(name,s);
 }
+
+
 class CBarrelThinker:CDoomThinkerBase {
   U64 signature;
   CDoomThing *self;
@@ -62,6 +64,95 @@ class CMonsterThinker:CDoomThinkerBase {
   CState *state;
   Bool ran_state;
 };
+
+U0 Sound(CMonsterThinker *t,U64 type) {
+  if(type=='See')
+    switch(t->self->template->type) {
+      case 3004: //Zombie
+        switch(Rand*2.99) {
+	  case 0:
+	    Spawn(&PlaySoundTask,"POSIT1","snd",0,Fs);
+	    break;
+	  case 1:
+	    Spawn(&PlaySoundTask,"POSIT2","snd",0,Fs);
+	    break;
+	  case 2:
+	    Spawn(&PlaySoundTask,"POSIT3","snd",0,Fs);
+        }
+        return;
+      case 3001: //Imp
+        switch(Rand*1.99) {
+	  case 0:
+	    Spawn(&PlaySoundTask,"BGSIT1","snd",0,Fs);
+	    break;
+	  case 1:
+	    Spawn(&PlaySoundTask,"BGSIT2","snd",0,Fs);
+	    break;
+        }
+	return;
+
+    }
+  if(type=='Pain') {
+    switch(t->self->template->type) {
+      case 3004: //Zombie
+      case 3001: //Imp
+        Spawn(&PlaySoundTask,"POPAIN","snd",0,Fs);
+        break;
+    }
+  }
+  if(type=='Die') {
+    switch(t->self->template->type) {
+      case 3004: //Zombie
+        switch(Rand*2.99) {
+	  case 0:
+	    Spawn(&PlaySoundTask,"PODTH1","snd",0,Fs);
+	    break;
+	  case 1:
+	    Spawn(&PlaySoundTask,"PODTH2","snd",0,Fs);
+	    break;
+	  case 2:
+	    Spawn(&PlaySoundTask,"PODTH3","snd",0,Fs);
+        }
+        return;
+      case 3001: //Imp
+        switch(Rand*1.99) {
+	  case 0:
+	    Spawn(&PlaySoundTask,"BGDTH1","snd",0,Fs);
+	    break;
+	  case 1:
+	    Spawn(&PlaySoundTask,"BGDTH2","snd",0,Fs);
+	    break;
+        }
+
+    }
+  }
+  if(type=='XDie') {
+    switch(t->self->template->type) {
+      case 3004: //Zombie
+      case 3001: //Imp
+        Spawn(&PlaySoundTask,"POSLOP","snd",0,Fs);
+        break;
+    }
+  }
+  if(type=='Attack') {
+    switch(t->self->template->type) {
+      case 3001:  //Imp
+        Spawn(&PlaySoundTask,"FIRSHT","snd",0,Fs);
+	break;
+      case 3004: //Zombie
+        Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
+        break;
+    }
+  }
+  if(type=='Melee') {
+    switch(t->self->template->type) {
+      case 3001:  //Imp
+        Spawn(&PlaySoundTask,"CLAW","snd",0,Fs);
+        break;
+    }
+  }
+}
+
 
 class CMissileThinker:CDoomThinkerBase {
   CDoomThing *shooter,*self;
@@ -413,7 +504,6 @@ new_target:
   }
   if(!target||target->health<=0.)
     goto new_target;
-//TODO sound
   angle=FArg(target->x-thing->x,target->y-thing->y)-thing->angle;
   if(FCos(angle)>0.) {
     dist=Sqrt(Sqr(target->x-thing->x)+Sqr(target->y-thing->y));
@@ -429,7 +519,7 @@ U0 Look(CDoomLevel *l,CMonsterThinker *t) {
   if(!CanSeeTarget(l,t)) {
     return ;
   }
-//TODOstart sound
+  Sound(t,'See');
   SetState(l,t,t->self->template(CDoomMonsterTemplate*)->see_state);
 }
 U0 Chase(CDoomLevel *l,CMonsterThinker *t) {
@@ -665,7 +755,7 @@ U0 PosAttack(CDoomLevel *l,CMonsterThinker *t) {
     if(t->self->flags&MF_JUST_ATTACKED) return;
     FaceTarget(l,t);
     t->self->flags|=MF_JUST_ATTACKED;
-//TODO start sound
+    Sound(t,'Attack');
     angle=t->self->angle;
     angle+=(.5-Rand)*pi/5;
     damage=((RandU64%4)+1)*3;
@@ -677,7 +767,7 @@ U0 SPosAttack(CDoomLevel *l,CMonsterThinker *t) {
   I64 i;
   if(t->target) {
     if(t->self->flags&MF_JUST_ATTACKED) return;
-//TODO sound start 
+    Sound(t,'Attack');
     FaceTarget(l,t);
     t->self->flags|=MF_JUST_ATTACKED;
     bangle=t->self->angle;
@@ -742,11 +832,12 @@ U0 TroopAttack(CDoomLevel *l,CMonsterThinker *t) {
   if(t->target) {
     FaceTarget(l,t);
     if(CheckMeleeRange(l,t)) {
-	//TODO sound
+      Sound(t,'Melee');
       damage=((RandU64&7)+1)*3;
       DamageMob(l,t->target,t,damage);
       return;
     }
+    Sound(t,'Attack');
     SpawnMissile(l,t->self,t->target,'Imp');
   }
 }
@@ -755,7 +846,7 @@ U0 SargAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 angle,damage;
   if(t->target) {
     FaceTarget(l,t);
-//TODO start sound
+    Sound(t,'Melee');
     angle=t->self->angle;
     angle+=(.5-Rand)*180./pi*5;
     damage=((RandU64&7)+1)*4;
@@ -769,9 +860,11 @@ U0 CacodemonAttack(CDoomLevel *l,CMonsterThinker *t) {
     FaceTarget(l,t);
     if(CheckMeleeRange(l,t)) {
       damage=((RandU64&7)+1)*8;
+      Sound(t,'Melee');
       DamageMob(l,t->target,t,damage);
       return;
     }
+    Sound(t,'Attack');
     SpawnMissile(l,t->self,t->target,'Caco');
   }
 }
@@ -780,6 +873,7 @@ U0 CyberdemonAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 damage;
   if(t->target) {
     FaceTarget(l,t);
+    Sound(t,'Attack');
     SpawnMissile(l,t->self,t->target,'Cyber');
   }
 }
@@ -790,9 +884,11 @@ U0 BarronOfHellAttack(CDoomLevel *l,CMonsterThinker *t) {
     FaceTarget(l,t);
     if(CheckMeleeRange(l,t)) {
       damage=((RandU64&7)+1)*11;
+      Sound(t,'Melee');
       DamageMob(l,t->target,t,damage);
       return;
     }
+    Sound(t,'Attack');
     SpawnMissile(l,t->self,t->target,'Baron');
   }
 }
@@ -804,7 +900,7 @@ U0 SkullAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 dist;
   if(dest) {
     self->flags|=MF_SKULL_ATTACK;
-    //TODO sound
+    Sound(t,'Attack');
     FaceTarget(l,t);
     self->momx=SKULL_ATTACK_SPEED*Cos(self->angle);
     self->momy=SKULL_ATTACK_SPEED*Sin(self->angle);
@@ -818,6 +914,7 @@ U0 BOOM(CDoomLevel *l,CMonsterThinker *t) {
 //Major death
 } 
 U0 Pain(CDoomLevel *l,CMonsterThinker *t) {
+    Sound(t,'Pain');
 }
 
 U0 DropItem(CDoomLevel *l,CMonsterThinker *t) {
@@ -843,6 +940,7 @@ U0 DropItem(CDoomLevel *l,CMonsterThinker *t) {
 
 U0 Fall(CDoomLevel *l,CMonsterThinker *t) {
 //Alive ???(Only drop once)
+  Sound(t,'Die');
   if(t->self->flags&TF_SHOOTABLE)
     DropItem(l,t);
   t->self->flags&=~(TF_SHOOTABLE|TF_OBSTACLE);
@@ -851,6 +949,7 @@ U0 Fall(CDoomLevel *l,CMonsterThinker *t) {
 }
 U0 XFall(CDoomLevel *l,CMonsterThinker *t) {
 //Alive ???(Only drop once)
+  Sound(t,'XDie');
   if(t->self->flags&TF_SHOOTABLE)
     DropItem(l,t);
   t->self->flags&=~(TF_SHOOTABLE|TF_OBSTACLE);
@@ -974,7 +1073,7 @@ U0 LoadMonsterInfo() {
   t->mass=100;
   t->damage=3;
   t->pain_chance=200./255;
-  AddState(t->spawn_state="IMP.S_POSS_STND",10*4,t->_idle_frames,&Look,"IMP.S_POSS_STND");
+  AddState(t->spawn_state="IMP.S_POSS_STND",10,t->_idle_frames,&Look,"IMP.S_POSS_STND");
   AddState(t->see_state="IMP.S_POSS_RUN",0,t->_chase_frames,&Chase,"IMP.S_POSS_RUN");
   AddState(t->missile_state="IMP.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"IMP.S_POSS_ATK2");
   AddState("IMP.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&TroopAttack,"IMP.S_POSS_RUN");
@@ -1007,7 +1106,7 @@ U0 LoadMonsterInfo() {
   t->_hurt_frames=GenerateCacheFrames(t,"HH");
   t->_dying_frames=GenerateCacheFrames(t,"IJKLM");
   t->_gib_frames=GenerateCacheFrames(t,"NOPQRSTU");
-  AddState(t->spawn_state="BARON.S_POSS_STND",10*4,t->_idle_frames,&Look,"BARON.S_POSS_STND");
+  AddState(t->spawn_state="BARON.S_POSS_STND",10,t->_idle_frames,&Look,"BARON.S_POSS_STND");
   AddState(t->see_state="BARON.S_POSS_RUN",0,t->_chase_frames,&Chase,"BARON.S_POSS_RUN");
   AddState(t->missile_state="BARON.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"BARON.S_POSS_ATK2");
   AddState(t->missile_state="BARON.S_POSS_ATK2",t->reaction_time*4,t->_idle_frames,&FaceTarget,"BARON.S_POSS_ATK3");
@@ -1097,7 +1196,7 @@ U0 LoadMonsterInfo() {
   t->_attack_frames=GenerateCacheFrames(t,"EFG");
   t->_hurt_frames=GenerateCacheFrames(t,"HH");
   t->_dying_frames=GenerateCacheFrames(t,"IJKLMN");
-  AddState(t->spawn_state="PANKY.S_POSS_STND",10*4,t->_idle_frames,&Look,"PANKY.S_POSS_STND");
+  AddState(t->spawn_state="PANKY.S_POSS_STND",10,t->_idle_frames,&Look,"PANKY.S_POSS_STND");
   AddState(t->see_state="PANKY.S_POSS_RUN",0,t->_chase_frames,&Chase,"PANKY.S_POSS_RUN");
   AddState(t->missile_state="PANKY.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"PANKY.S_POSS_ATK2");
   AddState(t->missile_state="PANKY.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&SkullAttack,"PANKY.S_POSS_RUN");
@@ -1119,7 +1218,7 @@ U0 LoadMonsterInfo() {
   t->_attack_frames=GenerateCacheFrames(t,"CDCD");
   t->_hurt_frames=GenerateCacheFrames(t,"EE");
   t->_dying_frames=GenerateCacheFrames(t,"FGHIJK");
-  AddState(t->spawn_state="SKULL.S_POSS_STND",10*4,t->_idle_frames,&Look,"SKULL.S_POSS_STND");
+  AddState(t->spawn_state="SKULL.S_POSS_STND",10,t->_idle_frames,&Look,"SKULL.S_POSS_STND");
   AddState(t->see_state="SKULL.S_POSS_RUN",0,t->_chase_frames,&Chase,"SKULL.S_POSS_RUN");
   AddState(t->missile_state="SKULL.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"SKULL.S_POSS_ATK2");
   AddState(t->missile_state="SKULL.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&SkullAttack,"SKULL.S_POSS_RUN");
@@ -1166,10 +1265,10 @@ U0 LoadMonsterInfo() {
   t->_hurt_frames=GenerateCacheFrames(t,"HH");
   t->_dying_frames=GenerateCacheFrames(t,"IJKLMN");
 //TODO fix
-  AddState(t->spawn_state="TRANS.S_POSS_STND",10*4,t->_idle_frames,&Look,"TRANS.S_POSS_STND");
+  AddState(t->spawn_state="TRANS.S_POSS_STND",10,t->_idle_frames,&Look,"TRANS.S_POSS_STND");
   AddState(t->see_state="TRANS.S_POSS_RUN",0,t->_chase_frames,&Chase,"TRANS.S_POSS_RUN");
   AddState(t->missile_state="TRANS.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"TRANS.S_POSS_ATK2");
-  AddState(t->missile_state="TRANS.S_POSS_ATK2",10*4,t->_idle_frames,&SkullAttack,"TRANS.S_POSS_RUN");
+  AddState(t->missile_state="TRANS.S_POSS_ATK2",10,t->_idle_frames,&SkullAttack,"TRANS.S_POSS_RUN");
   AddState(t->pain_state="TRANS.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"TRANS.S_POSS_RUN");
   AddState(t->death_state="TRANS.S_POSS_DIE",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Fall,"TRANS.S_POSS_DIE2");
   AddState(t->death_state="TRANS.S_POSS_DIE2",STATE_NO_REPEAT,t->_dying_frames,NULL,"ST_NULL");
@@ -1203,7 +1302,7 @@ U0 LoadMonsterInfo() {
   t->_hurt_frames=GenerateCacheFrames(t,"GG");
   t->_dying_frames=GenerateCacheFrames(t,"HIJKL");
   t->_gib_frames=GenerateCacheFrames(t,"MNOPQRSTU");
-  AddState(t->spawn_state="ZOMBIE.S_POSS_STND",10*4,t->_idle_frames,&Look,"ZOMBIE.S_POSS_STND");
+  AddState(t->spawn_state="ZOMBIE.S_POSS_STND",10,t->_idle_frames,&Look,"ZOMBIE.S_POSS_STND");
   AddState(t->see_state="ZOMBIE.S_POSS_RUN",0,t->_chase_frames,&Chase,"ZOMBIE.S_POSS_RUN");
   AddState(t->missile_state="ZOMBIE.S_POSS_ATK1",0,t->_idle_frames,&FaceTarget,"ZOMBIE.S_POSS_ATK2");
   AddState("ZOMBIE.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&PosAttack,"ZOMBIE.S_POSS_RUN");

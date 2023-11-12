@@ -145,7 +145,10 @@ again:
   if(freqs) {
     music.mute++;
     for(s=0;s!=freqs->samples;s++) {
-      Snd(freqs->body[s]*(95.-1.)/(98.-31));
+      if(!freqs->body[s])
+        Snd;
+      else
+        Snd(22+freqs->body[s]>>1);
       Sleep(JIFFY_FREQ*1/140.);
     }
     music.mute--;

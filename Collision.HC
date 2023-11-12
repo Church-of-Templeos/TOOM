@@ -19,6 +19,49 @@ Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
   return PlaneIntersect(NULL,a,b,ld->start,ld->end);
 }
 
+
+CDoomSector *GetHighestSectorInRadius(CDoomLevel *l,F64 x,F64 y,F64 radius) {
+  I64 blockx,blocky,idx,xo,yo;
+  CDoomSector *highest=GetSectorForCoord(l,x,y);
+  CD2 points[5];
+  CDoomLinedef **lds,*ld ;
+  points[0].x=x-radius;
+  points[0].y=y-radius;
+  points[1].x=x+radius;
+  points[1].y=y-radius;
+  points[2].x=x+radius;
+  points[2].y=y+radius;
+  points[3].x=x-radius;
+  points[3].y=y+radius;
+  points[4].x=x-radius;
+  points[4].y=y-radius;
+  blockx=ToI64(x-l->block_map_x_off)/128;
+  blocky=ToI64(y-l->block_map_y_off)/128;
+  for(xo=-1;xo<=1;xo++)
+  for(yo=-1;yo<=1;yo++)
+  if(0<=blockx+xo<l->block_map_cols)
+    if(0<=blocky+yo<l->block_map_rows) {
+      lds=l->block_map_data+l->block_map_offsets[
+	    blockx+xo+
+	    (yo+blocky)*l->block_map_cols];
+      for(;*lds;lds++) {
+	ld=*lds;
+	for(idx=0;idx!=4;idx++) {
+	   if(PlaneIntersect(NULL,points+idx,points+idx+1,ld->start,ld->end)) {
+	     if(ld->front&&ld->front->sector->floor_height>highest->floor_height) {
+		highest=ld->front->sector;
+	     } else if(ld->back&&ld->back->sector->floor_height>highest->floor_height) {
+		highest=ld->back->sector;
+	     }
+	     break;
+	   }
+	}
+      }
+    }
+  return highest;
+}
+
+
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
 F64 DistFromLine(CD2 *p,CD2 *l1,CD2 *l2) {
   return Abs((l2->x-l1->x)*(l1->y-p->y)-(l2->y-l1->y)*(l1->x-p->x))/Sqrt(Sqr(l1->x-l2->x)+Sqr(l1->y-l2->y));
@@ -401,8 +444,8 @@ skip:;
     if(flags&COLLISF_NO_HIT_THING)
       if(hit_thing=HitsAThing(l,&cur_pos,radius,exclude))  {
 //NOSLIDING agianst things
-	if(_hit_thing) *_hit_thing=hit_thing;
-	flags&=~COLLISF_SLIDE;
+        if(_hit_thing) *_hit_thing=hit_thing;
+        flags&=~COLLISF_SLIDE;
         break;
       }
     dist2+=radius/2;
@@ -446,18 +489,20 @@ fin:
   while(dist>0.) {
     cur_pos.x=move1.x+cos*dist;
     cur_pos.y=move1.y+sin*dist;
-    for(i=0;i!=wall_idx;i++) {
+    for(i=0;i!=wall_idx;i++)
       if(CheckLineWithBox(walls[i],&cur_pos,radius))
         goto found;
-      if(HitsAThing(l,&cur_pos,radius,exclude))
-	goto found;
-    }
+    if(HitsAThing(l,&cur_pos,radius,exclude))
+      goto found;
     result->x=cur_pos.x;
     result->y=cur_pos.y;
-    break;
+    goto pass;
 found:
     dist-=1;
   }
+  result->x=move1.x;
+  result->y=move1.y;
+pass:
   if(flags&COLLISF_SLIDE&&best) {
     if(dist>0.)
       odist=odist-dist;

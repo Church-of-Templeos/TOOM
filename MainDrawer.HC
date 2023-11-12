@@ -2093,7 +2093,6 @@ U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
   CDoomSector *sector,*head=&l->sectors;
   if(!ld->special_type) return;
 //Push operators on the linedef that called it
-PrintI(&ld->special_type(CDoomDoor*)->trigger,1);
   if(ld->special_type(CDoomDoor*)->trigger.u8[0]=='P') {
     _TriggerLinedef(l,ld->back->sector,ld,flags);
   } else
@@ -2358,7 +2357,10 @@ U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64
   if(!rocket_type) {
     if(weaponIndex==2) {//Shotgun
       for(idx=0;idx!=3;idx++) {
-        r=(Rand-.5)*2;
+	if(!idx)
+	  r=0;
+	else
+          r=(Rand-.5);
         angle=p->angle+r*9.8*pi/360.; 
         LineAttack(l,p,target,range,angle,damage);
       }

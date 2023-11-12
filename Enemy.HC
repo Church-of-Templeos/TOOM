@@ -252,7 +252,8 @@ Bool MMove(CDoomLevel *l,CMonsterThinker *m) {
 	self->template->radius,
 	self->height,
 	allow_float|COLLISF_SLIDE|COLLISF_NO_HIT_THING|COLLISF_MONSTER,
-	crossed
+	crossed,
+	self
 	);
     self->x=dummy.x;
     self->y=dummy.y;
@@ -481,9 +482,9 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
   angle=FArg(target->x-thing->x,target->y-thing->y)+off;
   dummy.x=thing->x;
   dummy.y=thing->y;
-  if(!MoveInLevel(l,&dummy,angle,thing->template->radius,thing->template->radius,thing->height,COLLISF_NO_DROP)) {
+  if(!MoveInLevel(l,&dummy,angle,thing->template->radius,thing->template->radius,thing->height,COLLISF_NO_DROP,NULL,thing)) {
      thing->angle=angle;
-  } else if(!MoveInLevel(l,&dummy,angle-pi,thing->template->radius,thing->template->radius,thing->height,COLLISF_NO_DROP)) {
+  } else if(!MoveInLevel(l,&dummy,angle-pi,thing->template->radius,thing->template->radius,thing->height,COLLISF_NO_DROP,NULL,thing)) {
      thing->angle=angle-pi;
   } else {
 //Pushin P path is blocked so random direction
@@ -934,6 +935,7 @@ U0 DropItem(CDoomLevel *l,CMonsterThinker *t) {
     new=CAlloc(sizeof CDoomThing);
     new->x=self->x;
     new->y=self->y;
+    new->height=self->height;
     new->template=doom_thing_types[spawn];
     QueIns(new,l->things.last);
     new->flags=new->template->flags;

@@ -436,7 +436,8 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       dist=Sqrt(Sqr(hit.x)+Sqr(hit.y));
       idist=dist;
       if(dist<=0.) dist=1;
-      tx=(ToI64(Sqrt(Sqr(hit.x-en->x)+Sqr(hit.y-en->y)))*2+xoff*2)%texture->width;
+      tx=(ToI64(Sqrt(Sqr(hit.x-st->x)+Sqr(hit.y-st->y)))*2+xoff*2)%texture->width;
+      tx=tx;
 //The offset from the ground is included in the "height",we dont render the overdraw
       margin=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-level);
       ih=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*height;

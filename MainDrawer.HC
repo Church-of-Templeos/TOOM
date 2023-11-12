@@ -1131,8 +1131,8 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
 
 
 
-/*U0 SongTask(I64)
-{//Song by Robert Prince
+U0 SongTask(I64)
+{//Original Song by Robert Prince
   Fs->task_end_cb=&SndTaskEndCB;
   MusicSettingsRst;
   Play("ttt");
@@ -1184,7 +1184,8 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     Play("1AA2C1AA2B1AAtt3DB2G#EDB1G#E3E3DB2G#EDB..");
     Play("1G#2A");
   }
-}*/
+}
+/*
 U0 SongTask(U8 *title) {
   CWadDirectory *wad_dir=wad->body+wad->directory_ptr;
   U8 lump_name[9],*m;
@@ -1194,7 +1195,7 @@ U0 SongTask(U8 *title) {
   Fs->task_end_cb=&SndTaskEndCB;
   PlayMusicTask(m);
 }
-
+*/
 
 
 
@@ -2554,7 +2555,8 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
       }
       cursor_x=ms.pos.x;   
       cursor_tx = cursor_x;
-      weapons.x_off=cursor_x-GR_WIDTH/2;
+      if(weaponIndex!=0)
+       weapons.x_off=cursor_x-GR_WIDTH/2;
     }
 #define SCRN_MARGIN 200
     #define SCRN_TURN_RATE (pi/1.5/30.)

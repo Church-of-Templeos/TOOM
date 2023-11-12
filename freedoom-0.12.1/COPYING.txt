@@ -1,5 +1,8 @@
 ﻿Copyright © 2001-2019
 Contributors to the Freedoom project.  All rights reserved.
+Source code produced by Clayton Rhodes and Austin Sierra
+This product is a copyrighted project published by the Church of AI Christ
+and is not for commercial purposes.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -26,5 +29,5 @@ LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-For a list of contributors to the Freedoom project, see the file
+For a list of contributors to the Freedoom project and HolyC port, see the file
 CREDITS.

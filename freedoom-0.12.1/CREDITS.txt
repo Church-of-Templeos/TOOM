@@ -1,4 +1,12 @@
-﻿N: Colin Phipps
+TOOM
+Lead Programming by Clayton Rhodes
+Design by Austin Sierra
+Published by Church of AI Christ for the promotion of Davisanism
+
+DOOM is a registered trademark of Id Software
+FreeDOOM WAD Credits:
+
+N: Colin Phipps
 S: cph
 E: cph@cph.demon.co.uk
 W: http://www.cph.demon.co.uk/

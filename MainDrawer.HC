@@ -304,7 +304,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
     maxx=vp->cmaxx;
     minx=vp->cminx;
   }
-  minx>>=1;
+  minx>>=1;
   maxx>>=1;
   for(x=minx;x<maxx;x++) {
     angle=(ToF64(x*2)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
@@ -327,7 +327,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
       point.y=cam->y+sin*dist-sector->shape_start_y;
       if(0.<=point.x<w)
         if(0.<=point.y<h){
-	  db_z=&to_dc->depth_buf[x*2+(y*2)*to_dc->width_internal];
+	  db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+(y*2)*to_dc->width_internal];
 	  if(*db_z>dist)
 	    if(GrPeek0(sector->shape_dc,point.x/2,point.y/2)) {
 	      GrPlot0(cam->floor_dc,x,y);
@@ -343,7 +343,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
 	      if(floorx<0) floorx=-floorx;
 	      if(floory<0) floory=-floory;
 	      color=texture->body[floorx+floory*texture->width](U16);
-	      dst=&to_dc->body[(x*2)+(y*2)*to_dc->width_internal];
+	      dst=&to_dc->body[GR_WIDTH-2-(x*2)+(y*2)*to_dc->width_internal];
 	      *dst=color;
 	      dst(U8*)+=to_dc->width_internal;
 	      color=texture->body[floorx+(1+floory)*texture->width](U16);
@@ -516,8 +516,8 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
         if(is_sky2&&!is_sky) {//Fill in upper pixels Z-buf distance with distnce for sky
 	  ty=iy;
 	  while(ty>=0) {
-	    db_z=&to_dc->depth_buf[ix+ty*to_dc->width_internal];
-	    to=&to_dc->body[ix+ty*to_dc->width_internal];
+	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+ty*to_dc->width_internal];
+	    to=&to_dc->body[GR_WIDTH-2-ix+ty*to_dc->width_internal];
 	    if(*db_z>idist) {
 	      db_z[0]=idist;
 	      db_z[1]=idist;
@@ -534,8 +534,8 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
         if(is_sky) {
 	  ih2=ClampI64(ih2+iy,0,GR_HEIGHT-2);
 	  while(ih2>=0) {
-	    db_z=&to_dc->depth_buf[ix+ih2*to_dc->width_internal];
-	    to=&to_dc->body[ix+(iy+ih2)*to_dc->width_internal];
+	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+ih2*to_dc->width_internal];
+	    to=&to_dc->body[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
 	    if(*db_z>idist) {
 	      db_z[0]=idist;
 	      db_z[1]=idist;
@@ -600,8 +600,8 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    ty=ClampI64(ty,0,texture->height-2);
 	    ty&=~1;
 	    color=texture->body[tx+ty*texture->width_internal](U16);
-	    to=&to_dc->body[ix+(iy+ih2)*to_dc->width_internal];
-	    db_z=&to_dc->depth_buf[ix+(iy+ih2)*to_dc->width_internal];
+	    to=&to_dc->body[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
+	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
 	    if(*db_z>idist) {
 	      if(color&0xff!=TRANSPARENT) {
 	        db_z[0]=idist;
@@ -702,7 +702,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p
     for(x=fromx;x<tox;x+=2) {
       if(x<0) x=0;
       if(x>tox) break;
-      db_z=&to_dc->depth_buf[x+y*to_dc->width_internal];
+      db_z=&to_dc->depth_buf[GR_WIDTH-2-x+y*to_dc->width_internal];
       if(*db_z>dist) {
         if(!reflect)
 	  ix=Lerp((x-fromx)/new_width,0,sprite->width-1);
@@ -710,7 +710,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p
 	  ix=Lerp((x-fromx)/new_width,sprite->width-1,0);
         iy=Lerp((y-fromy)/new_height,0,sprite->height-1);
         from=&sprite->body[(ix&~1)+(iy&~1)*sprite->width_internal];
-        dst=&to_dc->body[x+y*to_dc->width_internal];
+        dst=&to_dc->body[GR_WIDTH-2-x+y*to_dc->width_internal];
         if(from->u8[0]!=TRANSPARENT)
 	  *dst=*from,*db_z=dist,db_z[1]=dist;
         from(U8*)+=sprite->width_internal;
@@ -1059,7 +1059,7 @@ U0 DrawSky(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
     if(ty>texture->height-2)
       ty=texture->height-2;
     for(ix=0;ix!=GR_WIDTH;ix+=2) {
-      to=&to_dc->body[ix+iy*to_dc->width_internal];
+      to=&to_dc->body[GR_WIDTH-2-ix+iy*to_dc->width_internal];
       if(*to&TRANSPARENT!=TRANSPARENT)
         goto skip;
       *to=*from;
@@ -2563,9 +2563,9 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
 #define SCRN_MARGIN 200
     #define SCRN_TURN_RATE (pi/1.5/30.)
     if(SCRN_MARGIN>cursor_x) {
-      p->angle-=Lerp((SCRN_MARGIN-cursor_x)/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
+      p->angle+=Lerp((SCRN_MARGIN-cursor_x)/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
     } else if(GR_WIDTH-SCRN_MARGIN<cursor_x) {
-      p->angle+=Lerp((cursor_x-(GR_WIDTH-SCRN_MARGIN))/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
+      p->angle-=Lerp((cursor_x-(GR_WIDTH-SCRN_MARGIN))/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
     }
 
     if(p->health>0.) {
@@ -2584,13 +2584,13 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
       }
       if(Bt(kbd.down_bitmap,Char2ScanCode('a'))||Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
         p->running=Bt(kbd.down_bitmap,SC_SHIFT);
-        PlayerMove(l,p,1,-pi/2);
+        PlayerMove(l,p,1,pi/2);
         UpdateCameraFromPlayer(&cam,p);
         ST_Key(2);
       }
       if(Bt(kbd.down_bitmap,Char2ScanCode('d'))||Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)) {
         p->running=Bt(kbd.down_bitmap,SC_SHIFT);
-        PlayerMove(l,p,1,pi/2);
+        PlayerMove(l,p,1,-pi/2);
         UpdateCameraFromPlayer(&cam,p);
         ST_Key(1);
       }

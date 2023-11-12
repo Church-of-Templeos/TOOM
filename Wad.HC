@@ -936,7 +936,7 @@ skip_thing:
   if(StrCmp8("VERTEXES",wad_dir[3].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
     level->vertices[idx].x=vertex->x;
-    level->vertices[idx].y=vertex->y;
+    level->vertices[idx].y=vertex->y;
     vertex++;
   }
 //SIDEDEFS

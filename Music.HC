@@ -1,5 +1,11 @@
 #ifndef MUS_H
 #define MUS_H "Tee Hee Oh Shamona"
+class CPCSpkSnd {
+  I8 pad[2];
+  I16 samples;
+  U8 body[0];
+};
+
 class CMUSHeader {
   U8 mus[4];
   I16 score_len;
@@ -18,14 +24,14 @@ I64 LookUpTable(I8 n) {
 }
 CMusicUnit *MUS2Freqs(U8 *lump,I64 *freq_cnt=NULL) {
   CMUSHeader *hd=lump;
-  I64 score_ptr,channel,best,want_delay;
-  Bool *cur_inst_freqs=CAlloc(hd->instrument_cnt*128);
+  I64 score_ptr,channel,best,worst,want_delay;
+  Bool *cur_inst_freqs=CAlloc(hd->channels*128);
   CMusicUnit *freqs=CAlloc(0x100*sizeof(CMusicUnit)),*tmp;
   if(StrNCmp("MUS",hd->mus,3))
     throw('DoomMUS');
   I64 note_cnt=0,idx,idx2;
   I64 cur_inst=0;
-  F64 time,avg;
+  F64 time,avg,sum,hits;
   score_ptr=hd->score_start;
   while(TRUE) {
 //https://moddingwiki.shikadi.net/wiki/MUS_Format
@@ -34,7 +40,7 @@ CMusicUnit *MUS2Freqs(U8 *lump,I64 *freq_cnt=NULL) {
     switch((lump[score_ptr]>>4)&0b111) {
       case 0: //Release note
         score_ptr++;
-        cur_inst_freqs[cur_inst*128+lump[score_ptr]]=0;
+        cur_inst_freqs[channel*128+lump[score_ptr]]=0;
         score_ptr++;
         break;
       case 1: //Play note
@@ -43,9 +49,9 @@ CMusicUnit *MUS2Freqs(U8 *lump,I64 *freq_cnt=NULL) {
         if(lump[score_ptr]&0x80) {
 //volume present TODO decrease pitch(correctly?)
 	  score_ptr++;
-	  cur_inst_freqs[cur_inst*128+idx]=lump[score_ptr]&0x7f;
+	  cur_inst_freqs[channel*128+idx]=lump[score_ptr]&0x7f;
         } else
-	  cur_inst_freqs[cur_inst*128+idx]=127;
+	  cur_inst_freqs[channel*128+idx]=127;
         score_ptr++;
         break;
       case 2: //Pitch wheel(Give me more freqenuces then maybe ill do something)
@@ -56,7 +62,7 @@ CMusicUnit *MUS2Freqs(U8 *lump,I64 *freq_cnt=NULL) {
         switch(lump[score_ptr]) {
 	  case 10: //All notes halt
 	  case 11: //All notes fade(TODO)
-	    MemSet(cur_inst_freqs,0,hd->instrument_cnt);
+	    MemSet(cur_inst_freqs,0,hd->channels*128);
 	    break;
         }
       default:
@@ -75,6 +81,7 @@ CMusicUnit *MUS2Freqs(U8 *lump,I64 *freq_cnt=NULL) {
       case 6: //End
 fin:
         freqs[note_cnt++].freq=-1;
+	Free(cur_inst_freqs);
         if(freq_cnt) *freq_cnt=note_cnt;
         return freqs;
     }
@@ -91,14 +98,18 @@ time_info:
       time/=140.;
       freqs[note_cnt].time=time;
 //TODO TODO TODO do some magic
-      best=0;
-      for(idx=0;idx!=hd->instrument_cnt;idx++) {
+      worst=best=0;
+      for(idx=0;idx!=hd->channels;idx++) {
         for(idx2=0;idx2!=127;idx2++) {
 	  if(cur_inst_freqs[idx*128+idx2]) {
+	    if(!worst)
+	      worst=idx2;
+	    worst=MinI64(worst,idx2);
 	    best=MaxI64(best,idx2);
           }
         }
       }
+//      best=ToF64(best+worst)/2+best-worst;
       if(MSize(freqs)<(note_cnt+1)*sizeof(CMusicUnit)) {
         tmp=freqs;
         freqs=MAlloc((note_cnt+0x100)*sizeof(CMusicUnit));
@@ -107,8 +118,7 @@ time_info:
       }
       if(best)
         best=LookUpTable(best); //best is 0 for off,otherwise C,octave 0
-      best=Ceil(best*.8);
-//      best+=5;
+      best=Ceil(best);
 //If we have multiple instruments ending (on same note),use last stop
       if(note_cnt&&freqs[note_cnt-1].freq==best) {
         freqs[note_cnt-1].freq=best;
@@ -121,6 +131,32 @@ time_info:
   }
   goto fin;
 }
+CTask *cur_snd_task=NULL;
+music.mute=0;
+U0 PlaySoundTask(U8 *name) {
+  if(cur_snd_task) return;
+  cur_snd_task=Fs;
+  U8 buf[16];
+  CWadDirectory *wad_dir;
+  I64 s;
+  StrPrint(buf,"DP%s",name);
+again:
+  CPCSpkSnd *freqs=FramePtr(buf);
+  if(freqs) {
+    music.mute++;
+    for(s=0;s!=freqs->samples;s++) {
+      Snd(freqs->body[s]*(95.-1.)/(98.-31));
+      Sleep(JIFFY_FREQ*1/140.);
+    }
+    music.mute--;
+  } else {
+    wad_dir=wad->body+wad->directory_ptr;
+    wad_dir+=W_CheckNumForName(buf,wad);
+    FramePtrAdd(buf,wad->body+wad_dir->ptr,doom_task);
+    goto again;
+  }
+  cur_snd_task=NULL;
+}
 
 U0 PlayMusicTask(CMusicUnit *head) {
 enter:
@@ -130,6 +166,7 @@ enter:
       Yield;
       goto enter;
     }
+    if(!music.mute)
     Snd(cur->freq);
     Sleep(cur->time*JIFFY_FREQ);
     cur++;

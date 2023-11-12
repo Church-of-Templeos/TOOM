@@ -1185,10 +1185,10 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     Play("1G#2A");
   }
 }*/
-U0 SongTask(I64) {
+U0 SongTask(U8 *title) {
   CWadDirectory *wad_dir=wad->body+wad->directory_ptr;
   U8 lump_name[9],*m;
-  StrCpy(lump_name,"D_E1M1");
+  StrPrint(lump_name,"D_%s",title);
   wad_dir+=W_CheckNumForName(lump_name,wad);
   m=MUS2Freqs(wad->body+wad_dir->ptr);
   Fs->task_end_cb=&SndTaskEndCB;
@@ -1197,7 +1197,6 @@ U0 SongTask(I64) {
 
 
 
-Fs->song_task=Spawn(&SongTask,NULL,"Song",,Fs);
 
 F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
   F64 lowest=floor->floor_height,highest=floor->floor_height,diff;
@@ -2529,6 +2528,7 @@ U0 FreeLevel(CDoomLevel *l) {
   Free(l);
 }
 U0 PlayLevel(U8 *name,I64 difficulty) { 
+  Fs->song_task=Spawn(&SongTask,name,"Song",,Fs);
   l=LoadWadLevel(wad,name,difficulty);
   WinBorder;
   p=PlayerNew(l);
@@ -2628,14 +2628,14 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
     Refresh;
   }
 ret:
-  if(l->ended) Intermission(l,name[1]-'1',name[3]-'1');
+ if(l->ended) Intermission(l,name[1]-'1',name[3]-'1');
   DCFill;
   FreeLevel(l);
   return;
 fin_level:
   return;
 }
-PlayLevel("E1M2",1);
+PlayLevel("E1M1",1);
 #endif
         ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      
 !   Éÿÿÿ0   ûÿÿÿ

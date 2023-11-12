@@ -749,6 +749,7 @@ U0 AnimateFire(CDoomPlayer *p)
         }
         break;
       case 1://pistol
+	Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
        switch(weapons.oldinum)
         {
           case -1:
@@ -772,7 +773,6 @@ U0 AnimateFire(CDoomPlayer *p)
            weapons.oldinum=4;
            weapons.data=9;
            p->arsenal[weaponIndex]->load->ammo--;
-           Play("tttB#...");
            weapons.inum=8;
            break;
 	  case 4:
@@ -802,6 +802,7 @@ U0 AnimateFire(CDoomPlayer *p)
         }
         break;
       case 2://shotgun
+	Spawn(&PlaySoundTask,"SHOTGN","snd",0,Fs);
        switch(weapons.oldinum)
         {
           case -1:
@@ -839,13 +840,11 @@ U0 AnimateFire(CDoomPlayer *p)
 	  case 4:
            weapons.oldinum=5;
            weapons.inum=12;
-           Play("tttG#...");
 	   Sleep(40);
            break;
  	  case 5:
            weapons.oldinum=6; 
            weapons.inum=13;
-           Play("tttG...");
            Sleep(40);
            break;
 	  case 6:
@@ -869,6 +868,7 @@ U0 AnimateFire(CDoomPlayer *p)
         }
         break;
       case 3://chaingun
+	Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
        switch(weapons.oldinum)
         {
           case -1:
@@ -877,21 +877,20 @@ U0 AnimateFire(CDoomPlayer *p)
             weapons.data=19;
             weapons.inum=17;
             p->arsenal[weaponIndex]->load->ammo--;
-            Play("tttC#...");
-            Sleep(5);
+	    Sleep(5);
             break;
           case 0:
             weapons.oldinum=0;
             weapons.data=18;
             p->arsenal[weaponIndex]->load->ammo--; 
             weapons.inum=16;
-            Play("tttC...");
-            //Sleep(5);
+            Sleep(5);
             weapons.on=FALSE;
             break;
         }
         break;
       case 4://missile launcher
+	Spawn(&PlaySoundTask,"RLAUNC","snd",0,Fs);      
        switch(weapons.oldinum)
         {
           case -1:
@@ -901,27 +900,23 @@ U0 AnimateFire(CDoomPlayer *p)
             weapons.y=weapons.y+25;
             p->arsenal[weaponIndex]->load->ammo--;
             Sleep(5);
-            Play("tttF#...");
             break;
           case 0:
             weapons.oldinum=1;
             weapons.data=23;
             Sleep(5);
-            Play("tttF...");
             break;
           case 1:
             weapons.oldinum=2;
             weapons.data=24;
             weapons.y=weapons.y-15;
             Sleep(5);
-            Play("tttE#...");
             break;
           case 2:
             weapons.oldinum=3;
             weapons.data=25;
             weapons.y=weapons.y-5;
             Sleep(5);
-            Play("tttE...");
             break;
           case 3:
             weapons.oldinum=0;
@@ -929,46 +924,42 @@ U0 AnimateFire(CDoomPlayer *p)
             weapons.y=weapons.y-5;
             weapons.inum=20;
             Sleep(5);
-            Play("tttD#...");
             weapons.on=FALSE;
             break;
              
         }
         break;
       case 5://chainsaw
+	Spawn(&PlaySoundTask,"SAWFUL","snd",0,Fs);      
        switch(weapons.oldinum)
         {
           case -1:
             weapons.oldinum=0;
             weapons.inum=27;
-            Play("tttA...");
             break;
           case 0:
             weapons.oldinum=1;
             weapons.inum=28;
             weapons.y=weapons.y-86;
-            Play("tttA#...");
             break;
           case 1:
             weapons.oldinum=2;
             weapons.inum=29;
-            Play("tttA#...");
             break;
           case 2:
             weapons.oldinum=3;
             weapons.inum=28;
-            Play("tttA#...");
             break;
           case 3:
             weapons.oldinum=0;
             weapons.y=weapons.y+86;
             weapons.inum=27;
-            Play("tttA#...");
             weapons.on=FALSE;
             break;
         }
         break;
       case 6://plasma gun
+       Spawn(&PlaySoundTask,"PLASMA","snd",0,Fs);      
        switch(weapons.oldinum)
         {
           case -1:
@@ -976,7 +967,6 @@ U0 AnimateFire(CDoomPlayer *p)
             weapons.inum=32;
             //weapons.data=32;
             Sleep(20);
-            Play("tttG...");
             break;
           case 0:
             weapons.oldinum=1;
@@ -984,7 +974,6 @@ U0 AnimateFire(CDoomPlayer *p)
             p->arsenal[weaponIndex]->load->ammo--;
             Sleep(20);
             //weapons.data=33;
-            Play("tttG#...");
             break;
           case 1:
             weapons.oldinum=2;
@@ -1004,6 +993,7 @@ U0 AnimateFire(CDoomPlayer *p)
         }
         break;
       case 7://BFG
+       Spawn(&PlaySoundTask,"BFG","snd",0,Fs);      
        switch(weapons.oldinum)
         {
           case -1:
@@ -1011,7 +1001,6 @@ U0 AnimateFire(CDoomPlayer *p)
             weapons.inum=35;
             //weapons.data=32;
             Sleep(20);
-            Play("tttB...");
             break;
           case 0:
             weapons.oldinum=1;
@@ -1019,14 +1008,12 @@ U0 AnimateFire(CDoomPlayer *p)
             weapons.data=37;
             Sleep(20);
             //weapons.data=33;
-            Play("tttF...");
             break;
           case 1:
             weapons.oldinum=2;
             weapons.data=38;
             Sleep(60);
             //weapons.data=33;
-            Play("tttG...");
             p->arsenal[weaponIndex]->load->ammo--;
             break;
           case 2:
@@ -1041,7 +1028,6 @@ U0 AnimateFire(CDoomPlayer *p)
     }
     else
     {
-     Play("tttE...");
      Sleep(5);
      weapons.oldinum=0;
      //weapons.inum=0;

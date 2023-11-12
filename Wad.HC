@@ -13,7 +13,7 @@ CWad *LoadWad(U8 *filename) {
   return FileRead(filename);
 }
 
-static CWad *wad=LoadWad("DOOM.WAD");
+static CWad *wad=LoadWad("freedoom1.wad");
 
 
 #define TICK_TIME (1/30.)

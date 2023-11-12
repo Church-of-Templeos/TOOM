@@ -395,7 +395,7 @@ U0 ST_refreshBackground(CDoomPlayer *p)
       I16 xmodify=0;
       if(weapons.inum<10&&weapons.inum>3)//pistol
         {
-        GrBlot(doom_scrn,weapons.x+62+weapons.x_off,weapons.y-24,
+        GrBlot(doom_scrn,weapons.x+18+weapons.x_off,weapons.y-42,
 	      weapons.p[weapons.data]);
       }
       if(weapons.inum>=10&&weapons.inum<16)//shotgun
@@ -438,7 +438,7 @@ U0 ST_refreshBackground(CDoomPlayer *p)
     //STATUSBAR
 
     GrBlot(doom_scrn,0,SCREENHEIGHT-64,ST); //Read the ST
-    GrBlot(doom_scrn,SCREENWIDTH/2-25,SCREENHEIGHT-64,
+    GrBlot(doom_scrn,SCREENWIDTH/2-25,SCREENHEIGHT-60,///2-25 -60
 	  toom_faces.p[toom_faces.inum]);//faces
 
     //bullets max
@@ -515,6 +515,7 @@ U0 InitWidgets()
 {
     toom_faces.p = MAlloc(sizeof(CDC)*40);
     weapons.p = MAlloc(sizeof(CDC)*39);
+    toom_faces.inum=0;
 
     // faces
     //STlib_initMultIcon(&w_faces,
@@ -580,9 +581,9 @@ U0 ST_ReadOnce()
 
     //FACES
 
-    FACE00=FramePtr("STFST01T");
-    FACE0R=FramePtr("STFST00T");
-    FACE0L=FramePtr("STFST02T");
+    FACE00=FramePtr("STFST01");
+    FACE0R=FramePtr("STFST00");
+    FACE0L=FramePtr("STFST02");
 
 
     //WEAPONS
@@ -594,10 +595,10 @@ U0 ST_ReadOnce()
 
     //PISTOL
     PISTOL=FramePtr("PISGA0");
-    PISTOLU=FramePtr("PISGE0");
-    PISTOL1=FramePtr("PISGB0");
-    PISTOL2=FramePtr("PISGC0");
-    PISTOL3=FramePtr("PISGD0");
+    PISTOLU=FramePtr("PISGB0");
+    PISTOL1=FramePtr("PISGC0");
+    PISTOL2=FramePtr("PISGA0");
+    PISTOL3=FramePtr("PISGA0");
     PISTOLF=FramePtr("PISFA0");
 //SHOTGUN   
     SHOTGUN=FramePtr("SHTGA0");
@@ -647,7 +648,7 @@ U0 ST_ReadOnce()
     weapons.inum=0;
     weapons.oldinum=0;
     weapons.x=SCREENWIDTH/3;
-    weapons.y=SCREENHEIGHT-146;$IV,1$$IV,0$
+    weapons.y=SCREENHEIGHT-106;$IV,1$$IV,0$
 
     weapons.data=0;
 
@@ -718,30 +719,38 @@ U0 AnimateFire(CDoomPlayer *p)
         {
           case -1:
            weapons.oldinum=0;
+           weapons.x=SCREENWIDTH/1.5-50;
+           weapons.y=SCREENHEIGHT-150;
            weapons.inum=1;
            break;
 	  case 0:
            weapons.oldinum=1;
+           weapons.x=SCREENWIDTH/1.5-75;
            weapons.inum=2;
            break;
 	  case 1:
            weapons.oldinum=2;
+	   weapons.x=SCREENWIDTH/1.5-125;
            weapons.inum=3;
            break;
 	  case 2:
            weapons.oldinum=3;
+           weapons.x=SCREENWIDTH/1.5-75;
            weapons.inum=2;
            break;
 	  case 3:
            weapons.oldinum=4;
+	   weapons.x=SCREENWIDTH/1.5-50;
            weapons.inum=1;
            break;
 	  case 4:
+           weapons.x=SCREENWIDTH/3;
+           weapons.y=SCREENHEIGHT-106;$IV,1$$IV,0$
            weapons.oldinum=5;
            weapons.inum=0;
            break;
 	  case 5:
-           weapons.oldinum=0;
+           weapons.oldinum=0;           
            weapons.inum=0;
            weapons.on=FALSE;
            break;
@@ -749,7 +758,7 @@ U0 AnimateFire(CDoomPlayer *p)
         }
         break;
       case 1://pistol
-	Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
+	
        switch(weapons.oldinum)
         {
           case -1:
@@ -757,12 +766,14 @@ U0 AnimateFire(CDoomPlayer *p)
            weapons.inum=4;
            break;
 	  case 0:
-           weapons.x=SCREENWIDTH/3;
+           //weapons.x=SCREENWIDTH/3;
            weapons.oldinum=1;
            weapons.inum=5;
            break;
 	  case 1:
            weapons.oldinum=2;
+           Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
+           weapons.data=9;
            weapons.inum=7;
            break;
 	  case 2:
@@ -771,29 +782,29 @@ U0 AnimateFire(CDoomPlayer *p)
            break;
 	  case 3:
            weapons.oldinum=4;
-           weapons.data=9;
+           weapons.data=0;
            p->arsenal[weaponIndex]->load->ammo--;
            weapons.inum=8;
            break;
 	  case 4:
-           weapons.data=0;
-           weapons.oldinum=5;
+           //weapons.data=0;
+           weapons.oldinum=8;
            weapons.inum=8;
            break;
-	  case 5:
+	  case 5://skip
            weapons.oldinum=6;
            weapons.inum=7;
            break;
-	  case 6:
+	  case 6://skip
            weapons.oldinum=7;
            weapons.inum=6;
            break;
-          case 7:
+          case 7://skip
            weapons.oldinum=8;
            weapons.inum=5;
            break; 
 	  case 8:
-           weapons.x=SCREENWIDTH/2.5;
+           //weapons.x=SCREENWIDTH/2.5;
            weapons.oldinum=0;
            weapons.inum=4;
            weapons.on=FALSE;
@@ -1050,7 +1061,7 @@ U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
   {
    case 0:
     weapons.x=SCREENWIDTH/3;
-    weapons.y=SCREENHEIGHT-146;
+    weapons.y=SCREENHEIGHT-106;
     weapons.inum=0;//hands
     weapons.data=0;
     weapons.on=FALSE;

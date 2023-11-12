@@ -1064,6 +1064,7 @@ U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
   {
    case 0:
     weapons.x=SCREENWIDTH/3;
+    weapons.x_off = 0;
     weapons.y=SCREENHEIGHT-106;
     weapons.inum=0;//hands
     weapons.data=0;

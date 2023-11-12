@@ -304,7 +304,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
     maxx=vp->cmaxx;
     minx=vp->cminx;
   }
-  minx>>=1;
+  minx>>=1;
   maxx>>=1;
   for(x=minx;x<maxx;x++) {
     angle=(ToF64(x*2)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);

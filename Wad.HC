@@ -42,8 +42,8 @@ class CWadThing {
 
 //https://doomwiki.org/wiki/Linedef
 class CWadLinedef {
-  I16 start_vertex;
-  I16 end_vertex;
+  U16 start_vertex;
+  U16 end_vertex;
 #define WAD_LINEDEFF_WALL 1 //Wall for player and monsters
 #define WAD_LINEDEFF_WALL_MONSTER 2 //Wall for monsters only
 #define WAD_LINEDEFF_2SIDED 4
@@ -53,10 +53,10 @@ class CWadLinedef {
 #define WAD_LINEDEFF_BLOCK_SOUND 0x40
 #define WAD_LINEDEFF_NO_SHOW_ON_MAP 0x80
 #define WAD_LINEDEFF_SHOW_ON_MAP 0x100
-  I16 flags;
+  U16 flags;
   U16 special_type;
   U16 sector_tag;
-  I16 front,back; //See CWadSidedef
+  U16 front,back; //See CWadSidedef
 };
 
 class CWadSidedef {
@@ -65,7 +65,7 @@ class CWadSidedef {
   U8 upper_texture_name[8];
   U8 lower_texture_name[8];
   U8 middle_texture_name[8];
-  I16 sector;
+  U16 sector;
 };
 
 class CWadSector {
@@ -91,7 +91,7 @@ class CWadSector {
 #define WAD_SECTOR_DAM20 16
 #define WAD_SECTOR_BLINK_RAND_2 17
   I16 special_type;
-  I16 tag_number;
+  U16 tag_number;
 };
 
 class CWadVertex {
@@ -100,7 +100,7 @@ class CWadVertex {
 
 
 class CWadSeg {
-  I16 start_vertex,end_vertex;
+  U16 start_vertex,end_vertex;
   I16 angle,linedef;
 //0 is same dir as linedef,else opposite
   I16 opposite_side,offset; 
@@ -110,8 +110,8 @@ class CWadSeg {
 
 class CWadSubsector {
 //Consistys of SEGS
-  I16 cnt;
-  I16 first;
+  U16 cnt;
+  U16 first;
 }; 
 
 
@@ -121,7 +121,7 @@ class CDoomThing:CQue {
   F64 momx,momy,momz; //Move momentum
   F64 anim_start_tS;
   CDoomAnimationFrame *animation;
-  I16 thing_type,pad[3];
+  U16 thing_type,pad[3];
   CDoomThingTemplate *template;
   I64 flags;
   Bool solid,anim_no_repeat,pad[6];
@@ -148,7 +148,7 @@ class CWadBSPNode {
   I16 dx,dy;
   CBoundBoxI16 left,right;
 //Dont ask me what these do
-  I16 left_child,right_child;
+  U16 left_child,right_child;
 };
 
 class CBoundBoxF64 {
@@ -936,7 +936,7 @@ skip_thing:
   if(StrCmp8("VERTEXES",wad_dir[3].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
     level->vertices[idx].x=vertex->x;
-    level->vertices[idx].y=vertex->y;
+    level->vertices[idx].y=vertex->y;
     vertex++;
   }
 //SIDEDEFS
@@ -1026,9 +1026,9 @@ skip_thing:
     dlinedef=CAlloc(sizeof(CDoomLinedef));
     dlinedef->start=wlinedef->start_vertex+level->vertices;
     dlinedef->end=wlinedef->end_vertex+level->vertices;
-    if(wlinedef->front!=-1)
+    if(wlinedef->front!=0xffff)
       dlinedef->front=dside_list[wlinedef->front];
-    if(wlinedef->front!=-1)
+    if(wlinedef->back!=0xffff)
       dlinedef->back=dside_list[wlinedef->back];
     dlinedef->sector_tag=wlinedef->sector_tag;
     dlinedef->flags=wlinedef->flags;

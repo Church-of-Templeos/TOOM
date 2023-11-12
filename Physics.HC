@@ -80,7 +80,7 @@ U0 PhysicsOnThing(CDoomLevel *l,CDoomThing *thing) {
   }
 }
 U0 Physics(CDoomLevel *l) {
-  CDoomThing *t,*head;
+  CDoomThing *t,*head;
   CDoomSector *s;
   head=&l->sectors;
   for(s=head->next;s!=head;s=s->next) {

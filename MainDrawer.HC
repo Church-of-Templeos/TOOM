@@ -2556,7 +2556,7 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
       cursor_x=ms.pos.x;   
       cursor_tx = cursor_x;
       if(weaponIndex!=0)
-       weapons.x_off=cursor_x-GR_WIDTH/2;
+        weapons.x_off=cursor_x-GR_WIDTH/2;
     }
 #define SCRN_MARGIN 200
     #define SCRN_TURN_RATE (pi/1.5/30.)

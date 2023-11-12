@@ -29,7 +29,7 @@ CMusicUnit *MUS2Freqs(U8 *lump,I64 *freq_cnt=NULL) {
   CMusicUnit *freqs=CAlloc(0x100*sizeof(CMusicUnit)),*tmp;
   if(StrNCmp("MUS",hd->mus,3))
     throw('DoomMUS');
-  I64 note_cnt=0,idx,idx2;
+  I64 note_cnt=0,idx,idx2;
   I64 cur_inst=0;
   F64 time,avg,sum,hits;
   score_ptr=hd->score_start;

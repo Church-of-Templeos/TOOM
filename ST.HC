@@ -753,7 +753,7 @@ U0 AnimateFire(CDoomPlayer *p)
            weapons.inum=0;
            break;
 	  case 5:
-           weapons.oldinum=0;          
+           weapons.oldinum=0;          
            weapons.inum=0;
            weapons.on=FALSE;
            break;

@@ -403,22 +403,17 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
     is_sky2=sd->sector->ceil_dc[0]==FramePtr("F_SKY1",doom_task);
   start_angle=Wrap(start_angle);
   end_angle=Wrap(end_angle);
-  if(floor!=3) {
 //Angles are strange so i will just assume whole range if out of bound
-    if(!(-cam->fov/2<start_angle<cam->fov/2)||!(-cam->fov/2<end_angle<cam->fov/2)) {
-      if(-cam->fov/2<start_angle<cam->fov/2) {
-	end_angle=Sign(st->x*en->y-st->y*en->x)*cam->fov/2.;
-      } else if(-cam->fov/2<end_angle<cam->fov/2) {
-	start_angle=Sign(en->x*st->y-en->y*st->x)*cam->fov/2.;
-      } else {
-        start_angle=-cam->fov/2;
-        end_angle=cam->fov/2;
-      }
+  if(!(-cam->fov/2<start_angle<cam->fov/2)||!(-cam->fov/2<end_angle<cam->fov/2)) {
+    clipped=TRUE;
+    if(-cam->fov/2<start_angle<cam->fov/2) {
+      end_angle=Sign(st->x*en->y-st->y*en->x)*cam->fov/2.;
+    } else if(-cam->fov/2<end_angle<cam->fov/2) {
+      start_angle=Sign(en->x*st->y-en->y*st->x)*cam->fov/2.;
+    } else {
+      start_angle=-cam->fov/2;
+      end_angle=cam->fov/2;
     }
-  } else {
-    clipped=!(-cam->fov/2<start_angle<cam->fov/2)||!(-cam->fov/2<end_angle<cam->fov/2);
-    start_angle=Clamp(start_angle,-cam->fov/2,cam->fov/2);
-    end_angle=Clamp(end_angle,-cam->fov/2,cam->fov/2);
   }
   repeat=TRUE;
   ix=GR_WIDTH/2.+start_angle/(cam->fov/2.)*GR_WIDTH/2.;
@@ -554,43 +549,43 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  tx&=~1;
 	  low_ih=MaxI64(cam->ceil_heights[ix>>1]-iy,0);
 	  ih2=low_ih;
-	    //https://doomwiki.org/wiki/Texture_alignment
-	    if(repeat) {
-	      if(onesided) {
+//https://doomwiki.org/wiki/Texture_alignment
+	  if(repeat) {
+	    if(onesided) {
 //Dont ask nroot how any of this works,he typed in random stuff
+	      if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
+	        tyf=(ih2*ratio+yoff+texture->height-1-ratio*ih)*2;
+	      } else {
+	        tyf=(ih2*ratio+yoff-sd->sector->door_height_offset)*2;
+	      }
+	    } else {
+	      if(floor==0) {
 	        if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
-		  tyf=(ih2*ratio+yoff+texture->height-1-ratio*ih)*2;
+		  tyf=(ih2*ratio+yoff+texture->height-1-ratio*ih+ceilh-flrh)*2;
 	        } else {
 		  tyf=(ih2*ratio+yoff-sd->sector->door_height_offset)*2;
 	        }
-	      } else {
-	        if(floor==0) {
-		  if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
-		    tyf=(ih2*ratio+yoff+texture->height-1-ratio*ih+ceilh-flrh)*2;
-		  } else {
-		    tyf=(ih2*ratio+yoff-sd->sector->door_height_offset)*2;
-		  }
-	        } else{
-		  if(!(ld->flags&WAD_LINEDEFF_UPPER_UNPEGGED)) {
-		    tyf=(ih2*ratio+yoff+texture->height-1-ratio*ih-sd->sector->door_height_offset)*2;
-		  } else {
-		    tyf=(ih2*ratio+yoff-sd->sector->door_height_offset)*2;
-		  }
+	      } else{
+	        if(!(ld->flags&WAD_LINEDEFF_UPPER_UNPEGGED)) {
+		  tyf=(ih2*ratio+yoff+texture->height-1-ratio*ih-sd->sector->door_height_offset)*2;
+	        } else {
+		  tyf=(ih2*ratio+yoff-sd->sector->door_height_offset)*2;
 	        }
 	      }
-	    } else {
-	      tyf=(ToF64(ih2)/ih)*(texture->height-2);
 	    }
+	  } else {
+	    tyf=(ToF64(ih2)/ih)*(texture->height-2);
+	  }
 
 	  for(ih2=low_ih;TRUE;ih2+=2,tyf+=2*ratio*2) { //2 for dither pixel,2 for ih2+=2
 	    if(ih2>=ih||ih2+iy>=GR_HEIGHT-2)
-	       break;
+	      break;
 	    if(idist>cam->floor_depths[ix/2]) {
 	      if(iy+ih2>=cam->floor_heights[ix/2]) {
 	        break;
 	      } else if(iy+ih2<cam->ceil_heights[ix/2])
-		goto skip_p;
-	      
+	        goto skip_p;
+
 	    }
 	    ty=tyf;
 	    if(opposite) //Why is this here????
@@ -624,11 +619,11 @@ skip_p:;
         if(!is_sky) {
 	  if(0) {
 set_floor_height:
-	  if(floor==0||floor==1) 
-	    cam->floor_heights[ix/2]=ClampI64(iy,0,GR_HEIGHT);
-	  if(floor)
-	    cam->ceil_heights[ix/2]=ClampI64(iy+ih,0,GR_HEIGHT);
-	  cam->floor_depths[ix/2]=idist;
+	    if(floor==0||floor==1) 
+	      cam->floor_heights[ix/2]=ClampI64(iy,0,GR_HEIGHT);
+	    if(floor)
+	      cam->ceil_heights[ix/2]=ClampI64(iy+ih,0,GR_HEIGHT);
+	    cam->floor_depths[ix/2]=idist;
 //	  cam->ceil_depths[ix/2]=idist;
 	    //	  GrVLine(cam->floor_dc,ix/2,0,(iy+ih)/2);
 	  } else if(cam->floor_depths[ix/2]>=idist) {

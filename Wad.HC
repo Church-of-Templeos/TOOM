@@ -1263,7 +1263,8 @@ U0 DumpWad(CWad *wad) {
 }
 
 //
-CDoomGr *dgr=LoadWadGr(wad);
+CDoomGr *dgr=LoadWadGr(wad)
+;
 CDoomLevel *l=NULL;
 /*
 DCFill;

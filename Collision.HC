@@ -314,7 +314,7 @@ CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_
 	  shoot_h,
 	  cur->height+cur->template->height-2
 	  );
-    if(wall_dist==-1||wall_dist>cd*1.5) {
+    if(wall_dist==-1||wall_dist>cd+1) {
       do {
         dummy.x=at->x+wall_dist*cos;
         dummy.y=at->y+wall_dist*sin;

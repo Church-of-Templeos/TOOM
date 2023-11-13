@@ -113,7 +113,7 @@ U0 WaitForJobsDone() {
 }
 
 
-CDC *doom_scrn=DCNew(GR_WIDTH,GR_HEIGHT);
+CDC *doom_scrn=gr.dc;
 doom_scrn->flags|=DCF_NO_TRANSPARENTS;
 I64 doom_scrn_in_draw=0;
 CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
@@ -167,7 +167,7 @@ class CDoomCamera {
   F64 floor_heights[GR_WIDTH/2]; //used for choosing which things not to draw
   F64 ceil_heights[GR_WIDTH/2]; //used for choosing which things not to draw
   F64 floor_depths[GR_WIDTH/2];
-  F64 ceil_depths[GR_WIDTH/2];
+  F64 wall_depths[GR_WIDTH/2]; //Absolute blocking walls
 //Cordnates are diveded by 2
   CDC *floor_dc; //This is black or white,this is used for reducing floor overdraw
   I64 visplane_cnt;
@@ -287,7 +287,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
   I32 *db_z;
   U16 *dst,color,color2;
   I64 maxx,maxy;
-  I64 minx,miny,odd,idist;
+  I64 minx,miny,idist,dir,from,to;
   F64 angle,dist,other_at;
   F64 cos,sin,cos2;
   CDoomSector *other_sector;
@@ -327,9 +327,15 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
       maxy=vp->cmaxy>>1;
     }
     cam->floor_dc->color=WHITE;
-    for(y=miny;y<maxy-1;y++) {
-      if(GrPeek0(cam->floor_dc,x,y)) goto next;
+    if(floor)
+      dir=-1,from=maxy,to=miny;
+    else
+      dir=1,from=miny,to=maxy;
+    for(y=from;y!=to;y+=dir) {
       dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at))/cos2;
+      if(cam->wall_depths[x]<dist)
+	goto next2;
+      if(GrPeek0(cam->floor_dc,x,y)) goto next;
       if(dist<0.) goto next;
       idist=dist;
       point.x=cam->x+cos*dist-sector->shape_start_x;
@@ -361,6 +367,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
         }
 next:;
     }
+next2:;
   }
 } 
 U0 PopulateTables() {
@@ -439,6 +446,8 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       dist=Sqrt(Sqr(hit.x)+Sqr(hit.y));
       idist=dist;
       if(dist<=0.) dist=1;
+      if(cam->wall_depths[ix>>1]<idist)
+        goto next;
       tx=(ToI64(Sqrt(Sqr(hit.x-st->x)+Sqr(hit.y-st->y)))*2+xoff*2)%texture->width;
       tx=tx;
 //The offset from the ground is included in the "height",we dont render the overdraw
@@ -581,9 +590,10 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    if(idist>cam->floor_depths[ix/2]) {
 	      if(iy+ih2>=cam->floor_heights[ix/2]) {
 	        break;
-	      } else if(iy+ih2<cam->ceil_heights[ix/2])
+	      } else if(iy+ih2<cam->ceil_heights[ix/2]) {
+	        ih2=cam->ceil_heights[ix/2]-iy;
 	        goto skip_p;
-
+	      }
 	    }
 	    ty=tyf;
 	    if(opposite) //Why is this here????
@@ -617,16 +627,23 @@ skip_p:;
         if(!is_sky) {
 	  if(0) {
 set_floor_height:
-	    if(floor==0||floor==1) 
+	    if(floor==0)  {
 	      cam->floor_heights[ix/2]=ClampI64(iy,0,GR_HEIGHT);
-	    if(floor)
+	      cam->ceil_heights[ix/2]=0;
+	    } else if(floor==1) {
+	      cam->ceil_heights[ix/2]=GR_HEIGHT;
+	      cam->floor_heights[ix/2]=0;
+	    } else if(floor==2) {
+	      cam->floor_heights[ix/2]=GR_HEIGHT;
 	      cam->ceil_heights[ix/2]=ClampI64(iy+ih,0,GR_HEIGHT);
+	    }
 	    cam->floor_depths[ix/2]=idist;
-//	  cam->ceil_depths[ix/2]=idist;
-	    //	  GrVLine(cam->floor_dc,ix/2,0,(iy+ih)/2);
 	  } else if(cam->floor_depths[ix/2]>=idist) {
 	    goto set_floor_height;
 	  }
+	  if(floor==1) 
+	    if(cam->wall_depths[ix/2]>idist)
+	      cam->wall_depths[ix/2]=idist;
         }
       }
     }
@@ -1085,7 +1102,7 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     cam->floor_heights[idx]=GR_HEIGHT;
     cam->ceil_heights[idx]=0;
     cam->floor_depths[idx]=I16_MAX;
-    cam->ceil_depths[idx]=I16_MAX;
+    cam->wall_depths[idx]=I16_MAX;
   }
   if(!to_dc->depth_buf)
     DCDepthBufAlloc(to_dc);
@@ -2625,8 +2642,8 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
       break;
     }
     UpdateLevel(l);
-    if(!Bt(&doom_scrn_in_draw,0))
-      DCBlotColor8(gr.dc,doom_scrn);
+//    if(!Bt(&doom_scrn_in_draw,0))
+//      DCBlotColor8(gr.dc,doom_scrn);
     Refresh;
   }
 ret:

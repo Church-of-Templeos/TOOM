@@ -1039,7 +1039,7 @@ U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
 }
 
 U0 DrawBSP(CDC *to_dc,CDoomCamera *cam,CDoomLevel *level) {
-    DrawBSP0(to_dc,cam,level->root_node);
+  DrawBSP0(to_dc,cam,DoomWhichBSPNode(cam->x,cam->y,level));
 }
 
 I64 FloorSort(CVisplane *va,CVisplane *vb)  {
@@ -2358,7 +2358,8 @@ U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64
   I64 idx;
 //Use mouse angle as real angle,then restore
   r=p->angle;
-  p->angle+=(cursor_x-GR_WIDTH/2)/ToF64(GR_WIDTH/2)*cam.fov/2;
+//Views in TOOM are reversed
+  p->angle+=((GR_WIDTH-cursor_x)-GR_WIDTH/2)/ToF64(GR_WIDTH/2)*cam.fov/2;
   angle=p->angle;
   CDoomThing *target=PlayerPickTarget(l,p);
   if(target)

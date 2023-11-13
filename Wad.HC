@@ -338,7 +338,7 @@ U0 LoadWadTEXTUREs(CWadTEXTURE1 *header,CDoomGr *gr) {
     result->flags|=DCF_NO_TRANSPARENTS;
 fin:
     FramePtrAdd(name,result);
-//    GrBlot(,0,0,result);
+ //   GrBlot(,0,0,result);
 //    Sleep(10);
   }
 }
@@ -747,11 +747,27 @@ found_pstart:
     LoadGrLump(wad,lump_name);
 
   }
-//FACES
+  //FACES
 
   LoadGrLump(wad,"STFST01");
   LoadGrLump(wad,"STFST00");
   LoadGrLump(wad,"STFST02");
+
+  //MAINMENU
+  LoadGrLump(wad,"TITLEPIC");
+  LoadGrLump(wad,"M_QUITG");
+  LoadGrLump(wad,"M_OPTION");
+  LoadGrLump(wad,"M_NEWG");
+  LoadGrLump(wad,"M_SKULL1");
+  LoadGrLump(wad,"M_SKULL2");
+  LoadGrLump(wad,"M_LGTTL");
+  LoadGrLump(wad,"M_ABOUT");
+  LoadGrLump(wad,"HELP1");
+  LoadGrLump(wad,"AQCONC14");
+  LoadGrLump(wad,"M_HURT");
+  LoadGrLump(wad,"M_DOOM");
+  LoadGrLump(wad,"RW1_3");
+  LoadGrLump(wad,"RW12_3");
 
 
   //WEAPONS

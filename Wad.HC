@@ -1,6 +1,7 @@
 #ifndef DOOM_WAD
 #define DOOM_WAD" Whats Poppin"
 #define DEBUG 1
+
 class CWad {
   U8 body[0];
   U8 ident[4];
@@ -8,14 +9,19 @@ class CWad {
   U32 directory_ptr;
 }; 
 
+I64 wad_cnt=0;
+CWad *wads[0x100];
+I64 wad_sizes[0x100];
 
+CWad *wad;
 CWad *LoadWad(U8 *filename) {
-  return FileRead(filename);
+  wads[wad_cnt]=FileRead(filename,&wad_sizes[wad_cnt]);
+  if(!wad_cnt) wad=wads[wad_cnt];
+  wad_cnt++;
 }
 
-static CWad *wad=LoadWad("freedoom1.wad");
-static CWad *pwad=LoadWad("TOOM.wad");
-
+LoadWad("freedoom1.wad");
+LoadWad("TOOM.wad");
 
 #define TICK_TIME (1/30.)
 
@@ -30,6 +36,8 @@ class CWadDirectory {
   U8 lump_name[8];
 };
 
+
+
 //https://doomwiki.org/wiki/Thing
 class CWadThing {
 #define  WAD_THINGF_SKILL12 1
@@ -43,8 +51,8 @@ class CWadThing {
 
 //https://doomwiki.org/wiki/Linedef
 class CWadLinedef {
-  I16 start_vertex;
-  I16 end_vertex;
+  U16 start_vertex;
+  U16 end_vertex;
 #define WAD_LINEDEFF_WALL 1 //Wall for player and monsters
 #define WAD_LINEDEFF_WALL_MONSTER 2 //Wall for monsters only
 #define WAD_LINEDEFF_2SIDED 4
@@ -54,10 +62,10 @@ class CWadLinedef {
 #define WAD_LINEDEFF_BLOCK_SOUND 0x40
 #define WAD_LINEDEFF_NO_SHOW_ON_MAP 0x80
 #define WAD_LINEDEFF_SHOW_ON_MAP 0x100
-  I16 flags;
+  U16 flags;
   U16 special_type;
   U16 sector_tag;
-  I16 front,back; //See CWadSidedef
+  U16 front,back; //See CWadSidedef
 };
 
 class CWadSidedef {
@@ -66,7 +74,7 @@ class CWadSidedef {
   U8 upper_texture_name[8];
   U8 lower_texture_name[8];
   U8 middle_texture_name[8];
-  I16 sector;
+  U16 sector;
 };
 
 class CWadSector {
@@ -92,7 +100,7 @@ class CWadSector {
 #define WAD_SECTOR_DAM20 16
 #define WAD_SECTOR_BLINK_RAND_2 17
   I16 special_type;
-  I16 tag_number;
+  U16 tag_number;
 };
 
 class CWadVertex {
@@ -101,7 +109,7 @@ class CWadVertex {
 
 
 class CWadSeg {
-  I16 start_vertex,end_vertex;
+  U16 start_vertex,end_vertex;
   I16 angle,linedef;
 //0 is same dir as linedef,else opposite
   I16 opposite_side,offset; 
@@ -111,8 +119,8 @@ class CWadSeg {
 
 class CWadSubsector {
 //Consistys of SEGS
-  I16 cnt;
-  I16 first;
+  U16 cnt;
+  U16 first;
 }; 
 
 
@@ -122,7 +130,7 @@ class CDoomThing:CQue {
   F64 momx,momy,momz; //Move momentum
   F64 anim_start_tS;
   CDoomAnimationFrame *animation;
-  I16 thing_type,pad[3];
+  U16 thing_type,pad[3];
   CDoomThingTemplate *template;
   I64 flags;
   Bool solid,anim_no_repeat,pad[6];
@@ -149,7 +157,7 @@ class CWadBSPNode {
   I16 dx,dy;
   CBoundBoxI16 left,right;
 //Dont ask me what these do
-  I16 left_child,right_child;
+  U16 left_child,right_child;
 };
 
 class CBoundBoxF64 {
@@ -363,7 +371,7 @@ class patch_t
 // Returns -1 if name not found.
 //
 
-I64 W_CheckNumForName (U8 *name,CWad *doom_wad)
+I64 W_CheckNumForName (U8 *name,CWad *doom_wad,I64 inst=1)
 {
 
     U8 name8[9];    
@@ -390,7 +398,8 @@ I64 W_CheckNumForName (U8 *name,CWad *doom_wad)
     {
 	if (!StrCmp8(lump_p->lump_name,name8))
 	{
-	    return lump_p - lumpinfo;
+	    if(--inst<=0)
+	      return lump_p - lumpinfo;
 	}
     }
 
@@ -409,10 +418,50 @@ U8 *W_GetLumpPtrFromNum(I64 idx,CWad *wad,I64 *lump_len=NULL) {
 //
 // Nroot,Get pointer to lump
 //
-U8 *W_GetLumpPtrFromName(U8 *name,CWad *wad,I64 *lump_len=NULL) {
-  I64 idx=W_CheckNumForName(name,wad);
+U8 *W_GetLumpPtrFromName(U8 *name,CWad *wad,I64 *lump_len=NULL,I64 which=1) {
+  I64 idx=W_CheckNumForName(name,wad,which);
   return W_GetLumpPtrFromNum(idx,wad,lump_len);
 }
+
+
+/*//$BK,1$YOU MUST CALL THIS AFTER LoadWad$BK,0$
+CWad *MergeWads() {
+  I64 idx,sz=0,lumps=0,idx2;
+  CWad *final,*cur;
+  U8 *data_ptr;
+  CWadDirectory *dir,*dir2;
+  for(idx=0;idx!=wad_cnt;idx++) {
+    sz+=wad_sizes[idx];
+    lumps+=wads[idx]->lump_cnt;
+  }
+  sz+=lumps*sizeof(CWadDirectory)+sizeof(CWad);
+  final=MAlloc(sz);
+  MemCpy(final,wads[0],sizeof CWad);
+  final->lump_cnt=lumps;
+  final->directory_ptr=sizeof(CWad);
+  dir=final+1;
+  data_ptr=final(U8*)+sizeof(CWad)+lumps*sizeof(CWadDirectory);
+  for(idx=0;idx!=wad_cnt;idx++) {
+    cur=wads[idx];
+    dir2=cur->body+cur->directory_ptr;
+    for(idx2=0;idx2!=cur->lump_cnt;idx2++) {
+      MemCpy(data_ptr,cur->body+dir2->ptr,dir2->lump_size);
+      MemCpy(dir,dir2,sizeof(CWadDirectory));
+      dir->ptr=data_ptr-final->body;
+      data_ptr+=dir2->lump_size;
+      dir2++;
+      dir++;
+    }
+    Free(cur);
+  }
+  wad_cnt=1;
+  wads[0]=final;
+  wad_sizes[0]=sz;
+  return wad=final;
+}
+
+MergeWads;
+*/
 
 U0 AddLinedefToSector(CDoomSector *ld,CDoomSector *s) {
   CDoomLinedef **list=MAlloc(8*(s->linedef_cnt+1));
@@ -542,103 +591,118 @@ I64 PNameIndex(U8 *name,CDoomGr *gr) {
   return -1;
 }
 
-U0 LoadGrLump(CWad *iwad,U8 *name) {
-  //if(FramePtr(name)) return;
-  CWadDirectory *wad_dir=iwad->body+iwad->directory_ptr;
+U0 LoadGrLump(CWad *wad,U8 *name) {
+  I64 idx;
+  for(idx=wad_cnt-1;idx>=0;idx--) {
+    wad=wads[idx];
+    if(W_CheckNumForName(name,wad)!=-1)
+      goto pass; 
+  }
+  return ;
+pass:
+  if(FramePtr(name)) return;
+  CWadDirectory *wad_dir=wad->body+wad->directory_ptr;
   U8 lump_name[9];
-  wad_dir+=W_CheckNumForName(name,iwad);
-  CDC *gr=ReadDoomImage(iwad->body+wad_dir->ptr);
+  wad_dir+=W_CheckNumForName(name,wad);
+  CDC *gr=ReadDoomImage(wad->body+wad_dir->ptr);
   lump_name[8]=0;
   MemCpy(lump_name,wad_dir->lump_name,8);
-  if(FramePtr(lump_name)!=0)
-  {
-   FramePtrSet(lump_name,gr);
-  }
-  else
-  {
-   FramePtrAdd(lump_name,gr);
-  }
+  FramePtrAdd(lump_name,gr);
 }
 
 CDoomGr *LoadWadGr(CWad *wad) {
   CDoomGr *ret=CAlloc(sizeof(CDoomGr));
   CWadDirectory *wad_dir;
-  I64 idx;
+  I64 idx,pass;
   U8 lump_name[9];
   CWadPnames *pnames;
   CDC *gr;
 //Load Player palett
-  ret->palette=LoadPLAYPALFromLump(W_GetLumpPtrFromName("PLAYPAL",wad));
+  if(W_CheckNumForName("PLAYPAL",wad)!=-1)
+    ret->palette=LoadPLAYPALFromLump(W_GetLumpPtrFromName("PLAYPAL",wad));
 //Find the sprites start
- wad_dir=wad->body+wad->directory_ptr;
- wad_dir+=W_CheckNumForName("S_START",wad);
-
- found_sstart:
-  wad_dir++; //Move past S_START
-  if(StrCmp8(wad_dir->lump_name,"S_END")) {
-    gr=ReadDoomImage(wad->body+wad_dir->ptr);
-    lump_name[8]=0;
-    MemCpy(lump_name,wad_dir->lump_name,8);
-    FramePtrAdd(lump_name,gr);
-#ifdef DEBUG
-    //    GrBlot(,0,0,gr);
-    //    Sleep(10);
-    #endif
-    goto found_sstart;
-  }
+  pass=1;
+  do {
+    wad_dir=wad->body+wad->directory_ptr;
+    idx=W_CheckNumForName("S_START",wad,pass);
+    if(idx==-1)
+      break;
+    wad_dir+=idx;
+found_sstart:
+    wad_dir++; //Move past S_START
+    if(StrCmp8(wad_dir->lump_name,"S_END")) {
+      lump_name[8]=0;
+      MemCpy(lump_name,wad_dir->lump_name,8);
+      LoadGrLump(wad,lump_name);
+      goto found_sstart;
+    }
+    pass++;
+  } while(TRUE);
 //Yeah homie,im straight up gunna load Flats. Take a moment to praise God
-  wad_dir=wad->body+wad->directory_ptr;
-  wad_dir+=W_CheckNumForName("F_START",wad);
+  pass=1;
+  do {
+    wad_dir=wad->body+wad->directory_ptr;
+    idx=W_CheckNumForName("F_START",wad,pass);
+    if(idx==-1)
+      break;
+    wad_dir+=idx;
 found_fstart:
-  wad_dir++; //Move past F_START
-  if(StrCmp8(wad_dir->lump_name,"F_END")) {
+    wad_dir++; //Move past F_START
+    if(StrCmp8(wad_dir->lump_name,"F_END")) {
 //There are lumps like F1_START/F1_END/F2_START/F2_END
-    //There are empty are are used for shareware/registered lumps
-    if(wad_dir->lump_size) {
-      gr=ReadDoomFlat(wad->body+wad_dir->ptr,ret->palette);
-      lump_name[8]=0;
-      MemCpy(lump_name,wad_dir->lump_name,8);
-      FramePtrAdd(lump_name,gr);
+      //There are empty are are used for shareware/registered lumps
+      if(wad_dir->lump_size) {
+        gr=ReadDoomFlat(wad->body+wad_dir->ptr,ret->palette);
+        lump_name[8]=0;
+        MemCpy(lump_name,wad_dir->lump_name,8);
+        FramePtrAdd(lump_name,gr);
 #ifdef DEBUG
-      //      GrBlot(,0,0,gr);
-      //      Sleep(10);
-      #endif
+        //      GrBlot(,0,0,gr);
+        //      Sleep(10);
+        #endif
+      }
+      goto found_fstart;
     }
-    goto found_fstart;
-  }
-//Load Wall Patch names
-  wad_dir=wad->body+wad->directory_ptr;
-  wad_dir+=W_CheckNumForName("PNAMES",wad);
+    pass++;
+  } while(TRUE);
+//Load Wall Patch names(ONLYUSE LASTFOR NOW)
+  pass=1;
+  do {
+    wad_dir=wad->body+wad->directory_ptr;
+    idx=W_CheckNumForName("PNAMES",wad,pass);
+    if(idx==-1) break;
+    wad_dir+=idx;
 found_pnames:
-  pnames=wad->body+wad_dir->ptr;
-  ret->pname_cnt=pnames->len;
-  ret->pnames=MAlloc(ret->pname_cnt*8);
-  MemCpy(ret->pnames,pnames->names,ret->pname_cnt*8);
+    pnames=wad->body+wad_dir->ptr;
+    ret->pname_cnt=pnames->len;
+    ret->pnames=MAlloc(ret->pname_cnt*8);
+    MemCpy(ret->pnames,pnames->names,ret->pname_cnt*8);
 //Load wall patches
-  wad_dir=wad->body+wad->directory_ptr;
-  wad_dir+=W_CheckNumForName("P_START",wad);
+    wad_dir=wad->body+wad->directory_ptr;
+    wad_dir+=W_CheckNumForName("P_START",wad,pass);
 found_pstart:
-  wad_dir++; //Move past S_START
-  if(StrCmp8(wad_dir->lump_name,"P_END")) {
+    wad_dir++; //Move past S_START
+    if(StrCmp8(wad_dir->lump_name,"P_END")) {
 //There are lumps like P1_START/P1_END/P2_START/P2_END
-    //There are empty are are used for shareware/registered lumps
-    if(wad_dir->lump_size) {
-      lump_name[8]=0;
-      MemCpy(lump_name,wad_dir->lump_name,8);
-      gr=ReadDoomImage(wad->body+wad_dir->ptr);
+      //There are empty are are used for shareware/registered lumps
+      if(wad_dir->lump_size) {
+        lump_name[8]=0;
+        MemCpy(lump_name,wad_dir->lump_name,8);
+        gr=ReadDoomImage(wad->body+wad_dir->ptr);
 #ifdef DEBUG
-      //      GrBlot(,0,0,gr);
-      //      Sleep(10);
-      #endif
-      FramePtrAdd(lump_name,gr);
+        //      GrBlot(,0,0,gr);
+        //      Sleep(10);
+        #endif
+        FramePtrAdd(lump_name,gr);
+      }
+      goto found_pstart;
     }
-    goto found_pstart;
-  }
-  LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE1",wad),ret);
-  if(W_GetLumpPtrFromName("TEXTURE2",wad)>=0)
-    LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE2",wad),ret);
-  LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE1",pwad),ret);
-  
+    LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE1",wad,,pass),ret);
+    if(W_CheckNumForName("TEXTURE2",wad,pass)!=-1)
+      LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE2",wad,,pass),ret);
+    pass++;
+  } while(TRUE);
+
 
   LoadGrLump(wad,"STBAR");
   LoadGrLump(wad,"STARMS");
@@ -664,7 +728,7 @@ found_pstart:
     LoadGrLump(wad,lump_name);
   }
 
-//Intermission
+  //Intermission
   LoadGrLump(wad,"WIURH0");
   LoadGrLump(wad,"WIURH1");
   LoadGrLump(wad,"WISPLAT");
@@ -683,11 +747,13 @@ found_pstart:
     LoadGrLump(wad,lump_name);
 
   }
-//FACES and SKINS
+//FACES
 
-  LoadGrLump(pwad,"STFST01");
-  LoadGrLump(pwad,"STFST00");
-  LoadGrLump(pwad,"STFST02");
+  LoadGrLump(wad,"STFST01");
+  LoadGrLump(wad,"STFST00");
+  LoadGrLump(wad,"STFST02");
+
+
   //WEAPONS
   //PUNCH
   LoadGrLump(wad,"PUNGA0");
@@ -713,7 +779,7 @@ found_pstart:
     CatPrint(lump_name,"CHGG%c0",idx);
     LoadGrLump(wad,lump_name);
   }
-  //MISSILELAUNCHER
+//MISSILELAUNCHER
   for(idx='A';idx<='B';idx++) {
     lump_name[0]=0;
     CatPrint(lump_name,"MISG%c0",idx);
@@ -742,61 +808,6 @@ found_pstart:
     CatPrint(lump_name,"BFGG%c0",idx);
     LoadGrLump(wad,lump_name);
   }
-
-
-  LoadGrLump(pwad,"POSSA1");
-  LoadGrLump(pwad,"POSSA2A8");
-  LoadGrLump(pwad,"POSSA3A7");
-  LoadGrLump(pwad,"POSSA4A6");
-  LoadGrLump(pwad,"POSSA5");
-  LoadGrLump(pwad,"POSSB1");
-  LoadGrLump(pwad,"POSSB2B8");
-  LoadGrLump(pwad,"POSSB3B7");
-  LoadGrLump(pwad,"POSSB4B6");
-  LoadGrLump(pwad,"POSSB5");
-  LoadGrLump(pwad,"POSSC1");
-  LoadGrLump(pwad,"POSSC2C8");
-  LoadGrLump(pwad,"POSSC3C7");
-  LoadGrLump(pwad,"POSSC4C6");
-  LoadGrLump(pwad,"POSSC5");
-  LoadGrLump(pwad,"POSSD1");
-  LoadGrLump(pwad,"POSSD2D8");
-  LoadGrLump(pwad,"POSSD3D7");
-  LoadGrLump(pwad,"POSSD4D6");
-  LoadGrLump(pwad,"POSSD5");
-  LoadGrLump(pwad,"POSSE1");
-  LoadGrLump(pwad,"POSSE2E8");
-  LoadGrLump(pwad,"POSSE3E7");
-  LoadGrLump(pwad,"POSSE4E6");
-  LoadGrLump(pwad,"POSSE5");
-  LoadGrLump(pwad,"POSSF1");
-  LoadGrLump(pwad,"POSSF2F8");
-  LoadGrLump(pwad,"POSSF3F7");
-  LoadGrLump(pwad,"POSSF4F6");
-  LoadGrLump(pwad,"POSSF5");
-  LoadGrLump(pwad,"POSSG1");
-  LoadGrLump(pwad,"POSSG2G8");
-  LoadGrLump(pwad,"POSSG3G7");
-  LoadGrLump(pwad,"POSSG4G6");
-  LoadGrLump(pwad,"POSSG5");
-  LoadGrLump(pwad,"POSSH0");
-  LoadGrLump(pwad,"POSSI0");
-  LoadGrLump(pwad,"POSSJ0");
-  LoadGrLump(pwad,"POSSK0");
-  LoadGrLump(pwad,"POSSL0");
-  LoadGrLump(pwad,"POSSM0");
-  LoadGrLump(pwad,"POSSN0");
-  LoadGrLump(pwad,"POSSO0");
-  LoadGrLump(pwad,"POSSP0");
-  LoadGrLump(pwad,"POSSQ0");
-  LoadGrLump(pwad,"POSSR0");
-  LoadGrLump(pwad,"POSSS0");
-  LoadGrLump(pwad,"POSST0");
-  LoadGrLump(pwad,"POSSU0");
-
-
-
-
   return ret;
 }
 
@@ -1089,9 +1100,9 @@ skip_thing:
     dlinedef=CAlloc(sizeof(CDoomLinedef));
     dlinedef->start=wlinedef->start_vertex+level->vertices;
     dlinedef->end=wlinedef->end_vertex+level->vertices;
-    if(wlinedef->front!=-1)
+    if(wlinedef->front!=0xffff)
       dlinedef->front=dside_list[wlinedef->front];
-    if(wlinedef->front!=-1)
+    if(wlinedef->back!=0xffff)
       dlinedef->back=dside_list[wlinedef->back];
     dlinedef->sector_tag=wlinedef->sector_tag;
     dlinedef->flags=wlinedef->flags;
@@ -1326,8 +1337,8 @@ U0 DumpWad(CWad *wad) {
 }
 
 //
-CDoomGr *dgr=LoadWadGr(wad);
-
+CDoomGr *dgr=LoadWadGr(wads[0]);
+LoadWadGr(wads[1]);
 CDoomLevel *l=NULL;
 /*
 DCFill;

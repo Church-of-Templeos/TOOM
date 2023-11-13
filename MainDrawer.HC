@@ -7,6 +7,9 @@ CTask *doom_task=Fs;
 #include "Thinker.HC";
 #include "Music.HC";
 #define mp_cnt 1 //Reduces flickering
+F64 ray_cast_table_cos[GR_WIDTH/2];
+F64 ray_cast_table_sin[GR_WIDTH/2];
+
 I64 draw_job_cnt=0;
 I64 draw_jobs_lock[mp_cnt];
 I64 draw_jobs_done[mp_cnt];
@@ -110,7 +113,7 @@ U0 WaitForJobsDone() {
 }
 
 
-CDC *doom_scrn=DCNew(GR_WIDTH,GR_HEIGHT);
+CDC *doom_scrn=gr.dc;
 doom_scrn->flags|=DCF_NO_TRANSPARENTS;
 I64 doom_scrn_in_draw=0;
 CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
@@ -153,8 +156,6 @@ class CVisplane {
   I64 fminy,fmaxy; //floor
   I64 cminy,cmaxy; //ceil
   CDoomSector *sector;
-  I16 fbottoms[GR_WIDTH/2];
-  I16 ctops[GR_WIDTH/2];
 };
 
 
@@ -166,11 +167,11 @@ class CDoomCamera {
   F64 floor_heights[GR_WIDTH/2]; //used for choosing which things not to draw
   F64 ceil_heights[GR_WIDTH/2]; //used for choosing which things not to draw
   F64 floor_depths[GR_WIDTH/2];
-  F64 ceil_depths[GR_WIDTH/2];
+  F64 wall_depths[GR_WIDTH/2]; //Absolute blocking walls
 //Cordnates are diveded by 2
   CDC *floor_dc; //This is black or white,this is used for reducing floor overdraw
   I64 visplane_cnt;
-  CVisplane visplanes[256];
+  CVisplane visplanes[256];
 } cam;
 cam.fov=pi/4;
 U0 InsertVisplane(CDoomCamera *cam,CDoomSector *s) {
@@ -188,10 +189,6 @@ U0 InsertVisplane(CDoomCamera *cam,CDoomSector *s) {
     vp->cmaxx=0;
     vp->sector=s;
     vp->color=cnt%14+1;
-    for(cnt2=0;cnt2!=GR_WIDTH/2;cnt2++) {
-      vp->fbottoms[cnt2]=0;
-      vp->ctops[cnt2]=0;
-    }
     s->visplane_idx=cnt;
     cam->visplane_cnt++;
   }
@@ -285,18 +282,29 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
 U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
   if(FramePtr("F_SKY1",doom_task)==texture) return;
   I64 x,y;
-  I64 w=sector->shape_dc->width*2,h=sector->shape_dc->height*2;
   I64 plane=sector->visplane_idx;
   I64 floorx,floory;
   I32 *db_z;
-  U16 *dst,color;
+  U16 *dst,color,color2;
   I64 maxx,maxy;
-  I64 minx,miny,odd,visplane_under;
+  I64 minx,miny,idist,dir,from,to;
   F64 angle,dist,other_at;
   F64 cos,sin,cos2;
   CDoomSector *other_sector;
-  CD2 point;
+  CD2I64 point;
   CVisplane *vp=&cam->visplanes[plane];
+  static F64 cache_angle=-I16_MAX; //Imposible dft starting angle
+  static F64 cos_cache[GR_WIDTH/2];
+  static F64 sin_cache[GR_WIDTH/2];
+  if(cache_angle!=cam->angle) {
+    cache_angle=cam->angle;
+    for(x=0;x!=GR_WIDTH/2;x++) {
+      angle=(ToF64(x*2)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
+      cos_cache[x]=FCos(angle+cam->angle);
+      sin_cache[x]=FSin(angle+cam->angle);
+    }
+  }
+  I64 w=sector->shape_dc->width*2,h=sector->shape_dc->height*2;
   if(floor) {
     maxx=vp->fmaxx;
     minx=vp->fminx;
@@ -308,34 +316,41 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
   maxx>>=1;
   for(x=minx;x<maxx;x++) {
     angle=(ToF64(x*2)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
-    cos=FCos(angle+cam->angle);
-    sin=FSin(angle+cam->angle);
-    cos2=FCos(angle);
+    cos=cos_cache[x];
+    sin=sin_cache[x];
+    cos2=ray_cast_table_cos[x];
     if(floor) {
-      miny=vp->fbottoms[x]>>1;
+      miny=vp->fminy>>1;
       maxy=vp->fmaxy>>1;
     } else {
       miny=vp->cminy>>1;
-      maxy=vp->ctops[x]>>1;
+      maxy=vp->cmaxy>>1;
     }
     cam->floor_dc->color=WHITE;
-    for(y=miny;y<maxy;y++) {
-      if(GrPeek0(cam->floor_dc,x,y)) goto next;
+    if(floor)
+      dir=-1,from=maxy,to=miny;
+    else
+      dir=1,from=miny,to=maxy;
+    for(y=from;y!=to;y+=dir) {
       dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at))/cos2;
+      if(cam->wall_depths[x]<dist)
+	goto next2;
+      if(GrPeek0(cam->floor_dc,x,y)) goto next;
       if(dist<0.) goto next;
+      idist=dist;
       point.x=cam->x+cos*dist-sector->shape_start_x;
       point.y=cam->y+sin*dist-sector->shape_start_y;
-      if(0.<=point.x<w)
-        if(0.<=point.y<h){
-	  db_z=&to_dc->depth_buf[x*2+(y*2)*to_dc->width_internal];
-	  if(*db_z>dist)
+      if(0<=point.x<w)
+        if(0<=point.y<h){
+	  db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+(y*2)*to_dc->width_internal];
+	  if(*db_z>idist)
 	    if(GrPeek0(sector->shape_dc,point.x/2,point.y/2)) {
 	      GrPlot0(cam->floor_dc,x,y);
-	      db_z[0]=dist;
-	      db_z[1]=dist;
+	      db_z[0]=idist;
+	      db_z[1]=idist;
 	      db_z+=to_dc->width_internal;
-	      db_z[0]=dist;
-	      db_z[1]=dist;
+	      db_z[0]=idist;
+	      db_z[1]=idist;
 	      floorx=point.x;
 	      floory=point.y;
 	      floorx=(2*floorx%texture->width)&~1;
@@ -343,19 +358,18 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
 	      if(floorx<0) floorx=-floorx;
 	      if(floory<0) floory=-floory;
 	      color=texture->body[floorx+floory*texture->width](U16);
-	      dst=&to_dc->body[(x*2)+(y*2)*to_dc->width_internal];
+	      color2=texture->body[floorx+(1+floory)*texture->width](U16);
+	      dst=&to_dc->body[GR_WIDTH-2-(x*2)+(y*2)*to_dc->width_internal];
 	      *dst=color;
 	      dst(U8*)+=to_dc->width_internal;
-	      color=texture->body[floorx+(1+floory)*texture->width](U16);
-	      *dst=color;
+	      *dst=color2;
 	    }
         }
 next:;
     }
+next2:;
   }
 } 
-F64 ray_cast_table_cos[GR_WIDTH/2];
-F64 ray_cast_table_sin[GR_WIDTH/2];
 U0 PopulateTables() {
   I64 inc=0;
   F64 angle=-cam.fov/2;
@@ -392,6 +406,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   I64 low_ih,high_ih;
   CDoomSidedef *opposite;
   U16 *color,*to;
+  cam->floor_dc->color=WHITE;
   if(ld->front==sd)
     opposite=ld->back;
   else
@@ -403,22 +418,17 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
     is_sky2=sd->sector->ceil_dc[0]==FramePtr("F_SKY1",doom_task);
   start_angle=Wrap(start_angle);
   end_angle=Wrap(end_angle);
-  if(floor!=3) {
 //Angles are strange so i will just assume whole range if out of bound
-    if(!(-cam->fov/2<start_angle<cam->fov/2)||!(-cam->fov/2<end_angle<cam->fov/2)) {
-      if(-cam->fov/2<start_angle<cam->fov/2) {
-	end_angle=Sign(st->x*en->y-st->y*en->x)*cam->fov/2.;
-      } else if(-cam->fov/2<end_angle<cam->fov/2) {
-	start_angle=Sign(en->x*st->y-en->y*st->x)*cam->fov/2.;
-      } else {
-        start_angle=-cam->fov/2;
-        end_angle=cam->fov/2;
-      }
+  if(!(-cam->fov/2<start_angle<cam->fov/2)||!(-cam->fov/2<end_angle<cam->fov/2)) {
+    clipped=TRUE;
+    if(-cam->fov/2<start_angle<cam->fov/2) {
+      end_angle=Sign(st->x*en->y-st->y*en->x)*cam->fov/2.;
+    } else if(-cam->fov/2<end_angle<cam->fov/2) {
+      start_angle=Sign(en->x*st->y-en->y*st->x)*cam->fov/2.;
+    } else {
+      start_angle=-cam->fov/2;
+      end_angle=cam->fov/2;
     }
-  } else {
-    clipped=!(-cam->fov/2<start_angle<cam->fov/2)||!(-cam->fov/2<end_angle<cam->fov/2);
-    start_angle=Clamp(start_angle,-cam->fov/2,cam->fov/2);
-    end_angle=Clamp(end_angle,-cam->fov/2,cam->fov/2);
   }
   repeat=TRUE;
   ix=GR_WIDTH/2.+start_angle/(cam->fov/2.)*GR_WIDTH/2.;
@@ -436,7 +446,10 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       dist=Sqrt(Sqr(hit.x)+Sqr(hit.y));
       idist=dist;
       if(dist<=0.) dist=1;
-      tx=(ToI64(Sqrt(Sqr(hit.x-en->x)+Sqr(hit.y-en->y)))*2+xoff*2)%texture->width;
+      if(cam->wall_depths[ix>>1]<idist)
+        goto next;
+      tx=(ToI64(Sqrt(Sqr(hit.x-st->x)+Sqr(hit.y-st->y)))*2+xoff*2)%texture->width;
+      tx=tx;
 //The offset from the ground is included in the "height",we dont render the overdraw
       margin=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-level);
       ih=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*height;
@@ -465,11 +478,6 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    xoff=ClampI64(ix,0,GR_WIDTH-2);
 	    yoff=ClampI64(iy+ih2,1,GR_HEIGHT-2);
 	    if(ty) { //Y grows down
-	      if(!vp->fbottoms[xoff>>1]) {
-	        vp->fbottoms[xoff>>1]=yoff;
-	      } else {
-	        vp->fbottoms[xoff>>1]=MinI64(vp->fbottoms[xoff>>1],yoff);
-	      }
 //If our line is partialy behind the camera,we draw the floor from GR_HEIGHT
 	      if(clipped)
 	        vp->fmaxy=GR_HEIGHT;
@@ -484,11 +492,6 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	        vp->fmaxy=yoff;
 
 	    } else {
-	      if(!vp->ctops[xoff>>1]) {
-	        vp->ctops[xoff>>1]=yoff;
-	      } else {
-	        vp->ctops[xoff>>1]=MaxI64(vp->ctops[xoff>>1],yoff);
-	      }
 //If our line is partialy behind the camera,we draw the ceil from 0
 	      if(clipped)
 	        vp->cminy=0;
@@ -516,8 +519,8 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
         if(is_sky2&&!is_sky) {//Fill in upper pixels Z-buf distance with distnce for sky
 	  ty=iy;
 	  while(ty>=0) {
-	    db_z=&to_dc->depth_buf[ix+ty*to_dc->width_internal];
-	    to=&to_dc->body[ix+ty*to_dc->width_internal];
+	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+ty*to_dc->width_internal];
+	    to=&to_dc->body[GR_WIDTH-2-ix+ty*to_dc->width_internal];
 	    if(*db_z>idist) {
 	      db_z[0]=idist;
 	      db_z[1]=idist;
@@ -534,8 +537,8 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
         if(is_sky) {
 	  ih2=ClampI64(ih2+iy,0,GR_HEIGHT-2);
 	  while(ih2>=0) {
-	    db_z=&to_dc->depth_buf[ix+ih2*to_dc->width_internal];
-	    to=&to_dc->body[ix+(iy+ih2)*to_dc->width_internal];
+	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+ih2*to_dc->width_internal];
+	    to=&to_dc->body[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
 	    if(*db_z>idist) {
 	      db_z[0]=idist;
 	      db_z[1]=idist;
@@ -553,43 +556,44 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  tx&=~1;
 	  low_ih=MaxI64(cam->ceil_heights[ix>>1]-iy,0);
 	  ih2=low_ih;
-	    //https://doomwiki.org/wiki/Texture_alignment
-	    if(repeat) {
-	      if(onesided) {
+//https://doomwiki.org/wiki/Texture_alignment
+	  if(repeat) {
+	    if(onesided) {
 //Dont ask nroot how any of this works,he typed in random stuff
+	      if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
+	        tyf=(ih2*ratio+yoff+texture->height-1-ratio*ih)*2;
+	      } else {
+	        tyf=(ih2*ratio+yoff-sd->sector->door_height_offset)*2;
+	      }
+	    } else {
+	      if(floor==0) {
 	        if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
-		  tyf=(ih2*ratio+yoff+texture->height-1-ratio*ih)*2;
+		  tyf=(ih2*ratio+yoff+texture->height-1-ratio*ih+ceilh-flrh)*2;
 	        } else {
 		  tyf=(ih2*ratio+yoff-sd->sector->door_height_offset)*2;
 	        }
-	      } else {
-	        if(floor==0) {
-		  if(ld->flags&WAD_LINEDEFF_LOWER_UNPEGGED) {
-		    tyf=(ih2*ratio+yoff+texture->height-1-ratio*ih+ceilh-flrh)*2;
-		  } else {
-		    tyf=(ih2*ratio+yoff-sd->sector->door_height_offset)*2;
-		  }
-	        } else{
-		  if(!(ld->flags&WAD_LINEDEFF_UPPER_UNPEGGED)) {
-		    tyf=(ih2*ratio+yoff+texture->height-1-ratio*ih-sd->sector->door_height_offset)*2;
-		  } else {
-		    tyf=(ih2*ratio+yoff-sd->sector->door_height_offset)*2;
-		  }
+	      } else{
+	        if(!(ld->flags&WAD_LINEDEFF_UPPER_UNPEGGED)) {
+		  tyf=(ih2*ratio+yoff+texture->height-1-ratio*ih-sd->sector->door_height_offset)*2;
+	        } else {
+		  tyf=(ih2*ratio+yoff-sd->sector->door_height_offset)*2;
 	        }
 	      }
-	    } else {
-	      tyf=(ToF64(ih2)/ih)*(texture->height-2);
 	    }
+	  } else {
+	    tyf=(ToF64(ih2)/ih)*(texture->height-2);
+	  }
 
 	  for(ih2=low_ih;TRUE;ih2+=2,tyf+=2*ratio*2) { //2 for dither pixel,2 for ih2+=2
 	    if(ih2>=ih||ih2+iy>=GR_HEIGHT-2)
-	       break;
+	      break;
 	    if(idist>cam->floor_depths[ix/2]) {
 	      if(iy+ih2>=cam->floor_heights[ix/2]) {
 	        break;
-	      } else if(iy+ih2<cam->ceil_heights[ix/2])
-		goto skip_p;
-	      
+	      } else if(iy+ih2<cam->ceil_heights[ix/2]) {
+	        ih2=cam->ceil_heights[ix/2]-iy;
+	        goto skip_p;
+	      }
 	    }
 	    ty=tyf;
 	    if(opposite) //Why is this here????
@@ -600,8 +604,8 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    ty=ClampI64(ty,0,texture->height-2);
 	    ty&=~1;
 	    color=texture->body[tx+ty*texture->width_internal](U16);
-	    to=&to_dc->body[ix+(iy+ih2)*to_dc->width_internal];
-	    db_z=&to_dc->depth_buf[ix+(iy+ih2)*to_dc->width_internal];
+	    to=&to_dc->body[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
+	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
 	    if(*db_z>idist) {
 	      if(color&0xff!=TRANSPARENT) {
 	        db_z[0]=idist;
@@ -623,16 +627,23 @@ skip_p:;
         if(!is_sky) {
 	  if(0) {
 set_floor_height:
-	  if(floor==0||floor==1) 
-	    cam->floor_heights[ix/2]=ClampI64(iy,0,GR_HEIGHT);
-	  if(floor)
-	    cam->ceil_heights[ix/2]=ClampI64(iy+ih,0,GR_HEIGHT);
-	  cam->floor_depths[ix/2]=idist;
-//	  cam->ceil_depths[ix/2]=idist;
-	    //	  GrVLine(cam->floor_dc,ix/2,0,(iy+ih)/2);
+	    if(floor==0)  {
+	      cam->floor_heights[ix/2]=ClampI64(iy,0,GR_HEIGHT);
+	      cam->ceil_heights[ix/2]=0;
+	    } else if(floor==1) {
+	      cam->ceil_heights[ix/2]=GR_HEIGHT;
+	      cam->floor_heights[ix/2]=0;
+	    } else if(floor==2) {
+	      cam->floor_heights[ix/2]=GR_HEIGHT;
+	      cam->ceil_heights[ix/2]=ClampI64(iy+ih,0,GR_HEIGHT);
+	    }
+	    cam->floor_depths[ix/2]=idist;
 	  } else if(cam->floor_depths[ix/2]>=idist) {
 	    goto set_floor_height;
 	  }
+	  if(floor==1) 
+	    if(cam->wall_depths[ix/2]>idist)
+	      cam->wall_depths[ix/2]=idist;
         }
       }
     }
@@ -702,7 +713,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p
     for(x=fromx;x<tox;x+=2) {
       if(x<0) x=0;
       if(x>tox) break;
-      db_z=&to_dc->depth_buf[x+y*to_dc->width_internal];
+      db_z=&to_dc->depth_buf[GR_WIDTH-2-x+y*to_dc->width_internal];
       if(*db_z>dist) {
         if(!reflect)
 	  ix=Lerp((x-fromx)/new_width,0,sprite->width-1);
@@ -710,7 +721,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p
 	  ix=Lerp((x-fromx)/new_width,sprite->width-1,0);
         iy=Lerp((y-fromy)/new_height,0,sprite->height-1);
         from=&sprite->body[(ix&~1)+(iy&~1)*sprite->width_internal];
-        dst=&to_dc->body[x+y*to_dc->width_internal];
+        dst=&to_dc->body[GR_WIDTH-2-x+y*to_dc->width_internal];
         if(from->u8[0]!=TRANSPARENT)
 	  *dst=*from,*db_z=dist,db_z[1]=dist;
         from(U8*)+=sprite->width_internal;
@@ -1028,7 +1039,7 @@ U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
 }
 
 U0 DrawBSP(CDC *to_dc,CDoomCamera *cam,CDoomLevel *level) {
-    DrawBSP0(to_dc,cam,level->root_node);
+  DrawBSP0(to_dc,cam,DoomWhichBSPNode(cam->x,cam->y,level));
 }
 
 I64 FloorSort(CVisplane *va,CVisplane *vb)  {
@@ -1059,7 +1070,7 @@ U0 DrawSky(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
     if(ty>texture->height-2)
       ty=texture->height-2;
     for(ix=0;ix!=GR_WIDTH;ix+=2) {
-      to=&to_dc->body[ix+iy*to_dc->width_internal];
+      to=&to_dc->body[GR_WIDTH-2-ix+iy*to_dc->width_internal];
       if(*to&TRANSPARENT!=TRANSPARENT)
         goto skip;
       *to=*from;
@@ -1091,7 +1102,7 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     cam->floor_heights[idx]=GR_HEIGHT;
     cam->ceil_heights[idx]=0;
     cam->floor_depths[idx]=I16_MAX;
-    cam->ceil_depths[idx]=I16_MAX;
+    cam->wall_depths[idx]=I16_MAX;
   }
   if(!to_dc->depth_buf)
     DCDepthBufAlloc(to_dc);
@@ -2347,7 +2358,8 @@ U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64
   I64 idx;
 //Use mouse angle as real angle,then restore
   r=p->angle;
-  p->angle+=(cursor_x-GR_WIDTH/2)/ToF64(GR_WIDTH/2)*cam.fov/2;
+//Views in TOOM are reversed
+  p->angle+=((GR_WIDTH-cursor_x)-GR_WIDTH/2)/ToF64(GR_WIDTH/2)*cam.fov/2;
   angle=p->angle;
   CDoomThing *target=PlayerPickTarget(l,p);
   if(target)
@@ -2563,9 +2575,9 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
 #define SCRN_MARGIN 200
     #define SCRN_TURN_RATE (pi/1.5/30.)
     if(SCRN_MARGIN>cursor_x) {
-      p->angle-=Lerp((SCRN_MARGIN-cursor_x)/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
+      p->angle+=Lerp((SCRN_MARGIN-cursor_x)/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
     } else if(GR_WIDTH-SCRN_MARGIN<cursor_x) {
-      p->angle+=Lerp((cursor_x-(GR_WIDTH-SCRN_MARGIN))/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
+      p->angle-=Lerp((cursor_x-(GR_WIDTH-SCRN_MARGIN))/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
     }
 
     if(p->health>0.) {
@@ -2584,13 +2596,13 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
       }
       if(Bt(kbd.down_bitmap,Char2ScanCode('a'))||Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
         p->running=Bt(kbd.down_bitmap,SC_SHIFT);
-        PlayerMove(l,p,1,-pi/2);
+        PlayerMove(l,p,1,pi/2);
         UpdateCameraFromPlayer(&cam,p);
         ST_Key(2);
       }
       if(Bt(kbd.down_bitmap,Char2ScanCode('d'))||Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)) {
         p->running=Bt(kbd.down_bitmap,SC_SHIFT);
-        PlayerMove(l,p,1,pi/2);
+        PlayerMove(l,p,1,-pi/2);
         UpdateCameraFromPlayer(&cam,p);
         ST_Key(1);
       }
@@ -2631,8 +2643,8 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
       break;
     }
     UpdateLevel(l);
-    if(!Bt(&doom_scrn_in_draw,0))
-      DCBlotColor8(gr.dc,doom_scrn);
+//    if(!Bt(&doom_scrn_in_draw,0))
+//      DCBlotColor8(gr.dc,doom_scrn);
     Refresh;
   }
 ret:

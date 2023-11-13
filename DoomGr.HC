@@ -141,3 +141,4 @@ CRGB *LoadPLAYPALFromLump(U8 *lump) {
   doom_palette_dithered=DitherPalette(ret);
   return ret;
 }
+

@@ -14,6 +14,7 @@ CWad *LoadWad(U8 *filename) {
 }
 
 static CWad *wad=LoadWad("freedoom1.wad");
+static CWad *pwad=LoadWad("TOOM.wad");
 
 
 #define TICK_TIME (1/30.)
@@ -42,8 +43,8 @@ class CWadThing {
 
 //https://doomwiki.org/wiki/Linedef
 class CWadLinedef {
-  U16 start_vertex;
-  U16 end_vertex;
+  I16 start_vertex;
+  I16 end_vertex;
 #define WAD_LINEDEFF_WALL 1 //Wall for player and monsters
 #define WAD_LINEDEFF_WALL_MONSTER 2 //Wall for monsters only
 #define WAD_LINEDEFF_2SIDED 4
@@ -53,10 +54,10 @@ class CWadLinedef {
 #define WAD_LINEDEFF_BLOCK_SOUND 0x40
 #define WAD_LINEDEFF_NO_SHOW_ON_MAP 0x80
 #define WAD_LINEDEFF_SHOW_ON_MAP 0x100
-  U16 flags;
+  I16 flags;
   U16 special_type;
   U16 sector_tag;
-  U16 front,back; //See CWadSidedef
+  I16 front,back; //See CWadSidedef
 };
 
 class CWadSidedef {
@@ -65,7 +66,7 @@ class CWadSidedef {
   U8 upper_texture_name[8];
   U8 lower_texture_name[8];
   U8 middle_texture_name[8];
-  U16 sector;
+  I16 sector;
 };
 
 class CWadSector {
@@ -91,7 +92,7 @@ class CWadSector {
 #define WAD_SECTOR_DAM20 16
 #define WAD_SECTOR_BLINK_RAND_2 17
   I16 special_type;
-  U16 tag_number;
+  I16 tag_number;
 };
 
 class CWadVertex {
@@ -100,7 +101,7 @@ class CWadVertex {
 
 
 class CWadSeg {
-  U16 start_vertex,end_vertex;
+  I16 start_vertex,end_vertex;
   I16 angle,linedef;
 //0 is same dir as linedef,else opposite
   I16 opposite_side,offset; 
@@ -110,8 +111,8 @@ class CWadSeg {
 
 class CWadSubsector {
 //Consistys of SEGS
-  U16 cnt;
-  U16 first;
+  I16 cnt;
+  I16 first;
 }; 
 
 
@@ -121,7 +122,7 @@ class CDoomThing:CQue {
   F64 momx,momy,momz; //Move momentum
   F64 anim_start_tS;
   CDoomAnimationFrame *animation;
-  U16 thing_type,pad[3];
+  I16 thing_type,pad[3];
   CDoomThingTemplate *template;
   I64 flags;
   Bool solid,anim_no_repeat,pad[6];
@@ -148,7 +149,7 @@ class CWadBSPNode {
   I16 dx,dy;
   CBoundBoxI16 left,right;
 //Dont ask me what these do
-  U16 left_child,right_child;
+  I16 left_child,right_child;
 };
 
 class CBoundBoxF64 {
@@ -541,15 +542,22 @@ I64 PNameIndex(U8 *name,CDoomGr *gr) {
   return -1;
 }
 
-U0 LoadGrLump(CWad *wad,U8 *name) {
-  if(FramePtr(name)) return;
-  CWadDirectory *wad_dir=wad->body+wad->directory_ptr;
+U0 LoadGrLump(CWad *iwad,U8 *name) {
+  //if(FramePtr(name)) return;
+  CWadDirectory *wad_dir=iwad->body+iwad->directory_ptr;
   U8 lump_name[9];
-  wad_dir+=W_CheckNumForName(name,wad);
-  CDC *gr=ReadDoomImage(wad->body+wad_dir->ptr);
+  wad_dir+=W_CheckNumForName(name,iwad);
+  CDC *gr=ReadDoomImage(iwad->body+wad_dir->ptr);
   lump_name[8]=0;
   MemCpy(lump_name,wad_dir->lump_name,8);
-  FramePtrAdd(lump_name,gr);
+  if(FramePtr(lump_name)!=0)
+  {
+   FramePtrSet(lump_name,gr);
+  }
+  else
+  {
+   FramePtrAdd(lump_name,gr);
+  }
 }
 
 CDoomGr *LoadWadGr(CWad *wad) {
@@ -562,9 +570,10 @@ CDoomGr *LoadWadGr(CWad *wad) {
 //Load Player palett
   ret->palette=LoadPLAYPALFromLump(W_GetLumpPtrFromName("PLAYPAL",wad));
 //Find the sprites start
-  wad_dir=wad->body+wad->directory_ptr;
-  wad_dir+=W_CheckNumForName("S_START",wad);
-found_sstart:
+ wad_dir=wad->body+wad->directory_ptr;
+ wad_dir+=W_CheckNumForName("S_START",wad);
+
+ found_sstart:
   wad_dir++; //Move past S_START
   if(StrCmp8(wad_dir->lump_name,"S_END")) {
     gr=ReadDoomImage(wad->body+wad_dir->ptr);
@@ -628,7 +637,8 @@ found_pstart:
   LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE1",wad),ret);
   if(W_GetLumpPtrFromName("TEXTURE2",wad)>=0)
     LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE2",wad),ret);
-
+  LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE1",pwad),ret);
+  
 
   LoadGrLump(wad,"STBAR");
   LoadGrLump(wad,"STARMS");
@@ -673,13 +683,11 @@ found_pstart:
     LoadGrLump(wad,lump_name);
 
   }
-//FACES
+//FACES and SKINS
 
-  LoadGrLump(wad,"STFST01");
-  LoadGrLump(wad,"STFST00");
-  LoadGrLump(wad,"STFST02");
-
-
+  LoadGrLump(pwad,"STFST01");
+  LoadGrLump(pwad,"STFST00");
+  LoadGrLump(pwad,"STFST02");
   //WEAPONS
   //PUNCH
   LoadGrLump(wad,"PUNGA0");
@@ -734,6 +742,61 @@ found_pstart:
     CatPrint(lump_name,"BFGG%c0",idx);
     LoadGrLump(wad,lump_name);
   }
+
+
+  LoadGrLump(pwad,"POSSA1");
+  LoadGrLump(pwad,"POSSA2A8");
+  LoadGrLump(pwad,"POSSA3A7");
+  LoadGrLump(pwad,"POSSA4A6");
+  LoadGrLump(pwad,"POSSA5");
+  LoadGrLump(pwad,"POSSB1");
+  LoadGrLump(pwad,"POSSB2B8");
+  LoadGrLump(pwad,"POSSB3B7");
+  LoadGrLump(pwad,"POSSB4B6");
+  LoadGrLump(pwad,"POSSB5");
+  LoadGrLump(pwad,"POSSC1");
+  LoadGrLump(pwad,"POSSC2C8");
+  LoadGrLump(pwad,"POSSC3C7");
+  LoadGrLump(pwad,"POSSC4C6");
+  LoadGrLump(pwad,"POSSC5");
+  LoadGrLump(pwad,"POSSD1");
+  LoadGrLump(pwad,"POSSD2D8");
+  LoadGrLump(pwad,"POSSD3D7");
+  LoadGrLump(pwad,"POSSD4D6");
+  LoadGrLump(pwad,"POSSD5");
+  LoadGrLump(pwad,"POSSE1");
+  LoadGrLump(pwad,"POSSE2E8");
+  LoadGrLump(pwad,"POSSE3E7");
+  LoadGrLump(pwad,"POSSE4E6");
+  LoadGrLump(pwad,"POSSE5");
+  LoadGrLump(pwad,"POSSF1");
+  LoadGrLump(pwad,"POSSF2F8");
+  LoadGrLump(pwad,"POSSF3F7");
+  LoadGrLump(pwad,"POSSF4F6");
+  LoadGrLump(pwad,"POSSF5");
+  LoadGrLump(pwad,"POSSG1");
+  LoadGrLump(pwad,"POSSG2G8");
+  LoadGrLump(pwad,"POSSG3G7");
+  LoadGrLump(pwad,"POSSG4G6");
+  LoadGrLump(pwad,"POSSG5");
+  LoadGrLump(pwad,"POSSH0");
+  LoadGrLump(pwad,"POSSI0");
+  LoadGrLump(pwad,"POSSJ0");
+  LoadGrLump(pwad,"POSSK0");
+  LoadGrLump(pwad,"POSSL0");
+  LoadGrLump(pwad,"POSSM0");
+  LoadGrLump(pwad,"POSSN0");
+  LoadGrLump(pwad,"POSSO0");
+  LoadGrLump(pwad,"POSSP0");
+  LoadGrLump(pwad,"POSSQ0");
+  LoadGrLump(pwad,"POSSR0");
+  LoadGrLump(pwad,"POSSS0");
+  LoadGrLump(pwad,"POSST0");
+  LoadGrLump(pwad,"POSSU0");
+
+
+
+
   return ret;
 }
 
@@ -1026,9 +1089,9 @@ skip_thing:
     dlinedef=CAlloc(sizeof(CDoomLinedef));
     dlinedef->start=wlinedef->start_vertex+level->vertices;
     dlinedef->end=wlinedef->end_vertex+level->vertices;
-    if(wlinedef->front!=0xffff)
+    if(wlinedef->front!=-1)
       dlinedef->front=dside_list[wlinedef->front];
-    if(wlinedef->back!=0xffff)
+    if(wlinedef->front!=-1)
       dlinedef->back=dside_list[wlinedef->back];
     dlinedef->sector_tag=wlinedef->sector_tag;
     dlinedef->flags=wlinedef->flags;
@@ -1263,8 +1326,8 @@ U0 DumpWad(CWad *wad) {
 }
 
 //
-CDoomGr *dgr=LoadWadGr(wad)
-;
+CDoomGr *dgr=LoadWadGr(wad);
+
 CDoomLevel *l=NULL;
 /*
 DCFill;

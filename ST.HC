@@ -547,7 +547,7 @@ U0 ST_ReadOnce()
 
     for(idx=0;idx!=10;idx++) {
       StrPrint(dummy,"STGNUM%d",idx);
-      STGNUM[idx]=FramePtr(dummy);
+      STGNUM[idx]=FramePtr(dummy);
     }
 
     for(idx=0;idx!=6;idx++) {

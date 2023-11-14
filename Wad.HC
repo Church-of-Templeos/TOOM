@@ -489,7 +489,7 @@ CDoomBSPNode *DoomWhichBSPNode(F64 x,F64 y,CDoomLevel *level,CDoomSubsector **ss
     SetVector(pline,cur_node->dy,1);
     if(IsFrontSideOfVector2D(pline,&dummy)) {
       DestroyVector(pline);
-      if(cur_node->left_child->signature!='NODE') {
+      if(cur_node->left_child->signature!='NODE') {
         if(ss) *ss=cur_node->left_child;
         return cur_node;
       }
@@ -767,8 +767,57 @@ found_pstart:
   LoadGrLump(wad,"M_HURT");
   LoadGrLump(wad,"M_DOOM");
   LoadGrLump(wad,"RW1_3");
-  LoadGrLump(wad,"RW12_3");
+  LoadGrLump(wad,"RW12_3");
+  LoadGrLump(wad,"M_SKILL");
+  LoadGrLump(wad,"M_JKILL");
+  LoadGrLump(wad,"M_ROUGH");
+  LoadGrLump(wad,"M_ULTRA");
+  LoadGrLump(wad,"M_NMARE");
+  LoadGrLump(wad,"M_EPI1");
+  LoadGrLump(wad,"M_EPI2");
+  LoadGrLump(wad,"M_EPI3");
+  LoadGrLump(wad,"M_EPI4");
+  LoadGrLump(wad,"M_EPISOD");
 
+//numbers
+  LoadGrLump(wad,"STCFN048");
+  LoadGrLump(wad,"STCFN049");
+  LoadGrLump(wad,"STCFN050");
+  LoadGrLump(wad,"STCFN051");
+  LoadGrLump(wad,"STCFN052");
+  LoadGrLump(wad,"STCFN053");
+  LoadGrLump(wad,"STCFN054");
+  LoadGrLump(wad,"STCFN055");
+  LoadGrLump(wad,"STCFN056");
+  LoadGrLump(wad,"STCFN057");
+
+//letters
+  LoadGrLump(wad,"STCFN065");
+  LoadGrLump(wad,"STCFN066");
+  LoadGrLump(wad,"STCFN067");
+  LoadGrLump(wad,"STCFN068");
+  LoadGrLump(wad,"STCFN069");
+  LoadGrLump(wad,"STCFN070");
+  LoadGrLump(wad,"STCFN071");
+  LoadGrLump(wad,"STCFN072");
+  LoadGrLump(wad,"STCFN073");
+  LoadGrLump(wad,"STCFN074");
+  LoadGrLump(wad,"STCFN075");
+  LoadGrLump(wad,"STCFN076");
+  LoadGrLump(wad,"STCFN077");
+  LoadGrLump(wad,"STCFN078");
+  LoadGrLump(wad,"STCFN079");
+  LoadGrLump(wad,"STCFN080");
+  LoadGrLump(wad,"STCFN081");
+  LoadGrLump(wad,"STCFN082");
+  LoadGrLump(wad,"STCFN083");
+  LoadGrLump(wad,"STCFN084");
+  LoadGrLump(wad,"STCFN085");
+  LoadGrLump(wad,"STCFN086");
+  LoadGrLump(wad,"STCFN087");
+  LoadGrLump(wad,"STCFN088");
+  LoadGrLump(wad,"STCFN089");
+  LoadGrLump(wad,"STCFN090");
 
   //WEAPONS
   //PUNCH

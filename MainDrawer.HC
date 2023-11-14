@@ -210,7 +210,7 @@ U0 InsertVisplane(CDoomCamera *cam,CDoomSector *s) {
 * Ask Nroot about this
 */
 
-I64 PointToLinedefSegment(CDoomCamera *cam,CDoomLinedef *def,CD2 *coord) {
+I64 PointToLinedefSegment(CDoomCamera *cam,CDoomLinedef *def,CD2 *coord) {
   CD2 line_s,at;
   F64 dist;
   line_s.x=cam->x;
@@ -1146,7 +1146,17 @@ U0 SongTask(I64)
 {//Original Song by Robert Prince
   Fs->task_end_cb=&SndTaskEndCB;
   MusicSettingsRst;
-  Play("ttt");
+  //Play("ttt");
+  //     Play("4eDEqFFetEEFqDeCDDEetCGF");
+  //   Play("4eDEqFFetEEFqDeCDDEetCGF");
+  //   Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
+   //  Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
+ 
+    // Play("4eDEqFFetEEFqDeCDDEetCGF");
+    // Play("4eDEqFFetEEFqDeCDDEetCGF");
+    // Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
+    // Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
+ Play("ttt");
   while (TRUE) {
     I64 i =3;
     while(i!=0)
@@ -2673,6 +2683,58 @@ U0 MainMenu()
  static CDC *title = FramePtr("M_DOOM");
  static CDC *torch = FramePtr("RW12_3");
  static CDC *brick = FramePtr("RW1_3");
+ static CDC *skill = FramePtr("M_SKILL");
+ static CDC *easy = FramePtr("M_JKILL");
+ static CDC *rough = FramePtr("M_ROUGH");
+ static CDC *ultra = FramePtr("M_ULTRA");
+ static CDC *nightmare = FramePtr("M_NMARE");
+ static CDC *ep1 = FramePtr("M_EPI1");
+ static CDC *ep2 = FramePtr("M_EPI2");
+ static CDC *ep3 = FramePtr("M_EPI3");
+ static CDC *ep4 = FramePtr("M_EPI4");
+ static CDC *episode = FramePtr("M_EPISOD");
+
+ static CDC *n0 = FramePtr("STCFN048");
+ static CDC *n1 = FramePtr("STCFN049");
+ static CDC *n2 = FramePtr("STCFN050");
+ static CDC *n3 = FramePtr("STCFN051");
+ static CDC *n4 = FramePtr("STCFN052");
+ static CDC *n5 = FramePtr("STCFN053");
+ static CDC *n6 = FramePtr("STCFN054");
+ static CDC *n7 = FramePtr("STCFN055");
+ static CDC *n8 = FramePtr("STCFN056");
+ static CDC *n9 = FramePtr("STCFN057");
+
+ static CDC *la = FramePtr("STCFN065"); 
+ static CDC *lb = FramePtr("STCFN066"); 
+ static CDC *lc = FramePtr("STCFN067"); 
+ static CDC *ld = FramePtr("STCFN068"); 
+ static CDC *le = FramePtr("STCFN069"); 
+ static CDC *lf = FramePtr("STCFN070"); 
+ static CDC *lg = FramePtr("STCFN071"); 
+ static CDC *lh = FramePtr("STCFN072"); 
+ static CDC *li = FramePtr("STCFN073"); 
+ static CDC *lj = FramePtr("STCFN074"); 
+ static CDC *lk = FramePtr("STCFN075"); 
+ static CDC *ll = FramePtr("STCFN076"); 
+ static CDC *lm = FramePtr("STCFN077"); 
+ static CDC *ln = FramePtr("STCFN078"); 
+ static CDC *lo = FramePtr("STCFN079"); 
+ static CDC *lp = FramePtr("STCFN080"); 
+ static CDC *lq = FramePtr("STCFN081"); 
+ static CDC *lr = FramePtr("STCFN082"); 
+ static CDC *ls = FramePtr("STCFN083"); 
+ static CDC *lt = FramePtr("STCFN084"); 
+ static CDC *lu = FramePtr("STCFN085"); 
+ static CDC *lv = FramePtr("STCFN086"); 
+ static CDC *lw = FramePtr("STCFN087"); 
+ static CDC *lx = FramePtr("STCFN088"); 
+ static CDC *ly = FramePtr("STCFN089"); 
+ static CDC *lz = FramePtr("STCFN090"); 
+
+
+  //WEAPONS
+
 
  WinBorder;
 
@@ -2727,7 +2789,7 @@ U0 MainMenu()
   GrBlot(doom_scrn,200,400+animCount2/5,mbg);
   GrBlot(doom_scrn,400,400+animCount2/5,mbg);
   GrBlot(doom_scrn,0,0-animCount2,menu);
-  GrBlot(doom_scrn,140,420+animCount2,welcome);
+  GrBlot(doom_scrn,140,420+animCount2/5,welcome);
 
   //animate skulls
   animCount++;  
@@ -2802,13 +2864,17 @@ U0 MainMenu()
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_UP)||Bt(kbd.down_bitmap,Char2ScanCode('w')))
   {
+    //Sleep(30);
     if(selectedOption>0)
-     selectedOption--;
+     selectedOption--; 
+  
   }
   if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)||Bt(kbd.down_bitmap,Char2ScanCode('s'))) 
   {
+    //Sleep(30);
     if(selectedOption<4)
-     selectedOption++;
+     selectedOption++; 
+  
   }
   
 
@@ -2816,10 +2882,10 @@ U0 MainMenu()
   {
    GrBlot(doom_scrn,160,260,skull2);
    GrBlot(doom_scrn,435,260,skull2);
-   selectedOption=0;
+   selectedOption=0; Sleep(30);
    if(ms.lb||Bt(kbd.down_bitmap,SC_ENTER))
    {
-    PlayLevel("E1M1",1);
+    PlayLevel("E1M4",1);
    }
   
   }
@@ -2852,7 +2918,7 @@ U0 MainMenu()
    if(ms.lb||Bt(kbd.down_bitmap,SC_ENTER))
    {
     DCFill;
-    break;
+    break;
    }
 
  

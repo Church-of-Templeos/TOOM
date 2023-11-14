@@ -474,7 +474,7 @@ U0 AddLinedefToSector(CDoomSector *ld,CDoomSector *s) {
 
 CDoomBSPNode *DoomWhichBSPNode(F64 x,F64 y,CDoomLevel *level,CDoomSubsector **ss=NULL) {
   CDoomBSPNode *cur_node=level->root_node;
-  Vector pline;
+  Vector *pline;
   Bool left,right;
   CD2 dummy;
   if(ss) *ss=NULL;
@@ -1276,13 +1276,13 @@ skip_thing:
     if(dlinedef_list[idx]->front) {
       AddLinedefToSector(
 	    dlinedef_list[idx],
-	    dlinedef_list[idx]->front->sector,
+	    dlinedef_list[idx]->front->sector
 	    );
     }
     if(dlinedef_list[idx]->back) {     
       AddLinedefToSector(
 	    dlinedef_list[idx],
-	    dlinedef_list[idx]->back->sector,
+	    dlinedef_list[idx]->back->sector
 	    );
     }
   }

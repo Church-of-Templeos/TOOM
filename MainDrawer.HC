@@ -156,6 +156,8 @@ class CVisplane {
   I64 fminy,fmaxy; //floor
   I64 cminy,cmaxy; //ceil
   CDoomSector *sector;
+//Farthest are per x
+  I32 sector_limits[GR_WIDTH/2]; 
 };
 
 
@@ -164,18 +166,18 @@ class CDoomCamera {
   F64 angle,fov;
 //Private
   //These include the wall heights too
+  //Cordnates are diveded by 2
   F64 floor_heights[GR_WIDTH/2]; //used for choosing which things not to draw
   F64 ceil_heights[GR_WIDTH/2]; //used for choosing which things not to draw
   F64 floor_depths[GR_WIDTH/2];
   F64 wall_depths[GR_WIDTH/2]; //Absolute blocking walls
-//Cordnates are diveded by 2
   CDC *floor_dc; //This is black or white,this is used for reducing floor overdraw
   I64 visplane_cnt;
   CVisplane visplanes[256];
 } cam;
 cam.fov=pi/4;
 U0 InsertVisplane(CDoomCamera *cam,CDoomSector *s) {
-  I64 cnt=cam->visplane_cnt,cnt2=0;
+  I64 cnt=cam->visplane_cnt;
   CVisplane *vp;
   if(cnt<255) {
     vp=&cam->visplanes[cnt];
@@ -188,9 +190,10 @@ U0 InsertVisplane(CDoomCamera *cam,CDoomSector *s) {
     vp->cmaxy=0;
     vp->cmaxx=0;
     vp->sector=s;
-    vp->color=cnt%14+1;
+    vp->color=cnt+1;
     s->visplane_idx=cnt;
     cam->visplane_cnt++;
+    MemSetU32(vp->sector_limits,I32_MAX,GR_WIDTH/2);
   }
 }
 #define GRID_SZ  128
@@ -279,7 +282,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
   return TRUE;
 }
 
-U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
+U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
   if(FramePtr("F_SKY1",doom_task)==texture) return;
   I64 x,y;
   I64 plane=sector->visplane_idx;
@@ -288,86 +291,81 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
   U16 *dst,color,color2;
   I64 maxx,maxy;
   I64 minx,miny,idist,dir,from,to;
-  F64 angle,dist,other_at;
-  F64 cos,sin,cos2;
-  CDoomSector *other_sector;
+  I64 consec_y;
+  F64 dist,angle;
+  F64 cos2,wx,wy;
+  U8 *already;
   CD2I64 point;
-  CVisplane *vp=&cam->visplanes[plane];
-  static F64 cache_angle=-I16_MAX; //Imposible dft starting angle
-  static F64 cos_cache[GR_WIDTH/2];
-  static F64 sin_cache[GR_WIDTH/2];
-  if(cache_angle!=cam->angle) {
-    cache_angle=cam->angle;
+  static F64 last_angle=I16_MAX; //Not possible to start with this angle
+  static F64 cos_table[GR_WIDTH/2];
+  static F64 sin_table[GR_WIDTH/2];
+  if(last_angle!=cam->angle) {
     for(x=0;x!=GR_WIDTH/2;x++) {
       angle=(ToF64(x*2)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
-      cos_cache[x]=FCos(angle+cam->angle);
-      sin_cache[x]=FSin(angle+cam->angle);
+      sin_table[x]=Sin(cam->angle+angle);
+      cos_table[x]=Cos(cam->angle+angle);
     }
+    last_angle=cam->angle;
   }
+  CVisplane *vp=&cam->visplanes[plane];
   I64 w=sector->shape_dc->width*2,h=sector->shape_dc->height*2;
   if(floor) {
-    maxx=vp->fmaxx;
-    minx=vp->fminx;
+    miny=vp->fminy>>1;
+    maxy=vp->fmaxy>>1;
+    minx=vp->fminx>>1;
+    maxx=vp->fmaxx>>1;
   } else {
-    maxx=vp->cmaxx;
-    minx=vp->cminx;
+    minx=vp->cminx>>1;
+    maxx=vp->cmaxx>>1;
+    miny=vp->cminy>>1;
+    maxy=vp->cmaxy>>1;
   }
-  minx>>=1;
-  maxx>>=1;
-  for(x=minx;x<maxx;x++) {
-    angle=(ToF64(x*2)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
-    cos=cos_cache[x];
-    sin=sin_cache[x];
-    cos2=ray_cast_table_cos[x];
-    if(floor) {
-      miny=vp->fminy>>1;
-      maxy=vp->fmaxy>>1;
-    } else {
-      miny=vp->cminy>>1;
-      maxy=vp->cmaxy>>1;
-    }
+//https://www.doomworld.com/forum/topic/102392-the-definitive-guide-to-visplanes/
+  for(y=miny;y<maxy;y++) {
+    idist=dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at));
     cam->floor_dc->color=WHITE;
-    if(floor)
-      dir=-1,from=maxy,to=miny;
-    else
-      dir=1,from=miny,to=maxy;
-    for(y=from;y!=to;y+=dir) {
-      dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at))/cos2;
-      if(cam->wall_depths[x]<dist)
-	goto next2;
-      if(GrPeek0(cam->floor_dc,x,y)) goto next;
-      if(dist<0.) goto next;
-      idist=dist;
-      point.x=cam->x+cos*dist-sector->shape_start_x;
-      point.y=cam->y+sin*dist-sector->shape_start_y;
+    already=cam->floor_dc->body+y*cam->floor_dc->width_internal+minx;
+    db_z=&to_dc->depth_buf[GR_WIDTH-2-minx*2+y*2*to_dc->width_internal];
+    dst=&to_dc->body[GR_WIDTH-2-minx*2+y*2*to_dc->width_internal];
+    for(x=minx;x<maxx;x++,already++,db_z-=2,dst(U8*)-=2) {
+      if(*already)
+	goto next;
+      if(idist>vp->sector_limits[x])
+	goto next;
+      if(cam->wall_depths[x]<idist)
+        goto next;
+      if(idist>*db_z)
+	goto next;
+      angle=(ToF64(x*2)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
+      cos2=ray_cast_table_cos[x];
+      wx=cam->x+(dist/cos2)*cos_table[x];
+      wy=cam->y+(dist/cos2)*sin_table[x];
+      point.x=wx-sector->shape_start_x;
+      point.y=wy-sector->shape_start_y;
       if(0<=point.x<w)
         if(0<=point.y<h){
-	  db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+(y*2)*to_dc->width_internal];
-	  if(*db_z>idist)
-	    if(GrPeek0(sector->shape_dc,point.x/2,point.y/2)) {
-	      GrPlot0(cam->floor_dc,x,y);
+	    if(GrPeek0(sector->shape_dc,point.x>>1,point.y>>1)) {
+	      *already=TRUE;
 	      db_z[0]=idist;
 	      db_z[1]=idist;
 	      db_z+=to_dc->width_internal;
 	      db_z[0]=idist;
 	      db_z[1]=idist;
-	      floorx=point.x;
-	      floory=point.y;
-	      floorx=(2*floorx%texture->width)&~1;
-	      floory=(2*floory%texture->height)&~1;
-	      if(floorx<0) floorx=-floorx;
-	      if(floory<0) floory=-floory;
-	      color=texture->body[floorx+floory*texture->width](U16);
-	      color2=texture->body[floorx+(1+floory)*texture->width](U16);
-	      dst=&to_dc->body[GR_WIDTH-2-(x*2)+(y*2)*to_dc->width_internal];
+	      db_z-=to_dc->width_internal;
+	      floorx=(point.x<<1)&127; //In doom flats are 64,(*2 for dither super pixel)
+	      floory=(point.y<<1)&127;
+	      floorx&=~1;
+	      floory&=~1;
+	      color=texture->body[floorx+floory*128](U16);
+	      color2=texture->body[floorx+(1+floory)*128](U16);
 	      *dst=color;
 	      dst(U8*)+=to_dc->width_internal;
 	      *dst=color2;
+	      dst(U8*)-=to_dc->width_internal;
 	    }
         }
 next:;
     }
-next2:;
   }
 } 
 U0 PopulateTables() {
@@ -406,7 +404,6 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   I64 low_ih,high_ih;
   CDoomSidedef *opposite;
   U16 *color,*to;
-  cam->floor_dc->color=WHITE;
   if(ld->front==sd)
     opposite=ld->back;
   else
@@ -469,7 +466,8 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       if(floor==3) { //If a "visplane" draw
         if(0<=ix<=GR_WIDTH-2) {
 	  vp=&cam->visplanes[sd->sector->visplane_idx];
-	  cam->floor_dc->color=vp->color;
+          if(vp->sector_limits[ix>>1]<idist||vp->sector_limits[ix>>1]==I32_MAX)
+	    vp->sector_limits[ix>>1]=idist;
 	  for(ty=0;ty!=2;ty++) {
 	    if(!ty)
 	      ih2=0;
@@ -1093,7 +1091,11 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   I64 idx=0,idx2,af,tf;
   LBts(&doom_scrn_in_draw,0);
   cam->visplane_cnt=0;
-  if(!cam->floor_dc) cam->floor_dc=DCNew(GR_WIDTH/2,GR_HEIGHT/2);
+  if(!cam->floor_dc) {
+    cam->floor_dc=DCNew(GR_WIDTH/2,GR_HEIGHT/2);
+    DCDepthBufAlloc(cam->floor_dc);
+  }
+  DCDepthBufRst(cam->floor_dc);
   DCFill(doom_scrn);
   DCFill(cam->floor_dc,BLACK);
   for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next)

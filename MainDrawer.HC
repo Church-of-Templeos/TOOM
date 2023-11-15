@@ -282,7 +282,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
   return TRUE;
 }
 
-U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
+U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
   if(FramePtr("F_SKY1",doom_task)==texture) return;
   I64 x,y;
   I64 plane=sector->visplane_idx;
@@ -446,7 +446,6 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       if(cam->wall_depths[ix>>1]<idist)
         goto next;
       tx=(ToI64(Sqrt(Sqr(hit.x-st->x)+Sqr(hit.y-st->y)))*2+xoff*2)%texture->width;
-      tx=tx;
 //The offset from the ground is included in the "height",we dont render the overdraw
       margin=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-level);
       ih=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*height;
@@ -2374,9 +2373,8 @@ U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64
 	if(!idx)
 	  r=0;
 	else
-          r=(Rand-.5);
-        angle=p->angle+r*9.8*pi/360.; 
-        LineAttack(l,p,target,range,angle,damage);
+          r=(Rand-.5); 
+        LineAttack(l,p,target,range,angle+r*9.8*pi/360.,damage);
       }
     } else
       LineAttack(l,p,target,range,angle,damage);

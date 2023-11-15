@@ -913,6 +913,7 @@ U0 SkullAttack(CDoomLevel *l,CMonsterThinker *t) {
 }
 U0 Scream(CDoomLevel *l,CMonsterThinker *t) {
 }
+
 U0 BOOM(CDoomLevel *l,CMonsterThinker *t) {
 //Major death
 } 

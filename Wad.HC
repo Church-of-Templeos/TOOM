@@ -338,7 +338,7 @@ U0 LoadWadTEXTUREs(CWadTEXTURE1 *header,CDoomGr *gr) {
     result->flags|=DCF_NO_TRANSPARENTS;
 fin:
     FramePtrAdd(name,result);
-//    GrBlot(,0,0,result);
+ //   GrBlot(,0,0,result);
 //    Sleep(10);
   }
 }
@@ -474,7 +474,7 @@ U0 AddLinedefToSector(CDoomSector *ld,CDoomSector *s) {
 
 CDoomBSPNode *DoomWhichBSPNode(F64 x,F64 y,CDoomLevel *level,CDoomSubsector **ss=NULL) {
   CDoomBSPNode *cur_node=level->root_node;
-  Vector pline;
+  Vector *pline;
   Bool left,right;
   CD2 dummy;
   if(ss) *ss=NULL;
@@ -489,7 +489,7 @@ CDoomBSPNode *DoomWhichBSPNode(F64 x,F64 y,CDoomLevel *level,CDoomSubsector **ss
     SetVector(pline,cur_node->dy,1);
     if(IsFrontSideOfVector2D(pline,&dummy)) {
       DestroyVector(pline);
-      if(cur_node->left_child->signature!='NODE') {
+      if(cur_node->left_child->signature!='NODE') {
         if(ss) *ss=cur_node->left_child;
         return cur_node;
       }
@@ -747,12 +747,77 @@ found_pstart:
     LoadGrLump(wad,lump_name);
 
   }
-//FACES
+  //FACES
 
   LoadGrLump(wad,"STFST01");
   LoadGrLump(wad,"STFST00");
   LoadGrLump(wad,"STFST02");
 
+  //MAINMENU
+  LoadGrLump(wad,"TITLEPIC");
+  LoadGrLump(wad,"M_QUITG");
+  LoadGrLump(wad,"M_OPTION");
+  LoadGrLump(wad,"M_NEWG");
+  LoadGrLump(wad,"M_SKULL1");
+  LoadGrLump(wad,"M_SKULL2");
+  LoadGrLump(wad,"M_LGTTL");
+  LoadGrLump(wad,"M_ABOUT");
+  LoadGrLump(wad,"HELP1");
+  LoadGrLump(wad,"AQCONC14");
+  LoadGrLump(wad,"M_HURT");
+  LoadGrLump(wad,"M_DOOM");
+  LoadGrLump(wad,"RW1_3");
+  LoadGrLump(wad,"RW12_3");
+  LoadGrLump(wad,"M_SKILL");
+  LoadGrLump(wad,"M_JKILL");
+  LoadGrLump(wad,"M_ROUGH");
+  LoadGrLump(wad,"M_ULTRA");
+  LoadGrLump(wad,"M_NMARE");
+  LoadGrLump(wad,"M_EPI1");
+  LoadGrLump(wad,"M_EPI2");
+  LoadGrLump(wad,"M_EPI3");
+  LoadGrLump(wad,"M_EPI4");
+  LoadGrLump(wad,"M_EPISOD");
+
+//numbers
+  LoadGrLump(wad,"STCFN048");
+  LoadGrLump(wad,"STCFN049");
+  LoadGrLump(wad,"STCFN050");
+  LoadGrLump(wad,"STCFN051");
+  LoadGrLump(wad,"STCFN052");
+  LoadGrLump(wad,"STCFN053");
+  LoadGrLump(wad,"STCFN054");
+  LoadGrLump(wad,"STCFN055");
+  LoadGrLump(wad,"STCFN056");
+  LoadGrLump(wad,"STCFN057");
+
+//letters
+  LoadGrLump(wad,"STCFN065");
+  LoadGrLump(wad,"STCFN066");
+  LoadGrLump(wad,"STCFN067");
+  LoadGrLump(wad,"STCFN068");
+  LoadGrLump(wad,"STCFN069");
+  LoadGrLump(wad,"STCFN070");
+  LoadGrLump(wad,"STCFN071");
+  LoadGrLump(wad,"STCFN072");
+  LoadGrLump(wad,"STCFN073");
+  LoadGrLump(wad,"STCFN074");
+  LoadGrLump(wad,"STCFN075");
+  LoadGrLump(wad,"STCFN076");
+  LoadGrLump(wad,"STCFN077");
+  LoadGrLump(wad,"STCFN078");
+  LoadGrLump(wad,"STCFN079");
+  LoadGrLump(wad,"STCFN080");
+  LoadGrLump(wad,"STCFN081");
+  LoadGrLump(wad,"STCFN082");
+  LoadGrLump(wad,"STCFN083");
+  LoadGrLump(wad,"STCFN084");
+  LoadGrLump(wad,"STCFN085");
+  LoadGrLump(wad,"STCFN086");
+  LoadGrLump(wad,"STCFN087");
+  LoadGrLump(wad,"STCFN088");
+  LoadGrLump(wad,"STCFN089");
+  LoadGrLump(wad,"STCFN090");
 
   //WEAPONS
   //PUNCH
@@ -1260,13 +1325,13 @@ skip_thing:
     if(dlinedef_list[idx]->front) {
       AddLinedefToSector(
 	    dlinedef_list[idx],
-	    dlinedef_list[idx]->front->sector,
+	    dlinedef_list[idx]->front->sector
 	    );
     }
     if(dlinedef_list[idx]->back) {     
       AddLinedefToSector(
 	    dlinedef_list[idx],
-	    dlinedef_list[idx]->back->sector,
+	    dlinedef_list[idx]->back->sector
 	    );
     }
   }

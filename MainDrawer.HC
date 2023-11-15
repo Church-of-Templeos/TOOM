@@ -213,7 +213,7 @@ U0 InsertVisplane(CDoomCamera *cam,CDoomSector *s) {
 * Ask Nroot about this
 */
 
-I64 PointToLinedefSegment(CDoomCamera *cam,CDoomLinedef *def,CD2 *coord) {
+I64 PointToLinedefSegment(CDoomCamera *cam,CDoomLinedef *def,CD2 *coord) {
   CD2 line_s,at;
   F64 dist;
   line_s.x=cam->x;
@@ -1147,7 +1147,17 @@ U0 SongTask(I64)
 {//Original Song by Robert Prince
   Fs->task_end_cb=&SndTaskEndCB;
   MusicSettingsRst;
-  Play("ttt");
+  //Play("ttt");
+  //     Play("4eDEqFFetEEFqDeCDDEetCGF");
+  //   Play("4eDEqFFetEEFqDeCDDEetCGF");
+  //   Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
+   //  Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
+ 
+    // Play("4eDEqFFetEEFqDeCDDEetCGF");
+    // Play("4eDEqFFetEEFqDeCDDEetCGF");
+    // Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
+    // Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
+ Play("ttt");
   while (TRUE) {
     I64 i =3;
     while(i!=0)
@@ -2547,9 +2557,7 @@ U0 FreeLevel(CDoomLevel *l) {
   Free(l);
 }
 U0 PlayLevel(U8 *name,I64 difficulty) { 
-  Fs->song_task=Spawn(&SongTask,name,"Song",,Fs);
   l=LoadWadLevel(wad,name,difficulty);
-  WinBorder;
   p=PlayerNew(l);
   PlayerMove(l,p,0);
   InitLevel(l);
@@ -2655,7 +2663,272 @@ ret:
 fin_level:
   return;
 }
-PlayLevel("E1M1",1);
+
+
+
+U0 MainMenu()
+{
+ Fs->song_task=Spawn(&SongTask,"E1M1","Song",,Fs);
+ static CDC *menu = FramePtr("TITLEPIC");
+ static CDC *quit = FramePtr("M_QUITG");
+ static CDC *option = FramePtr("M_OPTION");
+ static CDC *newg = FramePtr("M_NEWG");
+ static CDC *skull1 = FramePtr("M_SKULL1");
+ static CDC *skull2 = FramePtr("M_SKULL2");
+ static CDC *load = FramePtr("M_LGTTL");
+ static CDC *about = FramePtr("M_ABOUT");
+ static CDC *help = FramePtr("HELP1");
+ static CDC *mbg = FramePtr("AQCONC14");
+ static CDC *welcome = FramePtr("M_HURT");
+ static CDC *title = FramePtr("M_DOOM");
+ static CDC *torch = FramePtr("RW12_3");
+ static CDC *brick = FramePtr("RW1_3");
+ static CDC *skill = FramePtr("M_SKILL");
+ static CDC *easy = FramePtr("M_JKILL");
+ static CDC *rough = FramePtr("M_ROUGH");
+ static CDC *ultra = FramePtr("M_ULTRA");
+ static CDC *nightmare = FramePtr("M_NMARE");
+ static CDC *ep1 = FramePtr("M_EPI1");
+ static CDC *ep2 = FramePtr("M_EPI2");
+ static CDC *ep3 = FramePtr("M_EPI3");
+ static CDC *ep4 = FramePtr("M_EPI4");
+ static CDC *episode = FramePtr("M_EPISOD");
+
+ static CDC *n0 = FramePtr("STCFN048");
+ static CDC *n1 = FramePtr("STCFN049");
+ static CDC *n2 = FramePtr("STCFN050");
+ static CDC *n3 = FramePtr("STCFN051");
+ static CDC *n4 = FramePtr("STCFN052");
+ static CDC *n5 = FramePtr("STCFN053");
+ static CDC *n6 = FramePtr("STCFN054");
+ static CDC *n7 = FramePtr("STCFN055");
+ static CDC *n8 = FramePtr("STCFN056");
+ static CDC *n9 = FramePtr("STCFN057");
+
+ static CDC *la = FramePtr("STCFN065"); 
+ static CDC *lb = FramePtr("STCFN066"); 
+ static CDC *lc = FramePtr("STCFN067"); 
+ static CDC *ld = FramePtr("STCFN068"); 
+ static CDC *le = FramePtr("STCFN069"); 
+ static CDC *lf = FramePtr("STCFN070"); 
+ static CDC *lg = FramePtr("STCFN071"); 
+ static CDC *lh = FramePtr("STCFN072"); 
+ static CDC *li = FramePtr("STCFN073"); 
+ static CDC *lj = FramePtr("STCFN074"); 
+ static CDC *lk = FramePtr("STCFN075"); 
+ static CDC *ll = FramePtr("STCFN076"); 
+ static CDC *lm = FramePtr("STCFN077"); 
+ static CDC *ln = FramePtr("STCFN078"); 
+ static CDC *lo = FramePtr("STCFN079"); 
+ static CDC *lp = FramePtr("STCFN080"); 
+ static CDC *lq = FramePtr("STCFN081"); 
+ static CDC *lr = FramePtr("STCFN082"); 
+ static CDC *ls = FramePtr("STCFN083"); 
+ static CDC *lt = FramePtr("STCFN084"); 
+ static CDC *lu = FramePtr("STCFN085"); 
+ static CDC *lv = FramePtr("STCFN086"); 
+ static CDC *lw = FramePtr("STCFN087"); 
+ static CDC *lx = FramePtr("STCFN088"); 
+ static CDC *ly = FramePtr("STCFN089"); 
+ static CDC *lz = FramePtr("STCFN090"); 
+
+
+  //WEAPONS
+
+
+ WinBorder;
+
+ U8 animCount=0, animCount2=0,selectedOption=0;
+ Bool exit = FALSE;
+ 
+ while(TRUE)
+ {
+  doom_scrn->color = RED;
+  GrFloodFill(doom_scrn,0,0);
+
+  //next menu or exit
+  if(animCount2>=1)
+  {
+    animCount=1;
+    doom_scrn->color = BLACK;
+    GrRect(doom_scrn,0,0,640,480);
+    GrBlot(doom_scrn,0,0,brick);
+    GrBlot(doom_scrn,0,128,brick);
+    GrBlot(doom_scrn,0,256,torch);
+    GrBlot(doom_scrn,0,384,brick);
+    GrBlot(doom_scrn,128,0,brick);
+    GrBlot(doom_scrn,128,128,brick);
+    GrBlot(doom_scrn,128,256,brick);
+    GrBlot(doom_scrn,128,384,brick);
+    GrBlot(doom_scrn,256,0,brick);
+    GrBlot(doom_scrn,256,128,brick);
+    GrBlot(doom_scrn,256,256,brick);
+    GrBlot(doom_scrn,256,384,brick);
+    GrBlot(doom_scrn,384,0,brick);
+    GrBlot(doom_scrn,384,128,brick);
+    GrBlot(doom_scrn,384,256,brick);
+    GrBlot(doom_scrn,384,384,brick);
+    GrBlot(doom_scrn,512,0,brick);
+    GrBlot(doom_scrn,512,128,brick);
+    GrBlot(doom_scrn,512,256,torch);
+    GrBlot(doom_scrn,512,384,brick);
+
+    GrBlot(doom_scrn,0,0,title);
+    GrBlot(doom_scrn,210,260,newg);
+    GrBlot(doom_scrn,210,300,load);
+    GrBlot(doom_scrn,210,340,option);
+    GrBlot(doom_scrn,210,380,about);
+    GrBlot(doom_scrn,210,420,quit);
+
+    animCount2=animCount2+10;
+    if(animCount2>400)
+      break;
+    //  break;
+  }
+  GrBlot(doom_scrn,0,400+animCount2/5,mbg);
+  GrBlot(doom_scrn,200,400+animCount2/5,mbg);
+  GrBlot(doom_scrn,400,400+animCount2/5,mbg);
+  GrBlot(doom_scrn,0,0-animCount2,menu);
+  GrBlot(doom_scrn,140,420+animCount2/5,welcome);
+
+  //animate skulls
+  animCount++;  
+  if(animCount>5)
+  {
+  GrBlot(doom_scrn,90,420+animCount2/5,skull2);
+  GrBlot(doom_scrn,480,420+animCount2/5,skull2);
+   if(animCount==100)
+   {
+    animCount=0;
+   
+   }
+  }
+  else
+  {
+  GrBlot(doom_scrn,90,420+animCount2/5,skull1);
+  GrBlot(doom_scrn,480,420+animCount2/5,skull1);
+  } 
+
+
+  if(Bt(kbd.down_bitmap,Char2ScanCode(CH_ESC)&0xff)) {
+      DCFill;
+      exit=TRUE;
+      break;
+  }
+  if(ScanKey){//Bt(kbd.down_bitmap,Char2ScanCode('a')&0xff)){//GetKey(,FALSE)!=0) {
+      animCount2=1;
+  }
+
+  Refresh;
+ }
+ while(TRUE&&!exit)
+ {
+ I64 mx = ms.pos.x; I64 my = ms.pos.y;
+
+  Refresh;
+
+  doom_scrn->color = BLACK;
+  GrRect(doom_scrn,0,0,640,480);
+  GrFloodFill(doom_scrn,0,0);
+  GrBlot(doom_scrn,0,0,brick);
+  GrBlot(doom_scrn,0,128,brick);
+  GrBlot(doom_scrn,0,256,torch);
+  GrBlot(doom_scrn,0,384,brick);
+  GrBlot(doom_scrn,128,0,brick);
+  GrBlot(doom_scrn,128,128,brick);
+  GrBlot(doom_scrn,128,256,brick);
+  GrBlot(doom_scrn,128,384,brick);
+  GrBlot(doom_scrn,256,0,brick);
+  GrBlot(doom_scrn,256,128,brick);
+  GrBlot(doom_scrn,256,256,brick);
+  GrBlot(doom_scrn,256,384,brick);
+  GrBlot(doom_scrn,384,0,brick);
+  GrBlot(doom_scrn,384,128,brick);
+  GrBlot(doom_scrn,384,256,brick);
+  GrBlot(doom_scrn,384,384,brick);
+  GrBlot(doom_scrn,512,0,brick);
+  GrBlot(doom_scrn,512,128,brick);
+  GrBlot(doom_scrn,512,256,torch);
+  GrBlot(doom_scrn,512,384,brick);
+
+  GrBlot(doom_scrn,0,0,title);
+  GrBlot(doom_scrn,210,260,newg);
+  GrBlot(doom_scrn,210,300,load);
+  GrBlot(doom_scrn,210,340,option);
+  GrBlot(doom_scrn,210,380,about);
+  GrBlot(doom_scrn,210,420,quit);
+
+  if(Bt(kbd.down_bitmap,Char2ScanCode(CH_ESC)&0xff)) {
+      DCFill;
+      break;
+  }
+  if(Bt(kbd.down_bitmap,SC_CURSOR_UP)||Bt(kbd.down_bitmap,Char2ScanCode('w')))
+  {
+    //Sleep(30);
+    if(selectedOption>0)
+     selectedOption--; 
+  
+  }
+  if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)||Bt(kbd.down_bitmap,Char2ScanCode('s'))) 
+  {
+    //Sleep(30);
+    if(selectedOption<4)
+     selectedOption++; 
+  
+  }
+  
+
+  if(((my>=260&&my<=290)&&(mx>=210&&mx<=435))||selectedOption==0)
+  {
+   GrBlot(doom_scrn,160,260,skull2);
+   GrBlot(doom_scrn,435,260,skull2);
+   selectedOption=0; Sleep(30);
+   if(ms.lb||Bt(kbd.down_bitmap,SC_ENTER))
+   {
+    PlayLevel("E1M4",1);
+   }
+  
+  }
+  if(((my>=300&&my<=330)&&(mx>=210&&mx<=435))||selectedOption==1)
+  {
+   GrBlot(doom_scrn,160,300,skull2);
+   GrBlot(doom_scrn,435,300,skull2);
+   selectedOption=1;
+  
+  }
+  if(((my>=340&&my<=370)&&(mx>=210&&mx<=435))||selectedOption==2)
+  {
+   GrBlot(doom_scrn,160,340,skull2);
+   GrBlot(doom_scrn,435,340,skull2);
+   selectedOption=2;
+  
+  }
+  if(((my>=380&&my<=410)&&(mx>=210&&mx<=435))||selectedOption==3)
+  {
+   GrBlot(doom_scrn,160,380,skull2);
+   GrBlot(doom_scrn,435,380,skull2);
+   selectedOption=3;
+  
+  }
+  if(((my>=420&&my<=450)&&(mx>=210&&mx<=435))||selectedOption==4)
+  {
+   GrBlot(doom_scrn,160,420,skull2);
+   GrBlot(doom_scrn,435,420,skull2);
+   selectedOption=4;
+   if(ms.lb||Bt(kbd.down_bitmap,SC_ENTER))
+   {
+    DCFill;
+    break;
+   }
+
+ 
+  }
+  
+ }
+}
+
+//PlayLevel("E1M1",1);
+MainMenu;
 #endif
         ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      
 !   Éÿÿÿ0   ûÿÿÿ

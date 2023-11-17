@@ -1715,6 +1715,7 @@ U0 TeleportThing(CDoomLevel *l,CDoomTeleporter *tp,I64 sector_tag,CDoomThing *wh
 	 if(!tp->silent) {
            Spawn(&PlaySoundTask,"TELEPT");
 	   fog=CAlloc(sizeof CDoomThing);
+	   QueIns(fog,l->things.last);
 	   fog->template=teleport_fog;
 	   fog->x=cur->x;
 	   fog->y=cur->y;
@@ -1739,6 +1740,8 @@ U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags,CDoom
   I64 idx;
   CDoomLinedef *ld2;
   CDonutThinker *dt;
+  Vector *cross;
+  CD2 point;
   F64 dst;
   if(ld) {
     if((type=ld->special_type)) {
@@ -1755,7 +1758,18 @@ teleport_activate:
 		 return;
 	       if(!(flags&WACTIVATE_MONSTER)&&!tp->player)
 		 return;
-	       TeleportThing(l,tp,ld->sector_tag,who);
+//You must be have passed the first sidedef to trigger a tele[P]orter(meaning you are on the backside)
+		cross=CreateVector(2);
+		cross->data[0]=ld->end->x-ld->start->x;
+		cross->data[1]=ld->end->y-ld->start->y;
+		point.x=who->x-ld->start->x;
+		point.y=who->y-ld->start->y;
+	        if(flags&WACTIVATE_WALK&&IsFrontSideOfVector2D(cross,&point)) {
+		  DestroyVector(cross);
+		  return;
+		}
+		DestroyVector(cross);
+	        TeleportThing(l,tp,ld->sector_tag,who);
 	    } else
 	      PrintI("UNIMP_DEST",tp->dest); 
 	    break; case 'S1':    

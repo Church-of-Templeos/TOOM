@@ -268,9 +268,9 @@ Bool MMove(CDoomLevel *l,CMonsterThinker *m) {
     }
 //If we hit a line,try opening the door ?
   if(lv) {
-    TriggerLinedef(l,lv,WACTIVATE_MONSTER|WACTIVATE_PUSH);
+    TriggerLinedef(l,lv,WACTIVATE_MONSTER|WACTIVATE_PUSH,self);
     while(FifoI64Rem(crossed,&lv))
-      TriggerLinedef(l,lv,WACTIVATE_MONSTER|WACTIVATE_WALK);
+      TriggerLinedef(l,lv,WACTIVATE_MONSTER|WACTIVATE_WALK,self);
   }
   FifoI64Del(crossed);
   return !!lv;
@@ -747,7 +747,7 @@ defacto:
     dummy.y=self->y;
     ld=MoveInLevel(l,&dummy,angle,dist+8,8.,self->height,);
     if(ld)
-      TriggerLinedef(l,ld,WACTIVATE_SHOOT);
+      TriggerLinedef(l,ld,WACTIVATE_SHOOT|WACTIVATE_MONSTER,self);
   }
 }
 U0 PosAttack(CDoomLevel *l,CMonsterThinker *t) {
@@ -1003,7 +1003,7 @@ U0 BossDeath(CDoomLevel *l,CMonsterThinker *t) {
 //See Floors.TXT for more info on our dummy thang(37)
   dummy.sector_tag=666;
   dummy.special_type=action_sector_types[37];
-  TriggerLinedef(l,&dummy,WACTIVATE_WALK);   
+  TriggerLinedef(l,&dummy,WACTIVATE_WALK,p);   
 }
 U0 Hoof(CDoomLevel *l,CMonsterThinker *t) {
   //TODO start sound

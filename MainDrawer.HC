@@ -213,7 +213,7 @@ U0 InsertVisplane(CDoomCamera *cam,CDoomSector *s) {
 * Ask Nroot about this
 */
 
-I64 PointToLinedefSegment(CDoomCamera *cam,CDoomLinedef *def,CD2 *coord) {
+I64 PointToLinedefSegment(CDoomCamera *cam,CDoomLinedef *def,CD2 *coord) {
   CD2 line_s,at;
   F64 dist;
   line_s.x=cam->x;
@@ -283,7 +283,8 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
 }
 
 U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
-  if(FramePtr("F_SKY1",doom_task)==texture) return;
+  if(!texture) return;
+  if(GetFlatDC("F_SKY1")==texture) return;
   I64 x,y;
   I64 plane=sector->visplane_idx;
   I64 floorx,floory;
@@ -409,10 +410,10 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   else
     opposite=ld->front;
   if(opposite)
-    is_sky=opposite->sector->ceil_dc[0]==FramePtr("F_SKY1",doom_task)&&floor==2;
+    is_sky=opposite->sector->ceil_dc[0]==GetFlatDC("F_SKY1")&&floor==2;
   if(is_sky) return;
   if(onesided)
-    is_sky2=sd->sector->ceil_dc[0]==FramePtr("F_SKY1",doom_task);
+    is_sky2=sd->sector->ceil_dc[0]==GetFlatDC("F_SKY1");
   start_angle=Wrap(start_angle);
   end_angle=Wrap(end_angle);
 //Angles are strange so i will just assume whole range if out of bound
@@ -1059,7 +1060,7 @@ I64 CeilSort(CVisplane *va,CVisplane *vb)  {
 
 
 U0 DrawSky(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
-  CDC *texture=FramePtr("SKY1",doom_task);
+  CDC *texture=GetFlatDC("F_SKY1");
   I64 iy,ix,off=texture->width*cam->angle/pi,tx,ty;
   U16 *to,*from;
   for(iy=0;iy!=GR_HEIGHT;iy+=2) {
@@ -1670,15 +1671,63 @@ U0 DonutThinker(CDoomLevel *l,CDonutThinker *t) {
 	  s1->floor_height=s3->floor_height;
 	  s1->cur_action_linedef=NULL;
 	}
-PrintF("s1",s1->floor_height);
 next2:;
       } while(++i<s2->linedef_cnt);
     }
 next:;
   }
 }
-
-U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags) {
+class CTeleportThinker:CDoomThinkerBase {
+  CDoomThing *fog;
+};
+U0 TeleportFogThinker(CDoomLevel *l,CTeleportThinker *t) {
+  CDoomThing *fog=t->fog;
+  I64 frame;
+  fog->anim_no_repeat=TRUE;
+  frame=ToI64((tS-fog->anim_start_tS)*4);
+  if(frame>=StrLen(fog->template->animation)) {
+    QueRem(fog);
+    Free(fog);
+    QueRem(t);
+    Free(t);
+  }
+}
+U0 TeleportThing(CDoomLevel *l,CDoomTeleporter *tp,I64 sector_tag,CDoomThing *who) {
+  CDoomThing *cur,*fog;
+  CDoomSector *sec;
+  static CDoomThingTemplate *teleport_fog=NULL;
+  if(!teleport_fog) {
+     teleport_fog=CAlloc(sizeof CDoomThingTemplate);
+     teleport_fog->spr_base_name[0](U32)='TFOG';
+     teleport_fog->radius=20;
+     teleport_fog->animation="ABABCDEFGHIJ";
+     teleport_fog->_animation=GenerateCacheFrames(teleport_fog,teleport_fog->animation);
+  }
+  for(cur=l->things.next;cur!=&l->things;cur=cur->next) {
+//https://doomwiki.org/wiki/Teleporter
+    if(cur->template->type==14) {
+       sec=GetSectorForCoord(l,cur->x,cur->y);
+       if(sec->tag_number==sector_tag) {
+	 who->x=cur->x;
+	 who->y=cur->y;
+	 if(tp->orient==TP_ORIENT_SET)
+	   who->angle=cur->angle;
+	 if(!tp->silent) {
+           Spawn(&PlaySoundTask,"TELEPT");
+	   fog=CAlloc(sizeof CDoomThing);
+	   fog->template=teleport_fog;
+	   fog->x=cur->x;
+	   fog->y=cur->y;
+	   fog->anim_start_tS=tS;
+	   fog->thinker=AddThinker(l,&TeleportFogThinker,sizeof CTeleportThinker);
+	   fog->thinker(CTeleportThinker*)->fog=fog;
+	 }
+	 return;
+       }
+    }
+  }
+}
+U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags,CDoomThing *who) {
   CDoomActionSector *type;
   CDoomFloor *fl;
   CDoomDoor *door;
@@ -1686,13 +1735,53 @@ U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags) {
   CDoomCeil *ceil;
   CDoomDonut *donut;
   CDoomExit *exit;
+  CDoomTeleporter *tp;
   I64 idx;
   CDoomLinedef *ld2;
   CDonutThinker *dt;
   F64 dst;
   if(ld) {
     if((type=ld->special_type)) {
-      if(type->type=='Exit') {
+      if(type->type=='Teleport') {
+	tp=type;
+	switch(tp->trigger) {
+	   break;case 'P1':
+teleport_activate1:
+	    if(s->activated) return;
+	    s->activated=TRUE;
+teleport_activate:
+	    if(tp->dest==TP_DEST_TP_THING) {
+	       if(flags&WACTIVATE_MONSTER&&!tp->monster)
+		 return;
+	       if(!(flags&WACTIVATE_MONSTER)&&!tp->player)
+		 return;
+	       TeleportThing(l,tp,ld->sector_tag,who);
+	    } else
+	      PrintI("UNIMP_DEST",tp->dest); 
+	    break; case 'S1':    
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	   goto teleport_activate1;
+	    break; case 'W1':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto teleport_activate1;
+	    break; case 'G1':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto teleport_activate1;
+	    break; case 'PR':
+	    if(!(flags&WACTIVATE_PUSH)) return;
+	    goto teleport_activate;
+	    break; case 'SR':
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto teleport_activate;
+	    break; case 'GR':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto teleport_activate;
+	    break; case 'WR':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto teleport_activate;
+	}
+
+      } else if(type->type=='Exit') {
 	exit=type;
 	switch(exit->trigger) {
 	   break;case 'P1':
@@ -2111,16 +2200,16 @@ U0 AddButtonThinker(CDoomLevel *l,CDoomSidedef *s,I64 which_part,Bool repeat=TRU
   t->user_data4=which_part;
 }
 
-U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags) {
+U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags,CDoomThing *who) {
   CDoomSector *sector,*head=&l->sectors;
   if(!ld->special_type) return;
 //Push operators on the linedef that called it
   if(ld->special_type(CDoomDoor*)->trigger.u8[0]=='P') {
-    _TriggerLinedef(l,ld->back->sector,ld,flags);
+    _TriggerLinedef(l,ld->back->sector,ld,flags,who);
   } else
     for(sector=head->next;sector!=head;sector=sector->next) {
       if(sector->tag_number==ld->sector_tag)
-        _TriggerLinedef(l,sector,ld,flags);
+        _TriggerLinedef(l,sector,ld,flags,who);
     }
 }
 
@@ -2143,7 +2232,7 @@ U0 CheckPowerupPickup(CDoomLevel *l) {
   I64 orig;
   for(t=head->next;t!=head;t=next) {
     next=t->next;
-    if(SqrI64(t->template->radius)>=SqrI64(p->x-t->x)+SqrI64(p->y-t->y)) {
+    if(SqrI64(2*t->template->radius)>=SqrI64(p->x-t->x)+SqrI64(p->y-t->y)) {
       switch(t->template->type) {
         case 2006: //BFG
 	  new_gun=!p->arsenal[7]->available;
@@ -2459,9 +2548,9 @@ pass:
 	  else if(ld->special_type->type=='Lift')
 	    trigger=ld->special_type(CDoomLift*)->trigger;
 	  if(trigger.u8[1]=='P')
-	    TriggerLinedef(l,ld,WACTIVATE_PUSH);
+	    TriggerLinedef(l,ld,WACTIVATE_PUSH,p);
 	  else
-	    TriggerLinedef(l,ld,WACTIVATE_SWITCH);
+	    TriggerLinedef(l,ld,WACTIVATE_SWITCH,p);
 	  passed=TRUE;
 	  AddButtonThinker(l,sd,which_texture,trigger.u8[1]!='1');
         }
@@ -2477,7 +2566,7 @@ pass:
     }
   }
   if(!passed&&ld)
-    TriggerLinedef(l,ld,WACTIVATE_SWITCH);
+    TriggerLinedef(l,ld,WACTIVATE_SWITCH,p);
 }
 
 

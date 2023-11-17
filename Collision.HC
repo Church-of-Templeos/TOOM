@@ -315,6 +315,7 @@ CDoomThing *ShotSmacksAHomie(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 shoot_
 	  cur->height+cur->template->height-2
 	  );
     if(wall_dist==-1||wall_dist>cd+1) {
+      wall_dist=cd;
       do {
         dummy.x=at->x+wall_dist*cos;
         dummy.y=at->y+wall_dist*sin;
@@ -396,7 +397,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
 		      lds[0]->front->sector->ceil_height);
 	      }
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-	      if(floor_height-STEP_HEIGHT>cur_height||ceil_height-48.<=cur_height||floor_height==ceil_height) {
+	      if(floor_height-STEP_HEIGHT>cur_height||ceil_height-32.<=cur_height||floor_height==ceil_height) {
 fail_walk:
 	        if(wall_idx<64)
 		  walls[wall_idx++]=*lds;
@@ -425,7 +426,8 @@ fail_walk:
 		  if(lds[0]->special_type->type=='Door'
 		        ||lds[0]->special_type->type=='Floor'
 		        ||lds[0]->special_type->type=='Lift'
-		        ||lds[0]->special_type->type=='Ceil') {
+		        ||lds[0]->special_type->type=='Ceil'
+			||lds[0]->special_type->type=='Teleport') {
 		    if(walked_over_idx<64) {
 		      if(CrosesLine(lds[0],&move1,&move2))  {
 		        tmp=IntersectDist(lds[0],&move1,&move2);

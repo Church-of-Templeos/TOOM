@@ -1,5 +1,6 @@
 #ifndef DOORS
 #define DOORS "wealth provoke stormy inhabitant "
+
 //https://doomwiki.org/wiki/Linedef_type#Terminology
 //P  == Push
 //S  == Switch
@@ -124,11 +125,8 @@ class CDoomDonut {
   U64 trigger;
 };
 
-
-
 CDoomActionSector *action_sector_types[0x10000];
 MemSet(action_sector_types,0,0x10000*8);
-
 
 #define DOOM_DOORS_FILE "Doors.TXT"
 #define DOOM_FLOORS_FILE "Floors.TXT"
@@ -166,6 +164,86 @@ skip:;
   }
   Free(optr);
 }
+
+
+
+#define TP_ORIENT_SET 1
+#define TP_ORIENT_PRESERVE 2
+#define TP_DEST_TP_THING 1
+#define TP_DEST_TAGGED_LINE 2
+#define TP_DEST_TAGGED_LINE_REV 3
+class CDoomTeleporter {
+  U64 type;
+  U64 trigger;
+  Bool silent,monster,player,pad[5];
+  I32 orient,dest;
+};
+
+#define DOOM_TELEPORTERS_FILE "Teleporters.TXT"
+U0 LoadTeleporters() {
+  CDoomTeleporter *t;
+  U8 *optr=FileRead(DOOM_TELEPORTERS_FILE),*fptr=optr,*ln;
+  I64 num;
+  U8 cls[STR_LEN],*cls_ptr=cls;
+  U8 trig[STR_LEN],*trig_ptr=trig;
+  U8 silent[STR_LEN],*silent_ptr=silent;
+  U8 mon[STR_LEN],*mon_ptr=mon;
+  U8 player[STR_LEN],*player_ptr=player;
+  U8 orient[STR_LEN],*orient_ptr=orient;
+  U8 dest[STR_LEN],*dest_ptr=dest;
+  StrUtil(optr,SUF_REM_CTRL_CHARS);
+  while(ln=ReadALine(&fptr)) {
+    if(!*ln||*ln=='#') goto skip;
+    StrScan(ln,"%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+	&num,
+	&cls_ptr,
+	&trig_ptr,
+	&silent_ptr,
+	&mon_ptr,
+	&player_ptr,
+	&orient_ptr,
+	&dest_ptr);
+    t=CAlloc(sizeof CDoomTeleporter); 
+    action_sector_types[num]=t;
+    t->type='Teleport';
+    t->trigger=trig[0](U16);
+    if(!StrCmp(silent,"Yes"))
+      t->silent=TRUE;
+    else if(!StrCmp(silent,"No"))
+      t->silent=FALSE;
+    else
+      throw('Doom');
+    if(!StrCmp(mon,"Yes"))
+      t->monster=TRUE;
+    else if(!StrCmp(mon,"No"))
+      t->monster=FALSE;
+    else
+      throw('Doom');
+    if(!StrCmp(player,"Yes"))
+      t->player=TRUE;
+    else if(!StrCmp(player,"No"))
+      t->player=FALSE;
+    else
+      throw('Doom');
+    if(!StrCmp(orient,"Set"))
+      t->orient=TP_ORIENT_SET;
+    else if(!StrCmp(orient,"Preserve"))
+      t->orient=TP_ORIENT_PRESERVE;
+    else
+      throw('Doom');
+    if(!StrCmp(dest,"TP thing in tagged sector")) {
+      t->dest=TP_DEST_TP_THING;
+    } else if(!StrCmp(dest,"Line with same tag")) {
+      t->dest=TP_DEST_TAGGED_LINE;
+    } else if(!StrCmp(dest,"Line with same tag (reversed)")) {
+      t->dest=TP_DEST_TAGGED_LINE_REV;
+    } else
+      throw('Doom');
+skip:;
+    Free(ln);
+  }
+}
+
 
 #define DOOM_CEILS_FILE "Ceils.TXT"
 U0 LoadCeils() {
@@ -574,4 +652,5 @@ LoadFloors;
 LoadLifts;
 LoadCeils;
 LoadDonuts;
+LoadTeleporters;
 #endif

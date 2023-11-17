@@ -17,4 +17,4 @@
 267	Ext	WR	Yes	Yes	No	Preserve	Line with same tag
 266	Ext	W1	Yes	Yes	No	Preserve	Line with same tag
 265	Ext	WR	Yes	Yes	No	Preserve	Line with same tag (reversed)
-264	Ext	W1	Yes	Yes	No	Preserve	Line with same tag (reversed
+264	Ext	W1	Yes	Yes	No	Preserve	Line with same tag (reversed)

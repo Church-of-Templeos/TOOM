@@ -489,7 +489,7 @@ CDoomBSPNode *DoomWhichBSPNode(F64 x,F64 y,CDoomLevel *level,CDoomSubsector **ss
     SetVector(pline,cur_node->dy,1);
     if(IsFrontSideOfVector2D(pline,&dummy)) {
       DestroyVector(pline);
-      if(cur_node->left_child->signature!='NODE') {
+      if(cur_node->left_child->signature!='NODE') {
         if(ss) *ss=cur_node->left_child;
         return cur_node;
       }
@@ -614,7 +614,7 @@ CDoomGr *LoadWadGr(CWad *wad) {
   CDoomGr *ret=CAlloc(sizeof(CDoomGr));
   CWadDirectory *wad_dir;
   I64 idx,pass;
-  U8 lump_name[9];
+  U8 lump_name[9],*tmp;
   CWadPnames *pnames;
   CDC *gr;
 //Load Player palett
@@ -655,7 +655,8 @@ found_fstart:
         gr=ReadDoomFlat(wad->body+wad_dir->ptr,ret->palette);
         lump_name[8]=0;
         MemCpy(lump_name,wad_dir->lump_name,8);
-        FramePtrAdd(lump_name,gr);
+	tmp=MStrPrint("F.%s",lump_name);
+        FramePtrAdd(tmp,gr);
 #ifdef DEBUG
         //      GrBlot(,0,0,gr);
         //      Sleep(10);
@@ -982,7 +983,11 @@ class CWadBlockMapHeader {
   I16 x_off,y_off;
   I16 num_cols,num_rows;
 };
-
+CDC *GetFlatDC(U8 *name) {
+  U8 tmp_name[16];
+  StrPrint(tmp_name,"F.%s",name);
+  return FramePtr(tmp_name);
+}
 CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name,I64 skill=1) {
   I64 idx,cnt,x,y,min,max;
   U16 *offs;
@@ -1266,9 +1271,9 @@ skip_thing:
     dsect->base_floor_height=wsect->floor_height;
     dsect->base_ceil_height=wsect->ceil_height;
     MemCpy(name,wsect->floor_texture_name,8);
-    dsect->floor_dc[0]=FramePtr(name);
+    dsect->floor_dc[0]=GetFlatDC(name);
     MemCpy(name,wsect->ceil_texture_name,8);
-    dsect->ceil_dc[0]=FramePtr(name);
+    dsect->ceil_dc[0]=GetFlatDC(name);
 //https://doomwiki.org/wiki/Animated_flat
     for(x=0;x!=2;x++) {
       switch(x) {
@@ -1280,27 +1285,27 @@ skip_thing:
 	  MemCpy(name,wsect->ceil_texture_name,8);
       }
       if(!StrNCmp(name,"NUKAGE",5)){
-        arr[0]=FramePtr("NUKAGE1");
-        arr[1]=FramePtr("NUKAGE2");
-        arr[2]=FramePtr("NUKAGE3");
-        arr[3]=FramePtr("NUKAGE4");
+        arr[0]=GetFlatDC("NUKAGE1");
+        arr[1]=GetFlatDC("NUKAGE2");
+        arr[2]=GetFlatDC("NUKAGE3");
+        arr[3]=GetFlatDC("NUKAGE4");
       }
       if(!StrNCmp(name,"FWATER",6)){
-        arr[0]=FramePtr("FWATER1");
-        arr[1]=FramePtr("FWATER2");
-        arr[2]=FramePtr("FWATER3");
-        arr[3]=FramePtr("FWATER4");
+        arr[0]=GetFlatDC("FWATER1");
+        arr[1]=GetFlatDC("FWATER2");
+        arr[2]=GetFlatDC("FWATER3");
+        arr[3]=GetFlatDC("FWATER4");
       }
       if(!StrNCmp(name,"LAVA",4)){
-        arr[0]=FramePtr("LAVA1");
-        arr[1]=FramePtr("LAVA2");
-        arr[2]=FramePtr("LAVA3");
-        arr[3]=FramePtr("LAVA4");
+        arr[0]=GetFlatDC("LAVA1");
+        arr[1]=GetFlatDC("LAVA2");
+        arr[2]=GetFlatDC("LAVA3");
+        arr[3]=GetFlatDC("LAVA4");
       }
       if(!StrNCmp(name,"BLOOD",5)){
-        arr[0]=FramePtr("BLOOD1");
-        arr[1]=FramePtr("BLOOD2");
-        arr[2]=FramePtr("BLOOD3");
+        arr[0]=GetFlatDC("BLOOD1");
+        arr[1]=GetFlatDC("BLOOD2");
+        arr[2]=GetFlatDC("BLOOD3");
       }
     }
     dsect->base_light_level=wsect->light_level;

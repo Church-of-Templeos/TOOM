@@ -9,9 +9,9 @@ U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 dir=1,F64 angle=0) {
   CDoomLinedef *crossed;
   CDoomLinedef *hit=MoveInLevel(l,&p->x,angle,speed,16,p->height,COLLISF_NO_HIT_THING|COLLISF_SLIDE,crossed_f,p);
   while(FifoI64Rem(crossed_f,&crossed)) {
-    TriggerLinedef(l,crossed,WACTIVATE_WALK);
+    TriggerLinedef(l,crossed,WACTIVATE_WALK,p);
   }
-  if(hit) TriggerLinedef(l,hit,WACTIVATE_PUSH);
+  if(hit) TriggerLinedef(l,hit,WACTIVATE_PUSH,p);
   FifoI64Del(crossed_f);
 }
 

@@ -244,6 +244,7 @@ class CDoomSector:CQue {
   F64 shape_start_x,shape_start_y;
   CDC *shape_dc;
   CDoomLinedef *cur_action_linedef;
+  CDoomThing *noise_thing; //Last thing that made a noise
   F64 wait_time;
   F64 speed;
   F64 start_tS,door_height_offset;
@@ -251,6 +252,7 @@ class CDoomSector:CQue {
   I64 visplane_idx;
   Bool drawn,closing,opening,activated,waiting,going_up,going_down,reverting;
   Bool paused; //Pause the action on the sector
+  Bool sound_check;
 };
 
 class CLevelStats {

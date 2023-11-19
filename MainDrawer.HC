@@ -141,7 +141,7 @@ class CDoomPlayer:CDoomThing {
 //When you die,the player stares at the thing that killed the player
   CDoomThing *stare_at;
   GunAvail **arsenal;
-  Bool running;
+  Bool running,made_a_sound;
 };
 
 //IMPORTANT
@@ -353,7 +353,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
       db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
       already=cam->floor_dc->body+y*cam->floor_dc->width_internal+x;
       if(to=IsBlockedByWall(cam,x*2,y*2,idist)) {
-	y+=to>>1;
+	y+=to>>1-1;
         goto next;
       }
       if(*already)
@@ -2556,7 +2556,7 @@ U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64
 //Account for mouse aim
   if(!rocket_type) {
     if(weaponIndex==2) {//Shotgun
-      for(idx=0;idx!=3;idx++) {
+      for(idx=0;idx!=7;idx++) {
 	if(!idx)
 	  r=0;
 	else
@@ -2830,7 +2830,7 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
     UpdateLevel(l);
 //    if(!Bt(&doom_scrn_in_draw,0))
 //      DCBlotColor8(gr.dc,doom_scrn);
-PrintI("winmgr.fps",winmgr.fps);
+//PrintI("winmgr.fps",winmgr.fps);
     Refresh;
   }
 ret:

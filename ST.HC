@@ -1180,34 +1180,37 @@ U0 ST_Fire(CDoomPlayer *p)
 //TODO test for beserk
         PlayerAttack(123.5,2,20,32);
         break;
-      case 1: //Pistol
-        if(p->arsenal[weaponIndex]->load->ammo>0)
-	  PlayerAttack(150.,5,15,200*64.);
-        break;
-      case 2: //Shotgun
-        if(p->arsenal[weaponIndex]->load->ammo>0)
-	  PlayerAttack(56.8,5,15,200*64.);
-        break;
-      case 3: //Chainhun
-        if(p->arsenal[weaponIndex]->load->ammo>0)
-	  PlayerAttack(525,5,15,200*64.);
-        break;
-      case 4: //Rocket
-        if(p->arsenal[weaponIndex]->load->ammo>0)
-	  PlayerAttack(105,20,160,200*64.,'Rocket');
-        break;
-      case 5: //Chainsaw
-	PlayerAttack(525,2,20,32);
-        break;
-      case 6: //Plsmaa
-        if(p->arsenal[weaponIndex]->load->ammo>0)
-	  PlayerAttack(700,5,40,200*64.,'Plasma');
-        break;
-      case 7: //Big poopin gun
+      start:
+        case 1: //Pistol
+	  if(p->arsenal[weaponIndex]->load->ammo>0)
+	    PlayerAttack(150.,5,15,200*64.);
+	  break;
+        case 2: //Shotgun
+	  if(p->arsenal[weaponIndex]->load->ammo>0)
+	    PlayerAttack(56.8,5,15,200*64.);
+	  break;
+        case 3: //Chainhun
+	  if(p->arsenal[weaponIndex]->load->ammo>0)
+	    PlayerAttack(525,5,15,200*64.);
+	  break;
+        case 4: //Rocket
+	  if(p->arsenal[weaponIndex]->load->ammo>0)
+	    PlayerAttack(105,20,160,200*64.,'Rocket');
+	  break;
+        case 5: //Chainsaw
+	  PlayerAttack(525,2,20,32);
+	  break;
+        case 6: //Plsmaa
+	  if(p->arsenal[weaponIndex]->load->ammo>0)
+	    PlayerAttack(700,5,40,200*64.,'Plasma');
+	  break;
+        case 7: //Big poopin gun
 //TODO tracer
-        if(p->arsenal[weaponIndex]->load->ammo>0)
-	  PlayerAttack(52.5,100,800,200*64.,'BFG');
-        break;
+	  if(p->arsenal[weaponIndex]->load->ammo>0)
+	    PlayerAttack(52.5,100,800,200*64.,'BFG');
+	  break;
+      end:
+        p->made_a_sound=TRUE;
     }
   }
 }

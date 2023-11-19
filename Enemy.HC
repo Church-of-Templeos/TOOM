@@ -418,6 +418,7 @@ U0 InitMonsters(CDoomLevel *l) {
       case 3004:
         thing->health=thing->template(CDoomMonsterTemplate*)->health;
         einstein=AddThinker(l,&MonsterThinker,sizeof CMonsterThinker);
+//	einstein->reaction_time=thing->template(CDoomMonsterTemplate*)->reaction_time;
 	einstein->signature='Monster';
         einstein->self=thing;
         thing->thinker=einstein;
@@ -450,6 +451,7 @@ Bool CheckMeleeRange(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *thing=t->self;
   CDoomThing *target=t->target;
   if(!target) return FALSE;
+  if(t->reaction_time) return FALSE;
   return Sqrt(Sqr(target->x-thing->x)+Sqr(target->y-thing->y))<MELEE_RANGE;
 }
 
@@ -457,6 +459,7 @@ Bool CheckMissileRange(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *thing=t->self;
   CDoomThing *target=t->target;
   if(!target) return FALSE;
+  if(t->reaction_time) return FALSE;
   F64 dist;
   if(t->last_hit_time>0.)
     if(tS<JUST_HIT_TIME+t->last_hit_time) {
@@ -490,23 +493,29 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
 //Pushin P path is blocked so random direction
     thing->angle=(Rand-.5)*2.*2.*pi;
   }
-  t->steps_to_walk=dist/2;
+  t->steps_to_walk=dist*2;
   thing->x=dummy.x;
   thing->y=dummy.y;
 }
 Bool LookForPlayers(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *thing=t->self;
   CDoomThing *target=t->target;
+  CDoomSector *s=GetSectorForCoord(l,thing->x,thing->y);
   F64 angle,dist;
+  if(s&&s->noise_thing==GetPlayer) {
+    target=t->target=s->noise_thing;
+    return TRUE;
+  }
   if(!CanSeeTarget(l,t)) {
 new_target:
     t->target=GetPlayer;
     return FALSE;
   }
+see:
   if(!target||target->health<=0.)
     goto new_target;
   angle=FArg(target->x-thing->x,target->y-thing->y)-thing->angle;
-  if(FCos(angle)>0.) {
+  if(FCos(angle)<0.) {
     dist=Sqrt(Sqr(target->x-thing->x)+Sqr(target->y-thing->y));
     if(dist>MELEE_RANGE)
 	return FALSE; 
@@ -517,7 +526,7 @@ new_target:
 U0 Look(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *p=GetPlayer;
   t->target=p;
-  if(!CanSeeTarget(l,t)) {
+  if(!LookForPlayers(l,t)) {
     return ;
   }
   Sound(t,'See');
@@ -853,6 +862,7 @@ U0 SargAttack(CDoomLevel *l,CMonsterThinker *t) {
     angle=t->self->angle;
     angle+=(.5-Rand)*180./pi*5;
     damage=((RandU64&7)+1)*4;
+    t->self->flags|=MF_JUST_ATTACKED;
     LineAttack(l,t->self,t->target,MELEE_RANGE,angle,damage);
   }
 }
@@ -861,6 +871,7 @@ U0 CacodemonAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 damage;
   if(t->target) {
     FaceTarget(l,t);
+    t->self->flags|=MF_JUST_ATTACKED;
     if(CheckMeleeRange(l,t)) {
       damage=((RandU64&7)+1)*8;
       Sound(t,'Melee');
@@ -877,6 +888,7 @@ U0 CyberdemonAttack(CDoomLevel *l,CMonsterThinker *t) {
   if(t->target) {
     FaceTarget(l,t);
     Sound(t,'Attack');
+    t->self->flags|=MF_JUST_ATTACKED;
     SpawnMissile(l,t->self,t->target,'Cyber');
   }
 }
@@ -885,6 +897,7 @@ U0 BarronOfHellAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 damage;
   if(t->target) {
     FaceTarget(l,t);
+    t->self->flags|=MF_JUST_ATTACKED;
     if(CheckMeleeRange(l,t)) {
       damage=((RandU64&7)+1)*11;
       Sound(t,'Melee');
@@ -903,6 +916,7 @@ U0 SkullAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 dist;
   if(dest) {
     self->flags|=MF_SKULL_ATTACK;
+    self->flags|=MF_JUST_ATTACKED;
     Sound(t,'Attack');
     FaceTarget(l,t);
     self->momx=SKULL_ATTACK_SPEED*Cos(self->angle);

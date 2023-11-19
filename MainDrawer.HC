@@ -160,11 +160,17 @@ class CVisplane {
   I32 sector_limits[GR_WIDTH/2]; 
 };
 
-
+I64 class CWallCommand {
+ I16 start,end;
+ I32 dist;
+};
 class CDoomCamera {
   F64 x,y,h;
   F64 angle,fov;
 //Private
+//These are used for rejecting places to draw
+  I64 wall_command_cnts[GR_WIDTH/2];
+  CWallCommand wall_commands[GR_WIDTH/2][0x80];
   //These include the wall heights too
   //Cordnates are diveded by 2
   F64 floor_heights[GR_WIDTH/2]; //used for choosing which things not to draw
@@ -281,7 +287,21 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
   }
   return TRUE;
 }
-
+I64 IsBlockedByWall(CDoomCamera *cam,I64 x,I64 y,I64 dist) {
+  I64 i,cnt=cam->wall_command_cnts[x>>1];
+  CWallCommand *cmd=cam->wall_commands[x>>1];
+  for(i=0;i!=cnt;i++,cmd++) {
+    if(cmd->dist<=dist) {
+      if(cmd->start<y<cmd->end) {
+	return cmd->end-y;
+      }
+    }
+    if(cmd->start>y) {
+       return 0;
+    }
+  }
+  return 0;
+}
 U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
   if(!texture) return;
   if(GetFlatDC("F_SKY1")==texture) return;
@@ -322,16 +342,16 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
     maxy=vp->cmaxy>>1;
   }
 //https://www.doomworld.com/forum/topic/102392-the-definitive-guide-to-visplanes/
-  for(y=miny;y<maxy;y++) {
-    idist=dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at));
-    cam->floor_dc->color=WHITE;
-    already=cam->floor_dc->body+y*cam->floor_dc->width_internal+minx;
-    db_z=&to_dc->depth_buf[GR_WIDTH-2-minx*2+y*2*to_dc->width_internal];
-    dst=&to_dc->body[GR_WIDTH-2-minx*2+y*2*to_dc->width_internal];
-    for(x=minx;x<maxx;x++,already++,db_z-=2,dst(U8*)-=2) {
+  for(x=minx;x<maxx;x++) {
+    for(y=miny;y<maxy;y++) {
+      idist=dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at));
+      db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
+      already=cam->floor_dc->body+y*cam->floor_dc->width_internal+x;
+      if(to=IsBlockedByWall(cam,x*2,y*2,idist)) {
+	y+=to>>1;
+        goto next;
+      }
       if(*already)
-	goto next;
-      if(idist>vp->sector_limits[x])
 	goto next;
       if(cam->wall_depths[x]<idist)
         goto next;
@@ -346,6 +366,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
       if(0<=point.x<w)
         if(0<=point.y<h){
 	    if(GrPeek0(sector->shape_dc,point.x>>1,point.y>>1)) {
+              dst=&to_dc->body[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
 	      *already=TRUE;
 	      db_z[0]=idist;
 	      db_z[1]=idist;
@@ -367,6 +388,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
         }
 next:;
     }
+next2:;
   }
 } 
 U0 PopulateTables() {
@@ -399,6 +421,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex,dir;
   CVisplane *vp;
   I32 *db_z,idist;
+  CWallCommand *wall_cmd;
   F64 dist,ratio;
   Bool repeat=FALSE,onesided=ld->front^^ld->back;
   Bool is_sky=FALSE,is_sky2=FALSE,clipped=FALSE,recompute_ty;
@@ -582,6 +605,10 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    tyf=(ToF64(ih2)/ih)*(texture->height-2);
 	  }
 
+          wall_cmd=&cam->wall_commands[ix>>1][cam->wall_command_cnts[ix>>1]];
+	  wall_cmd->end=0;
+	  wall_cmd->start=GR_HEIGHT;
+	  wall_cmd->dist=idist;
 	  for(ih2=low_ih;TRUE;ih2+=2,tyf+=2*ratio*2) { //2 for dither pixel,2 for ih2+=2
 	    if(ih2>=ih||ih2+iy>=GR_HEIGHT-2)
 	      break;
@@ -593,6 +620,8 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	        goto skip_p;
 	      }
 	    }
+	    wall_cmd->start=MinI64(wall_cmd->start,iy+ih2);
+	    wall_cmd->end=MaxI64(wall_cmd->end,iy+ih2);
 	    ty=tyf;
 	    if(opposite) //Why is this here????
 	      ty=ty%texture->height;
@@ -620,6 +649,14 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 skip_p:;
 	  }
         }
+	if(wall_cmd->start<wall_cmd->end) {
+	  if(tx=cam->wall_command_cnts[ix>>1]) {
+	    if(cam->wall_command_cnts[tx-1]!=*wall_cmd) { //CWallCommand is I64
+              cam->wall_command_cnts[ix>>1]++;
+	    }
+	  } else
+            cam->wall_command_cnts[ix>>1]++;
+	}
       }
       if(texture->flags&DCF_NO_TRANSPARENTS) {
         if(!is_sky) {
@@ -1084,6 +1121,30 @@ skip:;
   }
 }
 
+U0 WallCmdSort(CWallCommand a,CWallCommand b) {
+  if(a.start==b.start) {
+    return a.end-b.end;
+  }
+  return a.start-b.start;
+}
+U0 MergeWallCommands(CDoomCamera *cam) {
+  I64 i=0,i2,cnt,new_cnt;
+  CWallCommand *cmds;
+  for(i=0;i!=GR_WIDTH/2;i++) {
+    QSortI64(cmds=cam->wall_commands[i],cnt=cam->wall_command_cnts[i],&WallCmdSort);
+/*PrintI("x",i*2);
+    for(i2=1;i2<cnt;i2++) {
+      if(cmds[new_cnt].end>=cmds[i2].end) {
+//Reject it
+      } else {
+DbgPrint("s:%d,e:%d",cmds[new_cnt].start,cmds[new_cnt].end);
+        cmds[++new_cnt]=cmds[i2];
+      }
+    }
+    cam->wall_command_cnts[i]=new_cnt+1;*/
+  }
+}
+
 U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   CDoomSector *sector;  
   CDoomThing *thing;
@@ -1106,6 +1167,7 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     cam->floor_depths[idx]=I16_MAX;
     cam->wall_depths[idx]=I16_MAX;
   }
+  MemSetU64(cam->wall_command_cnts,0,GR_WIDTH/2);
   if(!to_dc->depth_buf)
     DCDepthBufAlloc(to_dc);
   else
@@ -1113,6 +1175,8 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   DrawBSP(to_dc,cam,level);
 
   WaitForJobsDone;
+
+  MergeWallCommands(cam);
 
   af=tS*4;
   for(idx2=0;idx2!=cam->visplane_cnt;idx2++) {
@@ -3030,8 +3094,8 @@ U0 MainMenu()
  }
 }
 
-//PlayLevel("E1M1",1);
-MainMenu;
+PlayLevel("E1M1",1);
+//MainMenu;
 #endif
         ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      
 !   Éÿÿÿ0   ûÿÿÿ

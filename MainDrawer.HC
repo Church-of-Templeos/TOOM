@@ -423,7 +423,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   F64 end_angle=FArg(en->x,en->y),tmp,tyf;
   F64 margin;
   CD2 ray,hit,*sw;
-  I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex,dir,skip;
+  I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex,dir,skip;
   CVisplane *vp;
   I32 *db_z,idist;
   CWallCommand *wall_cmd;
@@ -474,7 +474,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       if(dist<=0.) dist=1;
       if(cam->wall_depths[ix>>1]<idist)
         goto next;
-      tx=(ToI64(Sqrt(Sqr(hit.x-st->x)+Sqr(hit.y-st->y)))*2+texture->x*2)%texture->width;
+      tx=(ToI64(Sqrt(Sqr(hit.x-st->x)+Sqr(hit.y-st->y)))*2+xoff*2)%texture->width;
 //The offset from the ground is included in the "height",we dont render the overdraw
       margin=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-level);
       ih=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*height;

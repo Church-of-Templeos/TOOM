@@ -126,28 +126,7 @@ Bool CloseToLine(CD2 *tip=NULL,CD2 *p1,CD2 *p2,CD2 *at,F64 radius) {
 }
 
 F64 IntersectDist(CDoomLinedef *ld,CD2 *a,CD2 *b) {
-//I will use a divine heuristic(Ask God how this works),see InterceptVector from doom3do
-  F64 dx1=ld->end->x-ld->start->x;
-  F64 dy1=ld->end->y-ld->start->y;
-  F64 dx2=a->x-b->x;
-  F64 dy2=a->y-b->y;
-  F64 den=dy2*dx1,num;
-  den-=dx2*dy1;
-  if(den==0.) return -1.;
-  num=(a->x-ld->start->x)*dy2;
-  num+=(a->y-ld->start->y)*dx2;
-  return num/den;
-  /*F64 d1=DistFromLine(a,ld->start,ld->end),final;
-  F64 angle_ld=FArg(ld->end->x-ld->start->x,ld->end->y-ld->start->y);
-  F64 angle_move=FArg(b->x-a->x,b->y-a->y);
-  F64 angle;
-//Check what side of the line we on
-  if((ld->end->x-ld->start->x)*(a->y-ld->start->y)-(ld->end->y-ld->start->y)*(a->x-ld->start->x)>0.) {
-    angle=angle_move-(angle_ld-pi/2); //Normal of vector
-  } else {
-    angle=angle_move-(angle_ld+pi/2); //Other Normal of vector
-  }
-  return d1/FCos(angle);*/
+  return DistFromLine(a,ld->start,ld->end);
 }
 
 Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F64 cur_h,F64 to_travel,CDoomThing *exclude) {
@@ -167,12 +146,12 @@ Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F6
   if(IsFrontSideOfVector2D(v,&rel_point)) {
     angle2=ld_normal1-angle;
     x=-to_travel*FSin(angle2);
-    MoveInLevel(l,point,ld_normal1+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING);
+    MoveInLevel(l,point,ld_normal1+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING,,exclude);
   } else{
     dist=radius-DistFromLine(point,ld->start,ld->end);
     angle2=ld_normal2-angle;
     x=-to_travel*FSin(angle2);
-    MoveInLevel(l,point,ld_normal2+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING);
+    MoveInLevel(l,point,ld_normal2+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING,,exclude);
   }
   DestroyVector(v);
 }
@@ -348,7 +327,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
   CD2 move1,move2,dummy,*result=at,push_back,cur_pos,move_fat;
   CD2 orig,towards;
   F64 dist2=0,sin=Sin(angle),cos=Cos(angle),cap=dist;
-  F64 floor_height=0,ceil_height,odist=dist,best_dist;
+  F64 floor_height=0,ceil_height,odist=dist,best_dist,best_angle;
   F64 min_dist=I16_MAX,wall_angle,slope,off,tmp,max_dist,step;
   F64 last_good=0.;
   CDoomLinedef *best=NULL;
@@ -357,7 +336,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
   F64 walked_over_dists[64];
   I64 walked_over_idx=0;
   I64 xoff,yoff,try_wall;
-  CDoomLinedef **lds,*wall;
+  CDoomLinedef **lds,*wall,*wall2;
   CDoomThing *hit_thing=NULL;
   vector=CreateVector(2);
   move1.x=at->x,move1.y=at->y;
@@ -476,7 +455,6 @@ skip:;
     dummy_ld.front=&dummy_sd; //Make a 1 sided(solid) sidedef
     best=&dummy_ld;
     min_dist=0;
-
     dist=0.;
     result->x=move1.x;
     result->y=move1.y;
@@ -508,7 +486,44 @@ pass:
   if(flags&COLLISF_SLIDE&&best) {
     if(dist>0.)
       odist=odist-dist;
-    SlideWalk(l,best,result,angle,radius,cur_height,odist,exclude);
+//Choose best wall to walk along(based on normal)
+//If we have asmall crack on the wall,walk along the main wall(blue vector)
+$SP,"<2>",BI=2$;
+
+
+
+
+
+
+
+
+
+
+
+    wall2=NULL;
+    cap=I16_MAX;
+    for(i=0;i!=wall_idx;i++) {
+      wall=walls[i];
+//+2 because to steped down by 1(+1 for extra wiggle room)
+      if(CheckLineWithBox(walls[i],&cur_pos,radius+2)) {
+	wall_angle=FArg(
+	  wall->end->x-wall->start->x,
+	  wall->end->y-wall->start->y
+	);
+	tmp=Sin(angle-wall_angle+pi/2);
+	if(tmp<cap) {
+	  tmp=cap;
+	  wall2=wall;
+	}
+        tmp=Sin(angle-wall_angle-pi/2);
+	if(tmp<cap) {
+	  tmp=cap;
+	  wall2=wall;
+	}
+      }
+    }
+    if(wall2) //???
+      SlideWalk(l,wall2,result,angle,radius,cur_height,odist,exclude);
   }
   if(!best&&walked_over_hot) {
     min_dist=I16_MAX;
@@ -534,4 +549,8 @@ look_for_hot:
   DestroyVector(vector);
   return best;
 }
-#endif        0                    "      '         !      !   õÿÿÿ   .   ÷ÿÿÿ   ÷ÿÿÿ   ,      ³   ×ÿÿÿ   -   ûÿÿÿ.   ñÿÿÿ;   ñÿÿÿ   ¨   áÿÿÿ¦      º      µ   Üÿÿÿ§   áÿÿÿ   º   ÜÿÿÿÃ   ÓÿÿÿÈ   Ûÿÿÿ   Á   ÒÿÿÿÁ   Äÿÿÿ   Ê   Èÿÿÿ¶   Çÿÿÿ   ¹   ÁÿÿÿÌ   ÅÿÿÿÌ   »ÿÿÿ¶   ¹ÿÿÿº   Áÿÿÿ   êÿÿÿ    
+#endif        0                    "      '         !      !   õÿÿÿ   .   ÷ÿÿÿ   ÷ÿÿÿ   ,      ³   ×ÿÿÿ   -   ûÿÿÿ.   ñÿÿÿ;   ñÿÿÿ   ¨   áÿÿÿ¦      º      µ   Üÿÿÿ§   áÿÿÿ   º   ÜÿÿÿÃ   ÓÿÿÿÈ   Ûÿÿÿ   Á   ÒÿÿÿÁ   Äÿÿÿ   Ê   Èÿÿÿ¶   Çÿÿÿ   ¹   ÁÿÿÿÌ   ÅÿÿÿÌ   »ÿÿÿ¶   ¹ÿÿÿº   Áÿÿÿ   êÿÿÿ           k      
+-   8   `   8   
+`   8   `      
+g      g   6   
+g   6   š   5   H   Q   d   9   	n   B   ˜   B    

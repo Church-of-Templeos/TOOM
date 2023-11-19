@@ -164,6 +164,8 @@ I64 class CWallCommand {
  I16 start,end;
  I32 dist;
 };
+
+
 class CDoomCamera {
   F64 x,y,h;
   F64 angle,fov;
@@ -182,6 +184,24 @@ class CDoomCamera {
   CVisplane visplanes[256];
 } cam;
 cam.fov=pi/4;
+
+I64 IsBlockedByWall(CDoomCamera *cam,I64 x,I64 y,I64 dist) {
+  I64 i,cnt=cam->wall_command_cnts[x>>1];
+  CWallCommand *cmd=cam->wall_commands[x>>1];
+  for(i=0;i!=cnt;i++,cmd++) {
+    if(cmd->dist<=dist) {
+      if(cmd->start<y<cmd->end) {
+	return cmd->end-y;
+      }
+    }
+//TODO sort them
+/*    if(cmd->start>y) {
+       return 0;
+    }*/
+  }
+  return 0;
+}
+
 U0 InsertVisplane(CDoomCamera *cam,CDoomSector *s) {
   I64 cnt=cam->visplane_cnt;
   CVisplane *vp;
@@ -286,21 +306,6 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
     ptr->y=at.y;
   }
   return TRUE;
-}
-I64 IsBlockedByWall(CDoomCamera *cam,I64 x,I64 y,I64 dist) {
-  I64 i,cnt=cam->wall_command_cnts[x>>1];
-  CWallCommand *cmd=cam->wall_commands[x>>1];
-  for(i=0;i!=cnt;i++,cmd++) {
-    if(cmd->dist<=dist) {
-      if(cmd->start<y<cmd->end) {
-	return cmd->end-y;
-      }
-    }
-    if(cmd->start>y) {
-       return 0;
-    }
-  }
-  return 0;
 }
 U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
   if(!texture) return;
@@ -418,7 +423,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   F64 end_angle=FArg(en->x,en->y),tmp,tyf;
   F64 margin;
   CD2 ray,hit,*sw;
-  I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex,dir;
+  I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex,dir,skip;
   CVisplane *vp;
   I32 *db_z,idist;
   CWallCommand *wall_cmd;
@@ -469,7 +474,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       if(dist<=0.) dist=1;
       if(cam->wall_depths[ix>>1]<idist)
         goto next;
-      tx=(ToI64(Sqrt(Sqr(hit.x-st->x)+Sqr(hit.y-st->y)))*2+xoff*2)%texture->width;
+      tx=(ToI64(Sqrt(Sqr(hit.x-st->x)+Sqr(hit.y-st->y)))*2+texture->x*2)%texture->width;
 //The offset from the ground is included in the "height",we dont render the overdraw
       margin=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-level);
       ih=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*height;
@@ -620,6 +625,11 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	        goto skip_p;
 	      }
 	    }
+	    if((skip=IsBlockedByWall(cam,ix,iy+ih2,idist))>2) {
+	      tyf+=2*ratio*(skip-2); //*2 for dither super pixel
+	      ih2+=skip-2;
+	      goto skip_p;
+	    }
 	    wall_cmd->start=MinI64(wall_cmd->start,iy+ih2);
 	    wall_cmd->end=MaxI64(wall_cmd->end,iy+ih2);
 	    ty=tyf;
@@ -649,7 +659,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 skip_p:;
 	  }
         }
-	if(wall_cmd->start<wall_cmd->end) {
+	if(wall_cmd->start<wall_cmd->end&&(texture->flags&DCF_NO_TRANSPARENTS)) {
 	  if(tx=cam->wall_command_cnts[ix>>1]) {
 	    if(cam->wall_command_cnts[tx-1]!=*wall_cmd) { //CWallCommand is I64
               cam->wall_command_cnts[ix>>1]++;
@@ -865,7 +875,7 @@ CDC *GetLowerTexture(CDoomSidedef *s) {
 U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
   CD2 start_floor,start_ceil;
   CD2 end_floor,end_ceil;
-  I64 seg_idx,wall,start_seg,end_seg,fail_cnt;
+  I64 seg_idx,wall,fail_cnt;
   CDC *texture;
   F64 h,h2;
   Bool no_draw;
@@ -917,8 +927,6 @@ draw_wall:
 	  fail_cnt++;
         if(!ClipLineToScrenCoords(cam,&start_ceil,&end_ceil,ceil))
 	  fail_cnt++;
-        start_seg=PointToLinedefSegment(cam,seg->linedef,seg->start);
-        end_seg=PointToLinedefSegment(cam,seg->linedef,seg->end);
         h=Abs(start_floor.y-start_ceil.y);
         h2=Abs(end_ceil.y-end_floor.y);
         if(ToI64(h)&&ToI64(h2)) {
@@ -1060,12 +1068,14 @@ U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
   SetVector(vect,node->left_child->dy,1);
   if(IsFrontSideOfVector2D(vect,&cam_cord)) {
     DestroyVector(vect);
-    DrawBSP0(to_dc,cam,node->left_child);
+    if(HitsBBox(cam,&node->left))
+      DrawBSP0(to_dc,cam,node->left_child);
     if(HitsBBox(cam,&node->right))
       DrawBSP0(to_dc,cam,node->right_child);
   } else {
     DestroyVector(vect);
-    DrawBSP0(to_dc,cam,node->right_child);
+    if(HitsBBox(cam,&node->right))
+      DrawBSP0(to_dc,cam,node->right_child);
     if(HitsBBox(cam,&node->left))
       DrawBSP0(to_dc,cam,node->left_child);
   }
@@ -2820,6 +2830,7 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
     UpdateLevel(l);
 //    if(!Bt(&doom_scrn_in_draw,0))
 //      DCBlotColor8(gr.dc,doom_scrn);
+PrintI("winmgr.fps",winmgr.fps);
     Refresh;
   }
 ret:

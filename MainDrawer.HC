@@ -320,6 +320,16 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
 U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
   if(!texture) return;
   if(GetFlatDC("F_SKY1")==texture) return;
+  CD2 a,b,c,d,ray,hit,*p1,*p2; //Sector boundbox
+  I64 w=sector->shape_dc->width*2,h=sector->shape_dc->height*2;
+  a.x=sector->shape_start_x;
+  a.y=sector->shape_start_y;
+  b.x=a.x+w;
+  b.y=a.y;
+  c.x=a.x+w;
+  c.y=a.y+h;
+  d.x=a.x;
+  d.y=a.y+h;
   I64 x,y;
   I64 plane=sector->visplane_idx;
   I64 floorx,floory;
@@ -328,7 +338,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
   I64 maxx,maxy;
   I64 minx,miny,idist,dir,from,to,skip;
   I64 consec_y;
-  F64 dist,angle;
+  F64 dist,angle,dist1,dist2;
   F64 cos2,wx,wy;
   U8 *already;
   CD2I64 point;
@@ -344,7 +354,6 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
     last_angle=cam->angle;
   }
   CVisplane *vp=&cam->visplanes[plane];
-  I64 w=sector->shape_dc->width*2,h=sector->shape_dc->height*2;
   if(floor) {
     miny=vp->fminy>>1;
     maxy=vp->fmaxy>>1;
@@ -358,13 +367,53 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
   }
 //https://www.doomworld.com/forum/topic/102392-the-definitive-guide-to-visplanes/
   for(x=minx;x<maxx;x++) {
+    ray.x=cos_table[x]*I16_MAX+cam->x;
+    ray.y=sin_table[x]*I16_MAX+cam->y;
+    dist1=I16_MAX;
+    dist2=0;
+    cos2=ray_cast_table_cos[x];
+    for(skip=0;skip!=4;skip++) {
+      switch(skip) {
+        case 0:
+          p1=&a,p2=&b;
+	break;
+        case 1:
+          p1=&b,p2=&c;
+	break;
+        case 2:
+          p1=&c,p2=&d;
+	break;
+        case 3:
+          p1=&d,p2=&a;
+	break;
+      }
+      if(PlaneIntersect(&hit,p1,p2,&cam->x,&ray)) {
+        dist=Sqrt(Sqr(hit.x-cam->x)+Sqr(hit.y-cam->y));
+        dist1=Min(dist,dist1);
+        dist2=Max(dist,dist2);
+      }
+    }    
+    if(dist1>dist2)
+      goto next2;
+    dist1*=cos2;
+    dist2*=cos2;
+    dist1=(((DIST_SCALE/dist1)*(cam->h-at))+GR_HEIGHT/2)/2;
+    dist2=(((DIST_SCALE/dist2)*(cam->h-at))+GR_HEIGHT/2)/2;
     if(floor) {
-      from=maxy-1;
-      to=miny;
+      from=ClampI64(MaxI64(dist1,dist2),miny,maxy);
+      to=ClampI64(MinI64(dist1,dist2),miny,maxy);
+      if(from==to) { //Perhaps we are in the bound box
+	  from=maxy;
+//	  to=miny;
+      }
       dir=-1;
     } else {
-      from=miny;
-      to=maxy;
+      from=ClampI64(MinI64(dist1,dist2),miny,maxy);
+      to=ClampI64(MaxI64(dist1,dist2),miny,maxy);
+      if(from==to) { //Perhaps we are in the bound box
+	  from=miny;
+//	  to=maxy;
+      }
       dir=1;
     }
     for(y=from;(dir==1&&y<to)||(dir==-1&&y>to);y+=dir) {
@@ -388,8 +437,6 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
         goto next;
       if(idist>*db_z)
 	goto next;
-      angle=(ToF64(x*2)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
-      cos2=ray_cast_table_cos[x];
       wx=cam->x+(dist/cos2)*cos_table[x];
       wy=cam->y+(dist/cos2)*sin_table[x];
       point.x=wx-sector->shape_start_x;
@@ -2856,7 +2903,6 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
     UpdateLevel(l);
 //    if(!Bt(&doom_scrn_in_draw,0))
 //      DCBlotColor8(gr.dc,doom_scrn);
-//PrintI("winmgr.fps",winmgr.fps);
     Refresh;
   }
 ret:

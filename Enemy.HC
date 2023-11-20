@@ -493,7 +493,7 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
 //Pushin P path is blocked so random direction
     thing->angle=(Rand-.5)*2.*2.*pi;
   }
-  t->steps_to_walk=dist*2;
+  t->steps_to_walk=dist/2;
   thing->x=dummy.x;
   thing->y=dummy.y;
 }
@@ -844,10 +844,12 @@ U0 TroopAttack(CDoomLevel *l,CMonsterThinker *t) {
     if(CheckMeleeRange(l,t)) {
       Sound(t,'Melee');
       damage=((RandU64&7)+1)*3;
+      t->self->flags|=MF_JUST_ATTACKED;
       DamageMob(l,t->target,t,damage);
       return;
     }
     Sound(t,'Attack');
+    t->self->flags|=MF_JUST_ATTACKED;
     SpawnMissile(l,t->self,t->target,'Imp');
   }
 }
@@ -875,10 +877,12 @@ U0 CacodemonAttack(CDoomLevel *l,CMonsterThinker *t) {
     if(CheckMeleeRange(l,t)) {
       damage=((RandU64&7)+1)*8;
       Sound(t,'Melee');
+      t->self->flags|=MF_JUST_ATTACKED;
       DamageMob(l,t->target,t,damage);
       return;
     }
     Sound(t,'Attack');
+    t->self->flags|=MF_JUST_ATTACKED;
     SpawnMissile(l,t->self,t->target,'Caco');
   }
 }

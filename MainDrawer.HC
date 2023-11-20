@@ -194,13 +194,23 @@ I64 IsBlockedByWall(CDoomCamera *cam,I64 x,I64 y,I64 dist) {
 	return cmd->end-y;
       }
     }
-//TODO sort them
-/*    if(cmd->start>y) {
-       return 0;
-    }*/
   }
   return 0;
 }
+
+I64 IsBlockedByWallReverse(CDoomCamera *cam,I64 x,I64 y,I64 dist) {
+  I64 i,cnt=cam->wall_command_cnts[x>>1];
+  CWallCommand *cmd=cam->wall_commands[x>>1];
+  for(i=0;i!=cnt;i++,cmd++) {
+    if(cmd->dist<=dist) {
+      if(cmd->start<y<cmd->end) {
+	return y-cmd->start;
+      }
+    }
+  }
+  return 0;
+}
+
 
 U0 InsertVisplane(CDoomCamera *cam,CDoomSector *s) {
   I64 cnt=cam->visplane_cnt;
@@ -316,7 +326,7 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
   I32 *db_z;
   U16 *dst,color,color2;
   I64 maxx,maxy;
-  I64 minx,miny,idist,dir,from,to;
+  I64 minx,miny,idist,dir,from,to,skip;
   I64 consec_y;
   F64 dist,angle;
   F64 cos2,wx,wy;
@@ -348,13 +358,29 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
   }
 //https://www.doomworld.com/forum/topic/102392-the-definitive-guide-to-visplanes/
   for(x=minx;x<maxx;x++) {
-    for(y=miny;y<maxy;y++) {
+    if(floor) {
+      from=maxy-1;
+      to=miny;
+      dir=-1;
+    } else {
+      from=miny;
+      to=maxy;
+      dir=1;
+    }
+    for(y=from;(dir==1&&y<to)||(dir==-1&&y>to);y+=dir) {
       idist=dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at));
       db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
       already=cam->floor_dc->body+y*cam->floor_dc->width_internal+x;
-      if(to=IsBlockedByWall(cam,x*2,y*2,idist)) {
-	y+=to>>1-1;
-        goto next;
+      if(!floor) {
+        if(skip=IsBlockedByWall(cam,x*2,y*2,idist)) {
+	  y+=skip>>1-1;
+          goto next;
+        }
+      } else {
+        if(skip=IsBlockedByWallReverse(cam,x*2,y*2,idist)) {
+	  y-=skip>>1+1;
+          goto next;
+        }
       }
       if(*already)
 	goto next;
@@ -423,7 +449,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   F64 end_angle=FArg(en->x,en->y),tmp,tyf;
   F64 margin;
   CD2 ray,hit,*sw;
-  I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex,dir,skip;
+  I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex,dir,skip;
   CVisplane *vp;
   I32 *db_z,idist;
   CWallCommand *wall_cmd;
@@ -3104,7 +3130,6 @@ U0 MainMenu()
   
  }
 }
-
 PlayLevel("E1M1",1);
 //MainMenu;
 #endif

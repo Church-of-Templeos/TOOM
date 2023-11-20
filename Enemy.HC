@@ -845,7 +845,7 @@ U0 TroopAttack(CDoomLevel *l,CMonsterThinker *t) {
       Sound(t,'Melee');
       damage=((RandU64&7)+1)*3;
       t->self->flags|=MF_JUST_ATTACKED;
-      DamageMob(l,t->target,t,damage);
+      DamageMob(l,t->target,t->self,damage);
       return;
     }
     Sound(t,'Attack');
@@ -878,7 +878,7 @@ U0 CacodemonAttack(CDoomLevel *l,CMonsterThinker *t) {
       damage=((RandU64&7)+1)*8;
       Sound(t,'Melee');
       t->self->flags|=MF_JUST_ATTACKED;
-      DamageMob(l,t->target,t,damage);
+      DamageMob(l,t->target,t->self,damage);
       return;
     }
     Sound(t,'Attack');
@@ -1057,7 +1057,7 @@ U0 SkullHit(CDoomLevel *l,CMonsterThinker *t,CDoomThing *hit_thang) {
   CDoomThing *self=t->self;
   if(hit_thang) {
     damage=(RandU64&7+1)*t->self->template(CDoomMonsterTemplate*)->damage;
-    DamageMob(l,hit_thang,t,damage);
+    DamageMob(l,hit_thang,t->self,damage);
   }
   self=t->self;
   self->flags&=~MF_SKULL_ATTACK;

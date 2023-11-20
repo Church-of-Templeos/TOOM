@@ -501,9 +501,9 @@ U0 ST_refreshBackground(CDoomPlayer *p)
     if(l->has_red_key) {
       GrBlot(doom_scrn,2*239,212*2,STKEYS[2]);
     } else if(l->has_blue_key) {
-      GrBlot(doom_scrn,2*239,222*2,STKEYS[1]);
+      GrBlot(doom_scrn,2*239,222*2,STKEYS[0]);
     } else if(l->has_yellow_key) {
-      GrBlot(doom_scrn,2*239,232*2,STKEYS[0]);
+      GrBlot(doom_scrn,2*239,232*2,STKEYS[1]);
     }
 
   }

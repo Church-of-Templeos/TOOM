@@ -242,7 +242,6 @@ class CDoomSector:CQue {
 //I will render the floors then I will cast them to the screen
 //I tried everything else but I just cant figure out how to draw the floors
   F64 shape_start_x,shape_start_y;
-  CDC *shape_dc;
   CDoomLinedef *cur_action_linedef;
   CDoomThing *noise_thing; //Last thing that made a noise
   F64 wait_time;
@@ -902,85 +901,6 @@ F64 PassesThroughLineAtY(I64 x,CD2 *a,CD2 *b) {
   return -1;
 }
 
-U0 GenerateSectorShape(CDoomSector *s) {
-  I64 max_x=I16_MIN,max_y=I16_MIN;
-  I64 min_x=I16_MAX,min_y=I16_MAX;
-  I64 x,y;
-  I64 maxy,new_maxy,tmp;
-  I64 cnt,side,ix,iy,choose_idx;
-  CDoomLinedef **array=CAlloc(s->linedef_cnt*8);
-  CDC **arr;
-  CD2 p1,p2;
-  Bool odd;
-  for(cnt=0;cnt!=s->linedef_cnt;cnt++) {
-    for(side=0;side!=2;side++) {
-      if(side) {
-        x=s->linedefs[cnt]->start->x;
-        y=s->linedefs[cnt]->start->y;
-      } else {
-        x=s->linedefs[cnt]->end->x;
-        y=s->linedefs[cnt]->end->y;
-      }
-      max_x=MaxI64(max_x,x);
-      max_y=MaxI64(max_y,y);
-      min_x=MinI64(min_x,x);
-      min_y=MinI64(min_y,y);
-    }
-  }
-  s->shape_dc=DCNew((max_x-min_x+2)/2,(max_y-min_y+2)/2);
-  DCFill(s->shape_dc,0);
-  s->shape_dc->color=YELLOW;
-  for(x=0;x<max_x-min_x+1;x+=2) {
-    maxy=-1;
-    odd=FALSE;
-    for(ix=0;ix!=s->linedef_cnt;ix++)
-      array[ix]=s->linedefs[ix];
-loop:
-    choose_idx=-1;
-    new_maxy=s->shape_dc->height*2;
-    for(cnt=0;cnt!=s->linedef_cnt;cnt++) {
-      if(array[cnt]) {
-        p1.x=s->linedefs[cnt]->start->x-min_x;
-        p1.y=s->linedefs[cnt]->start->y-min_y;
-        p2.x=s->linedefs[cnt]->end->x-min_x;
-        p2.y=s->linedefs[cnt]->end->y-min_y;
-        tmp=PassesThroughLineAtY(x,&p1,&p2);
-        if(tmp!=-1) {
-	  if(tmp>maxy&&tmp<new_maxy) {
-	    choose_idx=cnt;
-	    new_maxy=tmp;
-	  }
-        }
-      }
-    }
-    odd=!odd;
-    if(choose_idx!=-1) {
-      if(!odd) GrVLine(s->shape_dc,x/2,maxy/2,new_maxy/2);
-      array[choose_idx]=NULL;
-      maxy=new_maxy;
-      goto loop;
-    }
-    if(!odd) GrVLine(s->shape_dc,x/2,maxy/2,s->shape_dc->height);
-  }
-//Artifact reduction,any 1 pixel that is lone in a row,remove it
-  for(y=0;y!=s->shape_dc->height;y++)
-    for(x=1;x<s->shape_dc->width-1;x++) {
-       if(GrPeek0(s->shape_dc,x,y)) {
-         if(!GrPeek0(s->shape_dc,x-1,y)&&!GrPeek0(s->shape_dc,x+1,y)) {
-	   s->shape_dc->color=BLACK;
-	   GrPlot0(s->shape_dc,x,y);
-	 }
-       } else {
-         if(GrPeek0(s->shape_dc,x-1,y)&&GrPeek0(s->shape_dc,x+1,y)) {
-	   s->shape_dc->color=YELLOW;
-	   GrPlot0(s->shape_dc,x,y);
-         }
-       }
-    }
-  s->shape_start_x=min_x;
-  s->shape_start_y=min_y;
-  Free(array);
-}
 
 class CWadBlockMapHeader {
   I16 x_off,y_off;
@@ -1343,10 +1263,6 @@ skip_thing:
 	    );
     }
   }
-//SECTORS(4) Generate sectors shapes
-  cnt=wad_dir[7].lump_size/sizeof(CWadSector);
-  for(idx=0;idx!=cnt;idx++)
-    GenerateSectorShape(dsect_list[idx]);
 //BLOCKMAP
   wbmh=wad_dir[9].ptr+wad(U8*);
   if(StrCmp8("BLOCKMAP",wad_dir[9].lump_name)) throw('Wad');

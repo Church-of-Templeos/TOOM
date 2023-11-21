@@ -2,9 +2,12 @@
 #define DOOM_MAIN "Doom" 
 #exe {Cd(__DIR__);};
 #ifndef PrintI 
-U0 PrintI(I64) {}
-U0 PrintF(F64) {}
+U0 PrintI(U8*,I64) {}
+U0 PrintF(U8*,F64) {}
 U0 DbgPrint(U8*,...) {}
+#endif
+#ifndef MemSetI64
+#define MemSetI64 MemSetU64
 #endif
 #include "FastTrig.HC";
 #include "Wad.HC";
@@ -15,113 +18,12 @@ CTask *doom_task=Fs;
 #define mp_cnt 1 //Reduces flickering
 F64 ray_cast_table_cos[GR_WIDTH/2];
 F64 ray_cast_table_sin[GR_WIDTH/2];
-
-I64 draw_job_cnt=0;
-I64 draw_jobs_lock[mp_cnt];
-I64 draw_jobs_done[mp_cnt];
-I64 draw_jobs_kill[mp_cnt];
-#ifdef MemSetU64
-#define MemSetI64 MemSetU64
-#endif
-MemSetI64(draw_jobs_done,0,mp_cnt);
-MemSetI64(draw_jobs_lock,0,mp_cnt);
-MemSetI64(draw_jobs_kill,0,mp_cnt);
-CFifoI64 *draw_jobs_fifo[mp_cnt];
 Bool paused = FALSE,gameExit=FALSE;
-CTask *draw_jobs_task[mp_cnt];
+
+
 class CJobRunnerData {
-  U0 (*fptr)(I64);
+  U0 (*fptr)(U8*);
 };
-U0 JobRunnerTask(CTask *parent) {
-  I64 core=Gs->num,ran_one;
-  CJobRunnerData *d;
-  LBts(&draw_jobs_done[core],0);
-  while(TRUE) {
-    if(!Bt(&draw_jobs_done[core],0)) {
-      ran_one=TRUE;
-      while(ran_one) {
-        while(LBts(&draw_jobs_lock[core],0))
-	  Yield;
-        if(Bt(&draw_jobs_kill[core],0)) {
-          LBts(&draw_jobs_done[core],0);;
-	  LBts(&draw_jobs_kill[core],1);
-	  Exit;
-        }
-        if(ran_one=FifoI64Rem(draw_jobs_fifo[core],&d)) {
-	  (*d->fptr)(d);
-        }
-        LBtr(&draw_jobs_lock[core],0);
-      }
-      LBts(&draw_jobs_done[core],0);;
-    } else {
-      Fs->wake_jiffy=I64_MAX;
-      Yield;
-      if(Bt(&draw_jobs_kill[core],0)) {
-        LBts(&draw_jobs_kill[core],1);
-        LBts(&draw_jobs_done[core],0);;
-        Exit;
-      }
-    }
-  }
-}
-I64 draw_job_cnt;
-for(draw_job_cnt=mp_cnt-1;draw_job_cnt>=1;draw_job_cnt--) {
-  draw_jobs_fifo[draw_job_cnt]=FifoI64New(2048);
-  draw_jobs_task[draw_job_cnt]=Spawn(&JobRunnerTask,Fs,"Drawer",draw_job_cnt);
-}
-
-U0 TaskEndCb() {
-  I64 cnt=mp_cnt;
-  while(--cnt>=1) {
-    LBts(&draw_jobs_kill[cnt],0);
-    LBts(&draw_jobs_done[cnt],0);
-    lock draw_jobs_task[cnt]->wake_jiffy=__GetTicksHP;
-    while(!Bt(&draw_jobs_kill[cnt],1))
-      ;
-  }
-  Sleep(10);
-  Exit;
-}
-Fs->task_end_cb=&TaskEndCb;
-
-U0 QueJobRun(CJobRunnerData *d,I64 core=-1) {
-  I64 inserted=FALSE;
-  static I64 use_next=0;
-  if(core==-1) {
-    use_next=(use_next+1)%mp_cnt;
-    if(mp_cnt>1&&!use_next)
-      use_next=1;
-    if(!use_next&&mp_cnt>1)
-      use_next=1;
-    core=use_next;
-  }
-  if(core==0) {
-    (*d->fptr)(d);
-    return;
-  }
-//Here's the 
-  inserted=FifoI64Ins(draw_jobs_fifo[core],d);
-  if(!inserted) {
-    (*d->fptr)(d);
-    return;
-  }
-}
-U0 WaitForJobsDone() {
-  I64 cnt=mp_cnt;
-  while(--cnt>=1) {
-    while(!LBtr(&draw_jobs_done[cnt],0)) {
-     lock draw_jobs_task[cnt]->wake_jiffy=0;
-     MPAwake(cnt);
-     Yield;
-    }
-    while(!Bt(&draw_jobs_done[cnt],0)) {
-     lock draw_jobs_task[cnt]->wake_jiffy=0;
-     MPAwake(cnt);
-     Yield;
-    }
-  }
-}
-
 
 CDC *doom_scrn=gr.dc;
 doom_scrn->flags|=DCF_NO_TRANSPARENTS;
@@ -822,7 +724,7 @@ U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 le
   j->ld=ld;
   j->sd=sd;
   j->fptr=&RayCastJob;
-  QueJobRun(j);
+  RayCastJob(j);
 }
 U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,Bool reflect=FALSE) {
   CD2 copy,copy2;
@@ -1274,8 +1176,6 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   else
     DCDepthBufRst(to_dc);
   DrawBSP(to_dc,cam,level);
-
-  WaitForJobsDone;
 
   MergeWallCommands(cam);
 
@@ -2779,7 +2679,6 @@ U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
 
 
 
-Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
 WinMax;
 U0 InitLevel(CDoomLevel *l) {
   CDoomThing *t,*head=&l->things,*next;
@@ -2812,10 +2711,6 @@ U0 FreeLevel(CDoomLevel *l) {
   QueDel(&l->subsectors);
   QueDel(&l->thinkers);
   Free(l->segs);
-  head=&l->sectors;
-  for(s=head->next;s!=head;s=s->next) {
-    DCDel(s->shape_dc);
-  }
   QueDel(&l->sectors);
   QueDel(&l->sidedefs);
   Free(l->vertices);
@@ -2873,6 +2768,7 @@ U0 PauseMenu()
 
 U0 PlayLevel(U8 *name,I64 difficulty) { 
   l=LoadWadLevel(wad,name,difficulty);
+  Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
   p=PlayerNew(l);
   PlayerMove(l,p,0);
   InitLevel(l);

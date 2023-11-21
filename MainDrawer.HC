@@ -318,31 +318,37 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
   }
   return TRUE;
 }
-U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
+I64 F64SortRev(F64 a,F64 b) {
+  if(a<b) return 1;
+  if(a>b) return -1;
+  return 0;
+}
+I64 F64Sort(F64 a,F64 b) {
+  if(a>b) return 1;
+  if(a<b) return -1;
+  return 0;
+}
+
+
+U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
   if(!texture) return;
   if(GetFlatDC("F_SKY1")==texture) return;
-  CD2 a,b,c,d,ray,hit,*p1,*p2; //Sector boundbox
-  I64 w=sector->shape_dc->width*2,h=sector->shape_dc->height*2;
-  a.x=sector->shape_start_x;
-  a.y=sector->shape_start_y;
-  b.x=a.x+w;
-  b.y=a.y;
-  c.x=a.x+w;
-  c.y=a.y+h;
-  d.x=a.x;
-  d.y=a.y+h;
+  F64 *intersects=MAlloc((sector->linedef_cnt+1)*8);
+  Bool on,in_sector=GetSectorForCoord(l,cam->x,cam->y)==sector;
   I64 x,y;
   I64 plane=sector->visplane_idx;
   I64 floorx,floory;
   I32 *db_z;
   U16 *dst,color,color2;
   I64 maxx,maxy;
-  I64 minx,miny,idist,dir,from,to,skip;
-  I64 consec_y;
-  F64 dist,angle,dist1,dist2;
-  F64 cos2,wx,wy;
+  I64 minx,miny,idist,dir,from,to,skip,hit_cnt;
+  I64 consec_y,idx;
+  I64 wx,wy;
+  F64 dist,angle;
+  F64 cos2;
   U8 *already;
-  CD2I64 point;
+  CD2 ray,hit;
+  CDoomLinedef*ld;
   static F64 last_angle=I16_MAX; //Not possible to start with this angle
   static F64 cos_table[GR_WIDTH/2];
   static F64 sin_table[GR_WIDTH/2];
@@ -367,109 +373,110 @@ U0 DrawTexturedFlat(CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *
     maxy=vp->cmaxy>>1;
   }
 //https://www.doomworld.com/forum/topic/102392-the-definitive-guide-to-visplanes/
+  minx=minx-1;
+  if(minx<0) minx=0;
+  maxx=maxx+1;
+  if(maxx>GR_WIDTH/2) maxx=GR_WIDTH/2;
   for(x=minx;x<maxx;x++) {
     ray.x=cos_table[x]*I16_MAX+cam->x;
     ray.y=sin_table[x]*I16_MAX+cam->y;
-    dist1=I16_MAX;
-    dist2=0;
     cos2=ray_cast_table_cos[x];
-    for(skip=0;skip!=4;skip++) {
-      switch(skip) {
-        case 0:
-          p1=&a,p2=&b;
-	break;
-        case 1:
-          p1=&b,p2=&c;
-	break;
-        case 2:
-          p1=&c,p2=&d;
-	break;
-        case 3:
-          p1=&d,p2=&a;
-	break;
-      }
-      if(PlaneIntersect(&hit,p1,p2,&cam->x,&ray)) {
+    hit_cnt=0;
+    intersects[hit_cnt++]=floor*GR_HEIGHT;
+    for(skip=0;skip!=sector->linedef_cnt;skip++) {
+      ld=sector->linedefs[skip];
+      if(PlaneIntersect(&hit,ld->start,ld->end,&cam->x,&ray)) {
         dist=Sqrt(Sqr(hit.x-cam->x)+Sqr(hit.y-cam->y));
-        dist1=Min(dist,dist1);
-        dist2=Max(dist,dist2);
+        dist*=cos2;
+        dist=(((DIST_SCALE/dist)*(cam->h-at))+GR_HEIGHT/2)/2;
+        intersects[hit_cnt++]=dist;
       }
-    }    
-    if(dist1>dist2)
-      goto next2;
-    dist1*=cos2;
-    dist2*=cos2;
-    dist1=(((DIST_SCALE/dist1)*(cam->h-at))+GR_HEIGHT/2)/2;
-    dist2=(((DIST_SCALE/dist2)*(cam->h-at))+GR_HEIGHT/2)/2;
-    if(floor) {
-      from=ClampI64(MaxI64(dist1,dist2),miny,maxy);
-      to=ClampI64(MinI64(dist1,dist2),miny,maxy);
-      if(from==to) { //Perhaps we are in the bound box
-	  from=maxy;
-//	  to=miny;
+    } 
+    if(floor) //Most bottom point is good to start at
+      QSortI64(intersects,hit_cnt,&F64SortRev); 
+    else //Most top point is good to stop at
+      QSortI64(intersects,hit_cnt,&F64Sort); 
+    on=TRUE;
+    if(!hit_cnt)
+      goto next3;
+    for(idx=hit_cnt-2;idx>=0;idx--) {
+      if(floor)  {
+//Reverse sorted
+        from=intersects[idx];
+        to=intersects[idx+1];
+        dir=-1;
+      } else{
+//Forward sorted
+        from=intersects[idx];
+        to=intersects[idx+1];
+        dir=1;
       }
-      dir=-1;
-    } else {
-      from=ClampI64(MinI64(dist1,dist2),miny,maxy);
-      to=ClampI64(MaxI64(dist1,dist2),miny,maxy);
-      if(from==to) { //Perhaps we are in the bound box
-	  from=miny;
-//	  to=maxy;
-      }
-      dir=1;
-    }
-    for(y=from;(dir==1&&y<to)||(dir==-1&&y>to);y+=dir) {
-      idist=dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at));
-      db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
-      already=cam->floor_dc->body+y*cam->floor_dc->width_internal+x;
-      if(!floor) {
-        if(skip=IsBlockedByWall(cam,x*2,y*2,idist)) {
-	  y+=skip>>1-1;
-          goto next;
-        }
-      } else {
-        if(skip=IsBlockedByWallReverse(cam,x*2,y*2,idist)) {
-	  y-=skip>>1+1;
-          goto next;
-        }
-      }
-      if(*already)
-	goto next;
-      if(cam->wall_depths[x]<idist)
-        goto next;
-      if(idist>*db_z)
-	goto next;
-      wx=cam->x+(dist/cos2)*cos_table[x];
-      wy=cam->y+(dist/cos2)*sin_table[x];
-      point.x=wx-sector->shape_start_x;
-      point.y=wy-sector->shape_start_y;
-      if(0<=point.x<w)
-        if(0<=point.y<h){
-	    if(GrPeek0(sector->shape_dc,point.x>>1,point.y>>1)) {
-              dst=&to_dc->body[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
-	      *already=TRUE;
-	      db_z[0]=idist;
-	      db_z[1]=idist;
-	      db_z+=to_dc->width_internal;
-	      db_z[0]=idist;
-	      db_z[1]=idist;
-	      db_z-=to_dc->width_internal;
-	      floorx=(point.x<<1)&127; //In doom flats are 64,(*2 for dither super pixel)
-	      floory=(point.y<<1)&127;
-	      floorx&=~1;
-	      floory&=~1;
-	      color=texture->body[floorx+floory*128](U16);
-	      color2=texture->body[floorx+(1+floory)*128](U16);
-	      *dst=color;
-	      dst(U8*)+=to_dc->width_internal;
-	      *dst=color2;
-	      dst(U8*)-=to_dc->width_internal;
+      if(on)
+        for(y=from;(dir==1&&y<to)||(dir==-1&&y>to);y+=dir) {
+	  if(y<0) {
+	    y=0-dir;
+	    if(dir==-1)
+	      break;
+	    goto next;
+	  }
+	  if(y>=GR_HEIGHT/2) {
+	    y=GR_HEIGHT/2-1-dir;
+	    if(dir==1)
+	      break;
+	    goto next;
+	  }
+	  idist=dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at));
+	  db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
+	  already=cam->floor_dc->body+y*cam->floor_dc->width_internal+x;
+	  if(!floor) {
+	    if(skip=IsBlockedByWall(cam,x*2,y*2,idist)) {
+	      y+=skip>>1-1;
+	      goto next;
 	    }
-        }
+	  } else {
+	    if(skip=IsBlockedByWallReverse(cam,x*2,y*2,idist)) {
+	      y-=skip>>1+1;
+	      goto next;
+	    }
+	  }
+	  if(*already)
+	    goto next;
+	  if(cam->wall_depths[x]<idist)
+	    goto next2;
+	  if(idist>*db_z)
+	    goto next;
+	  wx=cam->x+(dist/cos2)*cos_table[x];
+	  wy=cam->y+(dist/cos2)*sin_table[x];
+	  dst=&to_dc->body[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
+	  *already=TRUE;
+	  db_z[0]=idist;
+	  db_z[1]=idist;
+	  db_z+=to_dc->width_internal;
+	  db_z[0]=idist;
+	  db_z[1]=idist;
+	  db_z-=to_dc->width_internal;
+	  floorx=(wx<<1)&127; //In doom flats are 64,(*2 for dither super pixel)
+	  floory=(wy<<1)&127;
+	  floorx&=~1;
+	  floory&=~1;
+	  color=texture->body[floorx+floory*128](U16);
+	  color2=texture->body[floorx+(1+floory)*128](U16);
+	  *dst=color;
+	  dst(U8*)+=to_dc->width_internal;
+	  *dst=color2;
+	  dst(U8*)-=to_dc->width_internal;
 next:;
-    }
+        }
 next2:;
+      on=!on;
+next2_5:;
+    } 
+next3:;
   }
-} 
+  Free(intersects);
+}
+
+
 U0 PopulateTables() {
   I64 inc=0;
   F64 angle=-cam.fov/2;
@@ -1271,14 +1278,14 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     sector=sorted[idx2]->sector;
     if(sector->floor_dc)
       if(sector->floor_height<cam->h)
-        DrawTexturedFlat(to_dc,cam,sector,sector->floor_height,sector->floor_dc[af%FrameCnt(sector->floor_dc)],TRUE);
+        DrawTexturedFlat(l,to_dc,cam,sector,sector->floor_height,sector->floor_dc[af%FrameCnt(sector->floor_dc)],TRUE);
   }
   QSortI64(sorted,cam->visplane_cnt,&CeilSort);
   for(idx2=0;idx2!=cam->visplane_cnt;idx2++) {
     sector=sorted[idx2]->sector;
     if(sector->ceil_dc) {
       if(sector->ceil_height>cam->h)
-        DrawTexturedFlat(to_dc,cam,sector,sector->ceil_height,sector->ceil_dc[af%FrameCnt(sector->ceil_dc)],FALSE);
+        DrawTexturedFlat(l,to_dc,cam,sector,sector->ceil_height,sector->ceil_dc[af%FrameCnt(sector->ceil_dc)],FALSE);
     }
   }
   for(thing=level->things.next;thing!=&level->things;thing=thing->next) {
@@ -2839,8 +2846,7 @@ U0 PauseMenu()
    if(ms.pos.y>=300&&ms.pos.y<=330)
    {
      if(ms.lb){
-      DCFill;
-      ST_Exit();
+      DCFill;
       gameExit=TRUE;
       break;
      }
@@ -2860,7 +2866,7 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
   p=PlayerNew(l);
   PlayerMove(l,p,0);
   InitLevel(l);
-  while(!l->ended) {
+  while(!l->ended&&!gameExit) {
     UpdateCameraFromPlayer(&cam,p);
 
     DrawDoomWorld(&cam,l,doom_scrn);
@@ -2959,7 +2965,7 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
     Refresh;
   }
 ret:
- if(l->ended) Intermission(l,name[1]-'1',name[3]-'1');
+  if(l->ended) Intermission(l,name[1]-'1',name[3]-'1');
   DCFill;
   FreeLevel(l);
   return;
@@ -3230,8 +3236,8 @@ U0 MainMenu()
  }
 }
 
-//PlayLevel("E1M1",1);
-MainMenu;
+PlayLevel("E1M1",1);
+//MainMenu;
 #endif
         ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      
 !   Éÿÿÿ0   ûÿÿÿ

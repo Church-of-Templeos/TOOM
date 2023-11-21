@@ -337,7 +337,7 @@ U0 DrawNumber(CDoomPlayer *p, U32 x, U32 y,U32 xInc, U16 weapon,Bool small)
     if(hundreds>0)
     {
      GrBlot(doom_scrn,x,y,ReturnSprite(hundreds,small));
-     GrBlot(doom_scrn,x+xInc,y,ReturnSprite(tens,small));
+     GrBlot(doom_scrn,x+xInc,y,ReturnSprite(tens,small));
      GrBlot(doom_scrn,x+xInc+xInc,y,ReturnSprite(ones,small));
 
      if(weapon>=12)

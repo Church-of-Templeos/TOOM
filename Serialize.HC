@@ -15,7 +15,7 @@ U0 DumpClass(U8 *ptr, U8 *lc=lastclass)
     case RT_U0...RT_U64:
     break;
     //case RT_I0...RT_I64:
-    //break;
+    //break;
     case RT_F64:
     break;
    }

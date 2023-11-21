@@ -98,7 +98,7 @@ time_info:
       time/=140.;
       freqs[note_cnt].time=time;
 //TODO TODO TODO do some magic
-      worst=best=0;
+      worst=0,best=0;
       for(idx=0;idx!=hd->channels;idx++) {
         for(idx2=0;idx2!=127;idx2++) {
 	  if(cur_inst_freqs[idx*128+idx2]) {

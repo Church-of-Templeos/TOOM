@@ -1104,7 +1104,8 @@ U0 LoadMonsterInfo() {
   AddState(t->death_state="IMP.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
   AddState(t->gib_state="IMP.S_POSS_GIB",STATE_NO_REPEAT,t->_gib_frames,&XFall,"ST_NULL");
 //Fireball and I aint talkin alchohol
-  p=imp_fireball=CAlloc(sizeof CDoomProjectileTemplate);
+  imp_fireball=CAlloc(sizeof CDoomProjectileTemplate);
+  p=imp_fireball;
   p->flags=TF_FLOATING;
   p->direct=9;
   p->speed=350/30.;
@@ -1138,7 +1139,8 @@ U0 LoadMonsterInfo() {
   AddState(t->death_state="BARON.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"BARON.S_POSS_DIE2");
   AddState(t->death_state="BARON.S_POSS_DIE2",0,t->_dying_frames,&BossDeath,"ST_NULL");
 //Booger ball
-  p=baron_fireball=CAlloc(sizeof CDoomProjectileTemplate);
+  baron_fireball=CAlloc(sizeof CDoomProjectileTemplate);
+  p=baron_fireball;
   p->flags=TF_FLOATING;
   p->speed=525/30.;
   p->direct=8;
@@ -1170,7 +1172,8 @@ U0 LoadMonsterInfo() {
   AddState(t->pain_state="CACO.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"CACO.S_POSS_RUN");
   AddState(t->death_state="CACO.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
 //Cacodemon ball
-  p=cacodemon_fireball=CAlloc(sizeof CDoomProjectileTemplate);
+  cacodemon_fireball=CAlloc(sizeof CDoomProjectileTemplate);
+  p=cacodemon_fireball;
   p->flags=TF_FLOATING;
   p->speed=350/35.;;
   p->direct=5;
@@ -1194,7 +1197,8 @@ U0 LoadMonsterInfo() {
   t->_hurt_frames=GenerateCacheFrames(t,"G");
   t->_dying_frames=GenerateCacheFrames(t,"HIJKLMNOPP");
 //Rocket
-  p=rocket=CAlloc(sizeof CDoomProjectileTemplate);
+  rocket=CAlloc(sizeof CDoomProjectileTemplate);
+  p=rocket;
   p->flags=TF_FLOATING;
   p->direct=20.;
   p->splash=128.;

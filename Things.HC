@@ -186,7 +186,7 @@ static CDoomAnimationFrame *GenerateCacheFrames(CDoomThingTemplate *t,U8 *frames
   CDC *last_dc;
   Bool last_reflect;
   I64 face,idx,idx2;
-  for(idx=idx2=0;idx2!=cnt;idx2++)  {
+  for(idx=0,idx2=0;idx2!=cnt;idx2++)  {
     if(!Bt(char_bmp_alpha,frames[idx2]))
       goto skip;
     ret[idx].chr=frames[idx2];

@@ -1,5 +1,11 @@
 #ifndef DOOM_MAIN
 #define DOOM_MAIN "Doom" 
+#exe {Cd(__DIR__);};
+#ifndef PrintI 
+U0 PrintI(I64) {}
+U0 PrintF(F64) {}
+U0 DbgPrint(U8*,...) {}
+#endif
 #include "FastTrig.HC";
 #include "Wad.HC";
 #include "Intermission.HC";
@@ -14,9 +20,12 @@ I64 draw_job_cnt=0;
 I64 draw_jobs_lock[mp_cnt];
 I64 draw_jobs_done[mp_cnt];
 I64 draw_jobs_kill[mp_cnt];
-MemSetU64(draw_jobs_done,0,mp_cnt);
-MemSetU64(draw_jobs_lock,0,mp_cnt);
-MemSetU64(draw_jobs_kill,0,mp_cnt);
+#ifdef MemSetU64
+#define MemSetI64 MemSetU64
+#endif
+MemSetI64(draw_jobs_done,0,mp_cnt);
+MemSetI64(draw_jobs_lock,0,mp_cnt);
+MemSetI64(draw_jobs_kill,0,mp_cnt);
 CFifoI64 *draw_jobs_fifo[mp_cnt];
 Bool paused = FALSE,gameExit=FALSE;
 CTask *draw_jobs_task[mp_cnt];
@@ -425,7 +434,8 @@ U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *secto
 	      break;
 	    goto next;
 	  }
-	  idist=dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at));
+	  dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at));
+	  idist=dist;
 	  db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
 	  already=cam->floor_dc->body+y*cam->floor_dc->width_internal+x;
 	  if(!floor) {
@@ -793,7 +803,7 @@ U0 RayCastJob(CRayJobData *data) {
 	data->ceilh,
 	data->floor,
 	data->ld,
-	data->sd,
+	data->sd
 	);
   Free(data);
 }
@@ -1258,7 +1268,7 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
     cam->floor_depths[idx]=I16_MAX;
     cam->wall_depths[idx]=I16_MAX;
   }
-  MemSetU64(cam->wall_command_cnts,0,GR_WIDTH/2);
+  MemSetI64(cam->wall_command_cnts,0,GR_WIDTH/2);
   if(!to_dc->depth_buf)
     DCDepthBufAlloc(to_dc);
   else

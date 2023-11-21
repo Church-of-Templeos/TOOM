@@ -781,6 +781,7 @@ found_pstart:
   LoadGrLump(wad,"M_EPI3");
   LoadGrLump(wad,"M_EPI4");
   LoadGrLump(wad,"M_EPISOD");
+  LoadGrLump(wad,"M_SGTTL");
 
 //numbers
   LoadGrLump(wad,"STCFN048");

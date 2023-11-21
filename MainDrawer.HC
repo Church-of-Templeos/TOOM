@@ -18,6 +18,7 @@ MemSetU64(draw_jobs_done,0,mp_cnt);
 MemSetU64(draw_jobs_lock,0,mp_cnt);
 MemSetU64(draw_jobs_kill,0,mp_cnt);
 CFifoI64 *draw_jobs_fifo[mp_cnt];
+Bool paused = FALSE,gameExit=FALSE;
 CTask *draw_jobs_task[mp_cnt];
 class CJobRunnerData {
   U0 (*fptr)(I64);
@@ -2806,6 +2807,54 @@ U0 FreeLevel(CDoomLevel *l) {
   Free(l->action_linedefs);
   Free(l);
 }
+
+
+#include "Serialize.HC";
+
+U0 PauseMenu()
+{
+ static CDC *save = FramePtr("M_SGTTL");
+ static CDC *quit = FramePtr("M_QUITG");
+
+ while(paused)
+ {
+  //UpdateCameraFromPlayer(&cam,p);
+
+  DrawDoomWorld(&cam,l,doom_scrn);
+  GrBlot(doom_scrn,250,250,save);
+  GrBlot(doom_scrn,250,300,quit);
+  Sleep(120);
+
+  if(ms.pos.x>=250&&ms.pos.x<475) 
+  {
+   if(ms.pos.y>=250&&ms.pos.y<=280)
+   {
+     if(ms.lb)
+     {
+      SaveGame();
+      paused=FALSE;
+      break;
+     }
+   }
+   if(ms.pos.y>=300&&ms.pos.y<=330)
+   {
+     if(ms.lb){
+      DCFill;
+      ST_Exit();
+      gameExit=TRUE;
+      break;
+     }
+   }
+  }
+  if(Bt(kbd.down_bitmap,Char2ScanCode(CH_ESC)&0xff)) {
+      //DCFill;
+      paused=FALSE;
+      break;
+  }
+ }
+}      
+
+
 U0 PlayLevel(U8 *name,I64 difficulty) { 
   l=LoadWadLevel(wad,name,difficulty);
   p=PlayerNew(l);
@@ -2896,13 +2945,17 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
       }
     }
     if(Bt(kbd.down_bitmap,Char2ScanCode(CH_ESC)&0xff)) {
-      DCFill;
-      ST_Exit();
-      break;
+      paused=TRUE;
+      PauseMenu;//
+     
+      //DCFill;
+      //ST_Exit();
+      //break;
     }
     UpdateLevel(l);
 //    if(!Bt(&doom_scrn_in_draw,0))
 //      DCBlotColor8(gr.dc,doom_scrn);
+//PrintI("winmgr.fps",winmgr.fps);
     Refresh;
   }
 ret:
@@ -3176,8 +3229,9 @@ U0 MainMenu()
   
  }
 }
-PlayLevel("E1M1",1);
-//MainMenu;
+
+//PlayLevel("E1M1",1);
+MainMenu;
 #endif
         ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      
 !   Éÿÿÿ0   ûÿÿÿ

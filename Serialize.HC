@@ -198,35 +198,33 @@ SaveGame *LoadGame(U8 *fileptr)
 
 
 }
-
+U8 *Bin2Str(U8 *data,I64 len) {
+  U8 *str=CAlloc(len*2+1);
+  while(--len>=0)
+    CatPrint(str,"%X",data[len]);
+  return str;
+}
 U8 *DumpClass(U8 *ptr, U8 *lc=lastclass)
 {
  CHashClass *cls=HashFind(lc,Fs->hash_table,HTT_CLASS);
  CMemberLst *mlst;
- U8 *stringToWrite = "",*append="",*data;
-
+ U8 *stringToWrite = NULL,*data,*tmp;
+ I64 len,total;
  if(!cls) return;
  while(cls)
  {
   for(mlst=cls->member_lst_and_root;mlst;mlst=mlst->next)
   {
-   switch(mlst->member_class->raw_type)
-   {
-    case RT_U0...RT_U64:
-    if(StrCmp(mlst->str,"arsenal"))
-    {
-     //"%d",mlst->meta->str;
-    }
-    append =  MStrPrint("%s,%d,%d\n",mlst->str,mlst->offset,mlst->member_class->raw_type);
-    stringToWrite = MStrPrint("%s%s",stringToWrite,append);
-    break;
-    case RT_F64:
-    //MemCpy(&data,mlst->static_data+mlst->offset,8);
-    //ClassRep(mlst);
-    //append =  MemberMetaData("",ml);//MStrPrint("%s,%f\n",mlst->str,data);
-    stringToWrite = MStrPrint("%s%s",stringToWrite,append);
-    break;
-   }
+   tmp = MStrPrint("%s%s,%d,%d,%d,%d(%s)\n",stringToWrite,
+	mlst->str,
+	mlst->offset,
+	mlst->member_class->raw_type,
+	mlst->member_class->ptr_stars_cnt,
+	mlst->dim.total_cnt,
+	data=Bin2Str(ptr+mlst->offset,mlst->size));
+   Free(stringToWrite); //Free old value
+   Free(data);
+   stringToWrite=tmp;   
   }
   cls=cls->base_class;
  }
@@ -234,7 +232,7 @@ U8 *DumpClass(U8 *ptr, U8 *lc=lastclass)
  return stringToWrite; 
 }
 
-U0 SaveGame()//in final product, pass in the SaveGame components
+U0 SaveGame()//in final product, pass in the SaveGame components
 {
 
   CDoomPlayer *p = PlayerNew(); 

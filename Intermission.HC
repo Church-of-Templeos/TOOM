@@ -244,7 +244,7 @@ U0 DrawStats(CDC *to_dc,CDoomLevel *l,I64 ep,I64 l2,I64 tick=0) {
   }
   y+=lw;
   GrBlot(to_dc,STATSX,y,FramePtr("WIOSTI"));
-  if(l->stats.have_items) {
+  if(tick<l->stats.have_items) {
     DrawPercent(to_dc,GR_WIDTH-STATSX,y,tick,l->stats.max_items);
     tick=0;
   } else {

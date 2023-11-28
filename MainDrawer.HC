@@ -1100,7 +1100,7 @@ I64 CeilSort(CVisplane *va,CVisplane *vb)  {
 
 
 U0 DrawSky(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
-  CDC *texture=GetFlatDC("F_SKY1");
+  CDC *texture=FramePtr("SKY1"); //TODO which episode
   I64 iy,ix,off=texture->width*cam->angle/pi,tx,ty;
   U16 *to,*from;
   for(iy=0;iy!=GR_HEIGHT;iy+=2) {
@@ -1113,6 +1113,7 @@ U0 DrawSky(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
         goto skip;
       *to=*from;
       tx=(ix+off)/ToF64(GR_WIDTH)*texture->width;
+      tx&=~1;
       tx%=texture->width-2;
       tx=AbsI64(tx);
       from=&texture->body[tx+ty*texture->width_internal];

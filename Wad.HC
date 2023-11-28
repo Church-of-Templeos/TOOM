@@ -20,8 +20,11 @@ CWad *LoadWad(U8 *filename) {
   wad_cnt++;
 }
 
-LoadWad("freedoom1.wad");
-LoadWad("TOOM.wad");
+if(FileFind("DOOM.WAD"))
+  LoadWad("DOOM.WAD");
+else
+  LoadWad("freedoom1.wad");
+
 
 #define TICK_TIME (1/30.)
 
@@ -303,11 +306,18 @@ class CWadTEXTURE1 {
   I32 num_textures;
   I32 texture_offsets[0];
 };
+U8 *Upper8(U8 *eight) {
+  I64 cnt=8;
+  while(--cnt>=0)
+   eight[cnt]=ToUpper(eight[cnt]);
+  return eight;
+}
 
 CDC *PNameIndexToDC(I64 idx,CDoomGr *gr) {
   U8 name[9];
   name[8]=0;
   MemCpy(name,&gr->pnames[idx],8);
+  Upper8(name);
   return FramePtr(name);
 }
 
@@ -338,9 +348,8 @@ U0 LoadWadTEXTUREs(CWadTEXTURE1 *header,CDoomGr *gr) {
 //MAKE SURE TO SET THIS FOR THE RENDERER
     result->flags|=DCF_NO_TRANSPARENTS;
 fin:
+    Upper8(name);
     FramePtrAdd(name,result);
- //   GrBlot(,0,0,result);
-//    Sleep(10);
   }
 }
 
@@ -601,6 +610,7 @@ U0 LoadGrLump(CWad *wad,U8 *name) {
   }
   return ;
 pass:
+  Upper8(name);
   if(FramePtr(name)) return;
   CWadDirectory *wad_dir=wad->body+wad->directory_ptr;
   U8 lump_name[9];
@@ -608,6 +618,7 @@ pass:
   CDC *gr=ReadDoomImage(wad->body+wad_dir->ptr);
   lump_name[8]=0;
   MemCpy(lump_name,wad_dir->lump_name,8);
+  Upper8(lump_name);
   FramePtrAdd(lump_name,gr);
 }
 
@@ -657,11 +668,8 @@ found_fstart:
         lump_name[8]=0;
         MemCpy(lump_name,wad_dir->lump_name,8);
 	tmp=MStrPrint("F.%s",lump_name);
+        Upper8(tmp);
         FramePtrAdd(tmp,gr);
-#ifdef DEBUG
-        //      GrBlot(,0,0,gr);
-        //      Sleep(10);
-        #endif
       }
       goto found_fstart;
     }
@@ -691,17 +699,15 @@ found_pstart:
         lump_name[8]=0;
         MemCpy(lump_name,wad_dir->lump_name,8);
         gr=ReadDoomImage(wad->body+wad_dir->ptr);
-#ifdef DEBUG
-        //      GrBlot(,0,0,gr);
-        //      Sleep(10);
-        #endif
+	Upper8(lump_name);
         FramePtrAdd(lump_name,gr);
       }
       goto found_pstart;
     }
     LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE1",wad,,pass),ret);
-    if(W_CheckNumForName("TEXTURE2",wad,pass)!=-1)
+    if(W_CheckNumForName("TEXTURE2",wad,pass)!=-1) {
       LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE2",wad,,pass),ret);
+    }
     pass++;
   } while(TRUE);
 
@@ -909,6 +915,7 @@ class CWadBlockMapHeader {
 CDC *GetFlatDC(U8 *name) {
   U8 tmp_name[16];
   StrPrint(tmp_name,"F.%s",name);
+  Upper8(tmp_name);
   return FramePtr(tmp_name);
 }
 CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name,I64 skill=1) {
@@ -1017,10 +1024,13 @@ skip_thing:
     dside->yoff=wside->y_offset;
     name[8]=0;
     MemCpy(name,wside->middle_texture_name,8);
+    Upper8(name);
     dside->middle_texture[0]=FramePtr(name);
     MemCpy(name,wside->upper_texture_name,8);
+    Upper8(name);
     dside->upper_texture[0]=FramePtr(name);
     MemCpy(name,wside->lower_texture_name,8);
+    Upper8(name);
     dside->lower_texture[0]=FramePtr(name);
 //https://doomwiki.org/wiki/Animated_wall
     for(x=0;x!=3;x++) {
@@ -1327,7 +1337,6 @@ U0 DumpWad(CWad *wad) {
 
 //
 CDoomGr *dgr=LoadWadGr(wads[0]);
-LoadWadGr(wads[1]);
 CDoomLevel *l=NULL;
 /*
 DCFill;

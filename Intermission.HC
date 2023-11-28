@@ -222,17 +222,35 @@ U0 DrawSplats(CDC *to_dc,I64 ep,I64 l) {
   }
 }
 
-U0 DrawStats(CDC *to_dc,CDoomLevel *l,I64 ep,I64 l2) {
+U0 DrawStats(CDC *to_dc,CDoomLevel *l,I64 ep,I64 l2,I64 tick=0) {
   I64 lw=3*16/2;
   I64 y=STATSY;
   GrBlot(to_dc,STATSX,y,FramePtr("WIOSTK"));
-  DrawPercent(to_dc,GR_WIDTH-STATSX,y,l->stats.have_kills,l->stats.max_kills);
+  if(tick<l->stats.have_kills) {
+    DrawPercent(to_dc,GR_WIDTH-STATSX,y,tick,l->stats.max_kills);
+    tick=0;
+  } else {
+    DrawPercent(to_dc,GR_WIDTH-STATSX,y,l->stats.have_kills,l->stats.max_kills);
+    tick-=l->stats.have_kills;
+  }
   y+=lw;
   GrBlot(to_dc,STATSX,y,FramePtr("WIOSTS"));
-  DrawPercent(to_dc,GR_WIDTH-STATSX,y,l->stats.have_secrets,l->stats.max_secrets);
+  if(tick<l->stats.have_secrets) {
+    DrawPercent(to_dc,GR_WIDTH-STATSX,y,tick,l->stats.max_secrets);
+    tick=0;
+  } else {
+    DrawPercent(to_dc,GR_WIDTH-STATSX,y,l->stats.have_secrets,l->stats.max_kills);
+    tick-=l->stats.have_secrets;
+  }
   y+=lw;
   GrBlot(to_dc,STATSX,y,FramePtr("WIOSTI"));
-  DrawPercent(to_dc,GR_WIDTH-STATSX,y,l->stats.have_items,l->stats.max_items);
+  if(l->stats.have_items) {
+    DrawPercent(to_dc,GR_WIDTH-STATSX,y,tick,l->stats.max_items);
+    tick=0;
+  } else {
+    DrawPercent(to_dc,GR_WIDTH-STATSX,y,l->stats.have_items,l->stats.max_items);
+    tick-=l->stats.have_items;
+  }
 //TODO par
 }
 
@@ -243,6 +261,7 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
   I64 sc,ch,hit,y;
   CDC *dc;
   IntermessionLoadData(ep,l);
+  F64 start_ts=tS;
   FlushMsgs;
   while(state<2) {
     GrBlot(gr.dc,0,0,background);
@@ -277,7 +296,7 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
       y+=(5*dc->height)/4;
       dc=FramePtr("WIENTER");
       GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
-      DrawStats(gr.dc,lev,ep,l);
+      DrawStats(gr.dc,lev,ep,l,(tS-start_ts)*30.);
     }
     while(ScanKey) {
 	FlushMsgs;

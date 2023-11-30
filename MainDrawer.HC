@@ -2919,28 +2919,31 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
         ST_Fire(p);
       }
       if(Bt(kbd.down_bitmap,Char2ScanCode('1'))) {
-        SwapWeapon(p,0);
-      }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('2'))) {
         SwapWeapon(p,1);
       }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('3'))) {
+      if(Bt(kbd.down_bitmap,Char2ScanCode('2'))) {
         SwapWeapon(p,2);
       }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('4'))) {
+      if(Bt(kbd.down_bitmap,Char2ScanCode('3'))) {
         SwapWeapon(p,3);
       }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('5'))) {
+      if(Bt(kbd.down_bitmap,Char2ScanCode('4'))) {
         SwapWeapon(p,4);
       }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('6'))) {
+      if(Bt(kbd.down_bitmap,Char2ScanCode('5'))) {
         SwapWeapon(p,5);
       }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('7'))) {
+      if(Bt(kbd.down_bitmap,Char2ScanCode('6'))) {
         SwapWeapon(p,6);
       }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('8'))) {
+      if(Bt(kbd.down_bitmap,Char2ScanCode('7'))) {
         SwapWeapon(p,7);
+      }
+      if(Bt(kbd.down_bitmap,Char2ScanCode('8'))) {
+        SwapWeapon(p,8);
+      }
+      if(Bt(kbd.down_bitmap,Char2ScanCode('0'))) {
+        SwapWeapon(p,0);
       }
       if(Bt(kbd.down_bitmap,Char2ScanCode(' ')&0xff)) {
         PressAWall(l,&p->x,p->angle,p->height);

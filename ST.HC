@@ -856,7 +856,7 @@ U0 AnimateFire(CDoomPlayer *p)
            weapons.inum=11;
            weapons.x=SCREENWIDTH/4.5;
            weapons.y=SCREENHEIGHT-306;
-           Sleep(40);
+	   Sleep(40);
            break;
 	  case 4:
            weapons.oldinum=5;
@@ -1083,11 +1083,8 @@ U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
     weapons.y=SCREENHEIGHT-186;$IV,1$$IV,0$
     weapons.data=0;
     weapons.inum=8;//pistol 
-    Sleep(20);
     weapons.inum=5;
-    Sleep(20);   
     weapons.inum=4;
-    Sleep(20);
     weapons.on=FALSE;
     break;
    case 2:
@@ -1096,11 +1093,8 @@ U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
     weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
     weapons.data=0;
     weapons.inum=12;//shotgun
-    Sleep(20);
     weapons.inum=11;//shotgun
-    Sleep(20);    
     weapons.inum=10;//shotgun
-    Sleep(20);
     weapons.on=FALSE;
     
     break;
@@ -1110,9 +1104,7 @@ U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
     weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$//chaingun
     weapons.data=0;
     weapons.inum=17;
-    Sleep(20);
     weapons.inum=16;
-    Sleep(20);
     weapons.on=FALSE;
     
     break;
@@ -1122,9 +1114,7 @@ U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
     weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
     weapons.data=0;
     weapons.inum=21;//missile launcher
-    Sleep(20);
     weapons.inum=20;
-    Sleep(20);    
     weapons.on=FALSE;
     
     break;
@@ -1134,13 +1124,9 @@ U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
     weapons.y=SCREENHEIGHT-146;$IV,1$$IV,0$
     weapons.data=0;
     //weapons.inum=29;//chainsaw
-    //Sleep(20);
     //weapons.inum=28;
-    //Sleep(20);
     //weapons.inum=27;
-    //Sleep(20);        
     weapons.inum=26;
-    Sleep(20);
     weapons.on=FALSE;
     
     break;
@@ -1150,9 +1136,7 @@ U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
     weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
     weapons.data=0;
     weapons.inum=31;//plasma gun
-    Sleep(20);
     weapons.inum=30;
-    Sleep(20);    
     weapons.on=FALSE;
     
     break;
@@ -1162,11 +1146,8 @@ U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
     weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
     weapons.data=0;
     weapons.inum=36;//BFG
-    Sleep(20);
     weapons.inum=35;
-    Sleep(20);    
     weapons.inum=34;
-    Sleep(20);
     weapons.on=FALSE;
     
     break;

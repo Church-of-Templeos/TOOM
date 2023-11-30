@@ -321,13 +321,11 @@ U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
   }
   if(p==target) {
     if(p->armor<=100.) {
-      p->armor-=damage*1/3.;
-      damage*=1/3.;
+      damage-=damage*1/2.;
     } else {
-      p->armor-=damage*1/2.;
-      damage*=1/2.;
+      damage-=damage*1/3.;
     }
-    p->armor=Max(p->armor,0.);
+    p->armor=Max(p->armor-damage,0.);
   }
   target->health-=damage;
   if(0.>=target->health) {

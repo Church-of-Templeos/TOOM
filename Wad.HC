@@ -736,6 +736,13 @@ found_pstart:
     LoadGrLump(wad,lump_name);
   }
 
+  for(idx='!';idx<='_';idx++) {
+    StrPrint(lump_name,"STCFN%3d",idx-'!');
+    while(StrOcc(lump_name,' '))
+      *StrFirstOcc(lump_name," ")='0';
+    LoadGrLump(wad,lump_name);
+  }
+
   //Intermission
   LoadGrLump(wad,"WIURH0");
   LoadGrLump(wad,"WIURH1");
@@ -762,10 +769,26 @@ found_pstart:
   LoadGrLump(wad,"STFST02");
 
   //MAINMENU
+  LoadGrLump(wad,"M_NGAME");
+  LoadGrLump(wad,"M_LOADG");
+  LoadGrLump(wad,"M_OPTION");
+  LoadGrLump(wad,"M_SAVEG");
+  LoadGrLump(wad,"M_RDTHIS");
+  LoadGrLump(wad,"M_QUITG");
+  LoadGrLump(wad,"M_EP1");
+  LoadGrLump(wad,"M_EP2");
+  LoadGrLump(wad,"M_EP3");
+  LoadGrLump(wad,"M_EP4");
+
+  LoadGrLump(wad,"M_JKILL");
+  LoadGrLump(wad,"M_ROUGH");
+  LoadGrLump(wad,"M_HURT");
+  LoadGrLump(wad,"M_ULTRA");
+  LoadGrLump(wad,"M_NMARE");
+
   LoadGrLump(wad,"TITLEPIC");
   LoadGrLump(wad,"M_QUITG");
   LoadGrLump(wad,"M_OPTION");
-  LoadGrLump(wad,"M_NEWG");
   LoadGrLump(wad,"M_SKULL1");
   LoadGrLump(wad,"M_SKULL2");
   LoadGrLump(wad,"M_LGTTL");

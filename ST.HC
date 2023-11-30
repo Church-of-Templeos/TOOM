@@ -194,18 +194,25 @@ I16 GetWeaponIndex()
  return weaponIndex;
 }
 
-U0GrChar(CDC*dc,U8 ch,I64 x,I64 y,I64 scale)
-{
-  I64 i,j,k=0;
-  for(i=0;i<FONT_HEIGHT;i++){
-    for(j=0;j<FONT_WIDTH;j++){
-      if(Bt(&text.font[ch],k++)){
-        GrRect(dc,x+j*scale,y+i*scale,scale,scale);
-      }
-    }
+U0 DoomPrint(CDC *dc,I64 x,I64 y,U8 *fmt,...) {
+  fmt=StrPrintJoin(NULL,fmt,argc,argv);
+  I64 len=StrLen(fmt),idx,c;
+  CDC *ch_dc;
+  U8 lump_name[16];
+  for(idx=0;idx!=len;idx++) {
+    c=ToUpper(fmt[idx]);
+    if('!'<=c<='_') {
+      StrPrint(lump_name,"STCFN%3d",c-'!');
+      while(StrOcc(lump_name,' '))
+        *StrFirstOcc(lump_name," ")='0';
+      ch_dc=FramePtr(lump_name);
+      GrBlot(dc,x,y,ch_dc);
+      x+=ch_dc->width;
+    } else 
+     x+=4;
   }
-}
-
+  Free(fmt);
+} 
 
 CDC*ReturnSprite(U16 value,Bool large)
 {

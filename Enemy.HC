@@ -234,8 +234,6 @@ U0 RemoveMonsterFromMem(CMonsterThinker *t) {
   Free(t);
 }
 
-
-
 Bool MMove(CDoomLevel *l,CMonsterThinker *m) {
   CDoomThing *self=m->self,*target=m->target;
   CDoomSector *sec;
@@ -244,14 +242,14 @@ Bool MMove(CDoomLevel *l,CMonsterThinker *m) {
   CD2 dummy;
   I64 allow_float=0;
   dummy.x=self->x,dummy.y=self->y;
-  if(!(self->template->flags&TF_FLOATING))
+  if(!(self->flags&TF_FLOATING))
     allow_float=COLLISF_NO_DROP;
     lv=MoveInLevel(l,&dummy,
 	self->angle,
 	self->template(CDoomMonsterTemplate*)->speed*TICK_FPS_SCALE,
 	self->template->radius,
 	self->height,
-	allow_float|COLLISF_SLIDE|COLLISF_NO_HIT_THING|COLLISF_MONSTER,
+	allow_float|COLLISF_NO_HIT_THING|COLLISF_MONSTER|COLLISF_SLIDE,
 	crossed,
 	self
 	);
@@ -260,9 +258,9 @@ Bool MMove(CDoomLevel *l,CMonsterThinker *m) {
     if(self->template->flags&TF_FLOATING) {
       if(sec=GetSectorForCoord(l,self->x,self->y)) {
 	if(target&&self->height<target->height-FLOATSPEED) {
-	  self->height=Clamp(self->height-FLOATSPEED,sec->floor_height,sec->ceil_height);
-	} else if(target&&self->height>FLOATSPEED+target->height){
 	  self->height=Clamp(self->height+FLOATSPEED,sec->floor_height,sec->ceil_height);
+	} else if(target&&self->height>FLOATSPEED+target->height){
+	  self->height=Clamp(self->height-FLOATSPEED,sec->floor_height,sec->ceil_height);
 	}
       }
     }
@@ -488,14 +486,17 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *thing=t->self;
   CDoomThing *target=t->target;
   CD2 dummy;
+  I64 drop=0;
+  if(!(thing->flags&TF_FLOATING))
+    drop=COLLISF_NO_DROP;
   F64 angle,dist=ToF64(RandU64&0xf),off=(Rand-.5)*pi/8.;
   if(!target) return;
   angle=FArg(target->x-thing->x,target->y-thing->y)+off;
   dummy.x=thing->x;
   dummy.y=thing->y;
-  if(!MoveInLevel(l,&dummy,angle,thing->template->radius,thing->template->radius,thing->height,COLLISF_NO_DROP,NULL,thing)) {
+  if(!MoveInLevel(l,&dummy,angle,thing->template->radius,thing->template->radius,thing->height,drop,NULL,thing)) {
      thing->angle=angle;
-  } else if(!MoveInLevel(l,&dummy,angle-pi,thing->template->radius,thing->template->radius,thing->height,COLLISF_NO_DROP,NULL,thing)) {
+  } else if(!MoveInLevel(l,&dummy,angle-pi,thing->template->radius,thing->template->radius,thing->height,drop,NULL,thing)) {
      thing->angle=angle-pi;
   } else {
 //Pushin P path is blocked so random direction
@@ -921,7 +922,7 @@ U0 BarronOfHellAttack(CDoomLevel *l,CMonsterThinker *t) {
   }
 }
 
-#define SKULL_ATTACK_SPEED 40.
+#define SKULL_ATTACK_SPEED (40.*30/3)
 U0 SkullAttack(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *dest=t->target;
   CDoomThing *self=t->self;
@@ -971,11 +972,12 @@ U0 DropItem(CDoomLevel *l,CMonsterThinker *t) {
 
 U0 Fall(CDoomLevel *l,CMonsterThinker *t) {
 //Alive ???(Only drop once)
+  CDoomThing *self=t->self;
   Sound(t,'Die');
-  if(t->self->flags&TF_SHOOTABLE)
+  if(self->flags&TF_SHOOTABLE)
     DropItem(l,t);
-  t->self->flags&=~(TF_SHOOTABLE|TF_OBSTACLE);
-  t->self->solid=FALSE;
+  self->flags&=~(TF_SHOOTABLE|TF_OBSTACLE);
+  self->solid=FALSE;
   l->stats.have_kills++;
 }
 U0 XFall(CDoomLevel *l,CMonsterThinker *t) {
@@ -1258,7 +1260,7 @@ U0 LoadMonsterInfo() {
   AddState(t->missile_state="SKULL.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"SKULL.S_POSS_ATK2");
   AddState(t->missile_state="SKULL.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&SkullAttack,"SKULL.S_POSS_RUN");
   AddState(t->pain_state="SKULL.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"SKULL.S_POSS_RUN");
-  AddState(t->death_state="SKULL.S_POSS_DIE",0,t->_hurt_frames,&Fall,"ST_NULL");
+  AddState(t->death_state="SKULL.S_POSS_DIE",STATE_NO_REPEAT,t->_hurt_frames,&Fall,NULL);
 //Shotgun guy
   t=doom_thing_types[9];
   t->reaction_time=1/35.*8;

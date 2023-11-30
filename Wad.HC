@@ -1013,7 +1013,7 @@ pass_thing:
     dthing=CAlloc(sizeof CDoomThing);
     dthing->x=wthing->x;
     dthing->y=wthing->y;
-    dthing->angle=wthing->angle/ToF64(I16_MAX)*2*pi;
+    dthing->angle=wthing->angle*pi/180;
     dthing->thing_type=wthing->thing_type;
     dthing->template=doom_thing_types[wthing->thing_type];
     if(dthing->template->flags&TF_ARTIFACT)

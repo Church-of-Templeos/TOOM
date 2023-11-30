@@ -125,6 +125,7 @@ U0 ParseThingProps() {
 	  template->flags|=TF_SHOOTABLE;
 	  break;
         case '^':
+PrintI("&",dec);
 	  template->flags|=TF_FLOATING;
 	  break;
       }

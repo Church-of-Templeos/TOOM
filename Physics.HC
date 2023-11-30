@@ -13,10 +13,15 @@ U0 PhysicsOnThing(CDoomLevel *l,CDoomThing *thing) {
   CDoomLinedef *ld=NULL;
   CDoomSector *sec;
   CDoomActionSector *special;
+  CDoomThing *target=NULL;
   F64 angle=FArg(thing->momx,thing->momy);
   F64 mom_t=Sqrt(Sqr(thing->momx)+Sqr(thing->momy));
   if(mom_t>=1.)
-    if(ld=MoveInLevel(l,&thing->x,angle,mom_t,thing->template->radius,thing->height,COLLISF_SLIDE|COLLISF_NO_HIT_THING,,thing)) {
+    if(ld=MoveInLevel(l,&thing->x,angle,mom_t,thing->template->radius,thing->height,COLLISF_SLIDE|COLLISF_NO_HIT_THING,,thing,&target)) {
+      if(target&&thing->flags&MF_SKULL_ATTACK) {
+	thing->flags&=~MF_SKULL_ATTACK;
+	DamageMob(l,target,thing,(23-3)*Rand+3);
+      }
     }
   thing->momx*=FRICTION;
   thing->momy*=FRICTION;

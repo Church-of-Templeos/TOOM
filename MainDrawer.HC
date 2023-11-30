@@ -48,7 +48,7 @@ class GunAvail{
   AmmoType *load;
 };
 
-class CDoomPlayer:CDoomThing {
+class CDoomPlayer:CDoomThing { 
   F64 armor;
 //When you die,the player stares at the thing that killed the player
   CDoomThing *stare_at;

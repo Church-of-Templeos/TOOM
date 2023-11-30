@@ -646,6 +646,53 @@ skip:
   }
   Free(optr);
 }
+
+#define STAIRS_FILE "Stairs.TXT"
+class CDoomStairs {
+  U64 type,trigger;
+  F64 speed;
+  I64 step;
+};
+U0 LoadStairs() {
+  I64 num;
+  CDoomStairs *stairs;
+  U8 cls[STR_LEN],*cls_ptr=cls;
+  U8 trig[STR_LEN],*trig_ptr=trig;
+  U8 speed[STR_LEN],*speed_ptr=speed;
+  U8 *fptr=FileRead(STAIRS_FILE),*optr=fptr,*ln;
+  I64 step;
+  while(ln=ReadALine(&fptr)) {
+    if(*ln=='#') goto skip;
+    StrScan(ln,"%d\t%s\t%s\tUp\t%s\t%d\t",
+	&num,
+	&cls_ptr,
+	&trig_ptr,
+	&speed_ptr,
+	&step);
+    stairs=CAlloc(sizeof(CDoomStairs));
+    stairs->trigger=trig[0](U16);
+    stairs->type='Stairs';
+    action_sector_types[num]=stairs;
+//Sped
+    if(!StrCmp("Slow",speed)) {
+      stairs->speed=DOOR_SPEED_SLOW;
+    } else if(!StrCmp("Fast",speed)) {
+      stairs->speed=DOOR_SPEED_FAST;
+    } else if(!StrCmp("Normal",speed)) {
+      stairs->speed=DOOR_SPEED_NORMAL;
+    } else if(!StrCmp("Turbo",speed)) {
+      stairs->speed=DOOR_SPEED_TURBO;
+    } else if(speed[0]=='-') {
+      stairs->speed=0;
+    } else 
+      throw('Stairs');
+    stairs->step=step;
+skip:
+  }
+  Free(optr);
+}
+
+
 LoadExits;
 LoadDoors;
 LoadFloors;
@@ -653,4 +700,5 @@ LoadLifts;
 LoadCeils;
 LoadDonuts;
 LoadTeleporters;
+LoadStairs;
 #endif

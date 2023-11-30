@@ -536,7 +536,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
         }
         ih2+=2;
         if(is_sky2&&!is_sky) {//Fill in upper pixels Z-buf distance with distnce for sky
-	  ty=iy;
+	  ty=ClampI64(iy,GR_HEIGHT-2,0);
 	  while(ty>=0) {
 	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+ty*to_dc->width_internal];
 	    to=&to_dc->body[GR_WIDTH-2-ix+ty*to_dc->width_internal];
@@ -1744,6 +1744,63 @@ next2:;
 next:;
   }
 }
+class CStairsThinker:CDoomThinkerBase {
+  CDoomSector *s;
+  F64 start_h,start_tS,target_h;
+  F64 speed;
+};
+U0 StairThinker(CDoomLevel *l,CStairsThinker *t) {
+  F64 tm=tS-t->start_tS;
+  t->s->floor_height=t->start_h+tm*t->speed*30;
+  if(t->s->floor_height>t->target_h) {
+    t->s->floor_height=t->target_h;
+    QueRem(t);
+    Free(t);
+  }
+}
+U0 BuildStairs(CDoomLevel *l,CDoomLinedef *ld) {
+  CDoomSector *s,*s2,*new;
+  CStairsThinker *think;
+  CDoomLinedef *ld2;
+  CDoomStairs *st=ld->special_type;
+  F64 step;
+  I64 idx;
+  for(s=l->sectors.next;s!=&l->sectors;s=s->next) {
+    if(ld->sector_tag==s->tag_number) {
+      if(s->cur_action_linedef)
+        goto nxt;
+      s->cur_action_linedef=ld;
+      step=s->floor_height;
+      s2=s;
+loop:
+      step+=st->step;
+      PrintF("s",s2);
+      PrintF("step",step);
+      think=AddThinker(l,&StairThinker,sizeof(CStairsThinker));
+      think->start_h=s->floor_height;
+      think->start_tS=tS;
+      think->target_h=step;
+      think->speed=st->speed;
+      think->s=s2;
+      for(idx=0;idx!=s2->linedef_cnt;idx++) {
+        ld2=s2->linedefs[idx];
+        if(ld2->front&&ld2->back) {
+	  if(ld2->front->sector!=s2)
+	    new=ld2->front->sector;
+	  else
+	    new=ld2->back->sector;
+	  if(new!=s2&&!new->cur_action_linedef)
+	    if(new->floor_dc[0]==s2->floor_dc[0]) {
+	      new->cur_action_linedef=ld;
+	      s2=new;
+	      goto loop;
+	    }
+        }
+      }
+    }
+nxt:;
+  }
+}
 class CTeleportThinker:CDoomThinkerBase {
   CDoomThing *fog;
 };
@@ -1812,7 +1869,38 @@ U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags,CDoom
   F64 dst;
   if(ld) {
     if((type=ld->special_type)) {
-      if(type->type=='Teleport') {
+      if(type->type=='Stairs') {
+	tp=type;
+	switch(tp->trigger) {
+	   break;case 'P1':
+stairs_activate1:
+	    if(s->activated) return;
+	    s->activated=TRUE;
+stairs_activate:
+            BuildStairs(l,ld);
+	    break; case 'S1':    
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	   goto stairs_activate1;
+	    break; case 'W1':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto stairs_activate1;
+	    break; case 'G1':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto stairs_activate1;
+	    break; case 'PR':
+	    if(!(flags&WACTIVATE_PUSH)) return;
+	    goto stairs_activate;
+	    break; case 'SR':
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto stairs_activate;
+	    break; case 'GR':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto stairs_activate;
+	    break; case 'WR':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto stairs_activate;
+	}
+      } else if(type->type=='Teleport') {
 	tp=type;
 	switch(tp->trigger) {
 	   break;case 'P1':

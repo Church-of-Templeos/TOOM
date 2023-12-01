@@ -1405,10 +1405,12 @@ U0 UpdateSector(CDoomSector *s) {
       s->ceil_height=s->target_end;
       s->going_up=FALSE;
       s->cur_action_linedef=NULL;
+      Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
     } else if(s->going_down&&s->ceil_height<s->target_end) {
       s->ceil_height=s->target_end;
       s->going_down=FALSE;
       s->cur_action_linedef=NULL;
+      Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
     }
   } else if(ld->special_type->type=='Lift') {
     if(ld->special_type(CDoomLift*)->target==LIFT_LOW_HIGH_REPEAT) {
@@ -1418,6 +1420,7 @@ U0 UpdateSector(CDoomSector *s) {
         if(s->floor_height>s->target_end) {
 	  s->floor_height=s->target_end;
 lift_again:
+	  Spawn(&PlaySoundTask,"PSTART","snd",0,Fs);
 	  s->start_tS=tS;
 	  s->target_end=GetTargetLiftHeight(s,ld);
         }
@@ -1461,6 +1464,7 @@ lift_again:
 	  s->start_tS=tS;
 	  s->opening=FALSE;
 	  s->closing=TRUE;
+	  Spawn(&PlaySoundTask,"DORCLS",,0,Fs);
 	  s->wait_time=-1.;
 	  s->target_start=s->ceil_height;
         }
@@ -1483,6 +1487,7 @@ lift_again:
 	  s->start_tS=tS;
 	  s->opening=TRUE;
 	  s->closing=FALSE;
+	  Spawn(&PlaySoundTask,"DOROPN","snd",0,Fs);
 	  s->wait_time=-1.;
 	  s->target_start=s->floor_height;
         }
@@ -1502,6 +1507,7 @@ floor_en:
         if(ld->special_type->type=='Lift'&&!s->reverting) {
 	  if(!s->waiting) {
 	    s->waiting=TRUE;
+ 	    Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
 	    s->start_tS=tS;
 	  }
 	  if(s->wait_time+s->start_tS>time) {
@@ -1516,6 +1522,7 @@ floor_en:
 	  s->reverting=FALSE;
 	  s->cur_action_linedef=NULL;
 	  s->going_up=FALSE,s->going_down=FALSE;
+ 	  Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
         }
       }
     } else if(s->going_down) {
@@ -1837,7 +1844,7 @@ U0 TeleportThing(CDoomLevel *l,CDoomTeleporter *tp,I64 sector_tag,CDoomThing *wh
 	 if(tp->orient==TP_ORIENT_SET)
 	   who->angle=cur->angle;
 	 if(!tp->silent) {
-           Spawn(&PlaySoundTask,"TELEPT");
+           Spawn(&PlaySoundTask,"TELEPT","snd",0,Fs);
 	   fog=CAlloc(sizeof CDoomThing);
 	   QueIns(fog,l->things.last);
 	   fog->template=teleport_fog;
@@ -1961,6 +1968,7 @@ exit_activate:
 	    if(s->cur_action_linedef)
 	      return;
 	    s->cur_action_linedef=ld;
+	    Spawn(&PlaySoundTask,"SWTCHX","snd",0,Fs);
 	    l->ended=TRUE;
 	    break; case 'S1':    
 	    if(!(flags&WACTIVATE_SWITCH)) return;
@@ -2032,6 +2040,7 @@ cactivate1:
 cactivate:
 	    if(s->cur_action_linedef)
 	      return;
+	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
 	    dst=GetTargetLiftHeight(s,ceil->target);
 	    s->target_start=s->floor_height;
 	    s->target_end=dst;
@@ -2075,6 +2084,7 @@ lactivate:
 	    s->target_start=s->floor_height;
 	    s->target_end=dst;
 	    s->start_tS=tS;
+	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
 	    s->speed=lift->speed;
 	    s->cur_action_linedef=ld;
 	    s->wait_time=lift->delay;
@@ -2122,6 +2132,7 @@ factivate:
 	    s->start_tS=tS;
 	    s->speed=fl->speed;
 	    s->cur_action_linedef=ld;
+ 	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
 //Account for texture/type change
 	    if(fl->texture_change||fl->type_change) {
 	      if(fl->model==FLOOR_MODEL_NUMBERED) {
@@ -2193,6 +2204,7 @@ activate:
 	    switch(door->action) {
 	      case DOOR_ACTION_OPEN_WAIT_CLOSE:
 	        if(s->opening) return;
+		Spawn(&PlaySoundTask,"DOROPN","snd",0,Fs);
 	        s->cur_action_linedef=ld;
 	        s->opening=TRUE;
 	        s->start_tS=tS;
@@ -2201,6 +2213,7 @@ activate:
 	        break;
 	      case DOOR_ACTION_CLOSE_WAIT_OPEN:
 	        if(s->closing) return;
+		Spawn(&PlaySoundTask,"DORCLS","snd",0,Fs);
 	        s->cur_action_linedef=ld;
 	        s->closing=TRUE;
 	        s->start_tS=tS;
@@ -2209,6 +2222,7 @@ activate:
 	        break;
 	      case DOOR_ACTION_CLOSE:
 	        if(s->closing) return;
+		Spawn(&PlaySoundTask,"DORCLS","snd",0,Fs);
 	        s->cur_action_linedef=ld;
 	        s->closing=TRUE;
 	        s->start_tS=tS;
@@ -2217,6 +2231,7 @@ activate:
 	        break;
 	      case DOOR_ACTION_OPEN:
 	        if(s->opening) return;
+		Spawn(&PlaySoundTask,"DOROPN","snd",0,Fs);
 	        s->cur_action_linedef=ld;
 	        s->opening=TRUE;
 	        s->start_tS=tS;
@@ -2359,6 +2374,7 @@ set_and_ret:
   on_off_idx='1';
   Free(t);
   QueRem(t);
+  Spawn(&PlaySoundTask,"SWTCHX","snd",0,Fs);
   goto set_and_ret;
 }
 U0 AddButtonThinker(CDoomLevel *l,CDoomSidedef *s,I64 which_part,Bool repeat=TRUE) {
@@ -2721,6 +2737,7 @@ pass:
 	  else
 	    TriggerLinedef(l,ld,WACTIVATE_SWITCH,p);
 	  passed=TRUE;
+	  Spawn(&PlaySoundTask,"SWTCHN","snd",0,Fs);
 	  AddButtonThinker(l,sd,which_texture,trigger.u8[1]!='1');
         }
         break;

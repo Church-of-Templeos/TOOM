@@ -20,7 +20,6 @@ F64 ray_cast_table_cos[GR_WIDTH/2];
 F64 ray_cast_table_sin[GR_WIDTH/2];
 Bool paused = FALSE,gameExit=FALSE;
 
-
 class CJobRunnerData {
   U0 (*fptr)(U8*);
 };
@@ -73,8 +72,8 @@ class CVisplane {
 };
 
 I64 class CWallCommand {
- I16 start,end;
- I32 dist;
+  I16 start,end;
+  I32 dist;
 };
 
 
@@ -499,6 +498,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  vp=&cam->visplanes[sd->sector->visplane_idx];
           if(vp->sector_limits[ix>>1]<idist||vp->sector_limits[ix>>1]==I32_MAX)
 	    vp->sector_limits[ix>>1]=idist;
+          ld->seen=TRUE; //$BK,1$TODO Something more ellobarote$BK,0$
 	  for(ty=0;ty!=2;ty++) {
 	    if(!ty)
 	      ih2=0;
@@ -2882,6 +2882,7 @@ U0 PauseMenu()
  }
 }      
 
+#include "Automap.HC";
 
 U0 PlayLevel(U8 *name,I64 difficulty) { 
   l=LoadWadLevel(wad,name,difficulty);
@@ -2892,7 +2893,12 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
   while(!l->ended&&!gameExit) {
     UpdateCameraFromPlayer(&cam,p);
 
+
+    AutomapInteract;
+
     DrawDoomWorld(&cam,l,doom_scrn);
+    if(am_state.active)
+      DrawAutomap(gr.dc,l);
     ST_Start(p);
 
     //mouse camera pan.
@@ -2915,6 +2921,7 @@ U0 PlayLevel(U8 *name,I64 difficulty) {
     } else if(GR_WIDTH-SCRN_MARGIN<cursor_x) {
       p->angle-=Lerp((cursor_x-(GR_WIDTH-SCRN_MARGIN))/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
     }
+
 
     if(p->health>0.) {
       if(Bt(kbd.down_bitmap,SC_CURSOR_UP)||Bt(kbd.down_bitmap,Char2ScanCode('w')))
@@ -3000,7 +3007,8 @@ fin_level:
 }
 
 #include "Menu.HC";
-MainMenu;
+PlayLevel("E1M1",3);
+//MainMenu;
 #endif
         ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      
 !   Éÿÿÿ0   ûÿÿÿ

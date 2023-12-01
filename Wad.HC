@@ -204,7 +204,7 @@ class CDoomLinedef:CQue {
   I16 pad[2];
 //private
   CD2 clip_start,clip_end;
-  Bool in_view;
+  Bool in_view,seen;
 };
 
 

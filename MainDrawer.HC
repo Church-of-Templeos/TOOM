@@ -426,6 +426,16 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   I64 low_ih,high_ih;
   CDoomSidedef *opposite;
   U16 *color,*to;
+  CDoomScroller1 *scroll1;
+  if(ld->special_type&&ld->special_type->type=='Scroll1'&&sd==ld->front) {
+    scroll1=ld->special_type;
+    if(scroll1->x)
+      xoff+=tS*30*scroll1->x;
+    else if(scroll1->offset_type) {
+      yoff=yoff*tS*30;
+      xoff=xoff*tS*30;
+    }
+  }
   if(ld->front==sd)
     opposite=ld->back;
   else

@@ -692,6 +692,29 @@ skip:
   Free(optr);
 }
 
+class CDoomScroller1 {
+  U64 type;
+//If offset_type is set,it is scrolled by x/y offsets as rates
+  I64 x,offset_type;
+};
+
+U0 LoadScrollers1() {
+  CDoomScroller1 *s=CAlloc(sizeof CDoomScroller1);
+  s->type='Scroll1';
+  action_sector_types[48]=s;
+  s->x=1;
+
+  s=CAlloc(sizeof CDoomScroller1);
+  s->type='Scroll1';
+  action_sector_types[85]=s;
+  s->x=-1;
+
+  s=CAlloc(sizeof CDoomScroller1);
+  s->type='Scroll1';
+  action_sector_types[255]=s;
+  s->offset_type=TRUE;
+
+}
 
 LoadExits;
 LoadDoors;
@@ -701,4 +724,5 @@ LoadCeils;
 LoadDonuts;
 LoadTeleporters;
 LoadStairs;
+LoadScrollers1;
 #endif

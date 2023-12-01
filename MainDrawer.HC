@@ -541,13 +541,13 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+ty*to_dc->width_internal];
 	    to=&to_dc->body[GR_WIDTH-2-ix+ty*to_dc->width_internal];
 	    if(*db_z>idist) {
-	      db_z[0]=idist;
-	      db_z[1]=idist;
+	      db_z[0]=idist+1; //+1 so walls are drawn before the sky
+	      db_z[1]=idist+1;
 	      *to=TRANSPARENT|TRANSPARENT<<8;
 	      db_z+=to_dc->width_internal;
 	      to(U8*)+=to_dc->width_internal;
-	      db_z[0]=idist;
-	      db_z[1]=idist;
+	      db_z[0]=idist+1;
+	      db_z[1]=idist+1;
 	      *to=TRANSPARENT|TRANSPARENT<<8;
 	    }
 	    ty-=2;
@@ -2973,7 +2973,6 @@ fin_level:
 }
 
 #include "Menu.HC";
-//PlayLevel("E1M1",1);
 MainMenu;
 #endif
         ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      

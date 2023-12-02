@@ -1111,7 +1111,21 @@ I64 CeilSort(CVisplane *va,CVisplane *vb)  {
 
 
 U0 DrawSky(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
-  CDC *texture=FramePtr("SKY1"); //TODO which episode
+  CDC *texture;
+  switch(l->episode) {
+   case 1:
+     texture=FramePtr("SKY1");
+   break;
+   case 2:
+     texture=FramePtr("SKY2");
+   break;
+   case 3:
+     texture=FramePtr("SKY3");
+   break;
+   case 5:
+     texture=FramePtr("SKY4");
+   break;
+  }
   I64 iy,ix,off=texture->width*cam->angle/pi,tx,ty;
   U16 *to,*from;
   for(iy=0;iy!=GR_HEIGHT;iy+=2) {
@@ -2729,10 +2743,10 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
       else if(floor2<=height<=ceil2) which_texture=1;
       else which_texture=2;
       DestroyVector(ldv);
-    }
+    }    
     switch(which_texture) {
       case 2:
-        if(AltSwitchTexture(sd->upper_texture[0])) {
+        if(ld->special_type&&AltSwitchTexture(sd->upper_texture[0])) {
 pass:
 	  if(ld->special_type->type=='Door')
 	    trigger=ld->special_type(CDoomDoor*)->trigger;
@@ -2752,11 +2766,11 @@ pass:
         }
         break;
       case 1:
-        if(AltSwitchTexture(sd->middle_texture[0]))
+        if(ld->special_type&&AltSwitchTexture(sd->middle_texture[0]))
 	  goto pass;
         break;
       case 0:
-        if(AltSwitchTexture(sd->lower_texture[0]))
+        if(ld->special_type&&AltSwitchTexture(sd->lower_texture[0]))
 	  goto pass;
         break;
     }

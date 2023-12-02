@@ -76,10 +76,12 @@ Bool CheckLineWithBox(CDoomLinedef *ld,CD2 *at,F64 radius) {
   tr.y=at->y+radius;
   bl.y=at->y-radius;
   br.y=at->y-radius;
-  return CrosesLine(ld,&tl,&tr)||
+  if(CrosesLine(ld,&tl,&tr)||
 	CrosesLine(ld,&tr,&br)||
 	CrosesLine(ld,&br,&bl)||
-	CrosesLine(ld,&tl,&bl);
+	CrosesLine(ld,&tl,&bl))
+    return TRUE;
+  return FALSE;
 }
 
 //Sort of from here
@@ -145,12 +147,11 @@ Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F6
   if(IsFrontSideOfVector2D(v,&rel_point)) {
     angle2=ld_normal1-angle;
     x=-to_travel*FSin(angle2);
-    MoveInLevel(l,point,ld_normal1+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING,,exclude);
+    MoveInLevel(l,point,ld_normal1+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING|COLLISF_SLIDE,,exclude);
   } else{
-    dist=radius-DistFromLine(point,ld->start,ld->end);
     angle2=ld_normal2-angle;
     x=-to_travel*FSin(angle2);
-    MoveInLevel(l,point,ld_normal2+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING,,exclude);
+    MoveInLevel(l,point,ld_normal2+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING|COLLISF_SLIDE,,exclude);
   }
   DestroyVector(v);
 }
@@ -318,6 +319,8 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
     dist=-dist;
     angle+=pi;
   }
+  static I64 slide_depth=0;
+  slide_depth++;
   if(_hit_thing) _hit_thing[0]=NULL;
   Vector *vector;
   Bool hit=FALSE;
@@ -405,7 +408,8 @@ fail_walk:
 		        ||lds[0]->special_type->type=='Floor'
 		        ||lds[0]->special_type->type=='Lift'
 		        ||lds[0]->special_type->type=='Ceil'
-			||lds[0]->special_type->type=='Teleport') {
+		        ||lds[0]->special_type->type=='Teleport'
+		        ||lds[0]->special_type->type=='Exit') {
 		    if(walked_over_idx<64) {
 		      if(CrosesLine(lds[0],&move1,&move2))  {
 		        tmp=IntersectDist(lds[0],&move1,&move2);
@@ -465,20 +469,23 @@ skip:;
   cur_pos.y=result->y;
 fin:
   dist=Clamp(cap+radius,0.,odist);
-  while(dist>0.) {
-    cur_pos.x=move1.x+cos*dist;
-    cur_pos.y=move1.y+sin*dist;
-    for(i=0;i!=wall_idx;i++)
-      if(CheckLineWithBox(walls[i],&cur_pos,radius))
+  if(flags&COLLISF_ADJUST_FOR_RADIUS) {
+    while(dist>0.) {
+      cur_pos.x=move1.x+cos*dist;
+      cur_pos.y=move1.y+sin*dist;
+      for(i=0;i!=wall_idx;i++)
+        if(CheckLineWithBox(walls[i],&cur_pos,radius))
+	  goto found;
+      if(HitsAThing(l,&cur_pos,radius,exclude))
         goto found;
-    if(HitsAThing(l,&cur_pos,radius,exclude))
-      goto found;
-    result->x=cur_pos.x;
-    result->y=cur_pos.y;
-    goto pass;
+      result->x=cur_pos.x;
+      result->y=cur_pos.y;
+      goto pass;
 found:
-    dist-=1;
-  }
+      dist-=1;
+    }
+  } else
+    goto pass;
   result->x=move1.x;
   result->y=move1.y;
 pass:
@@ -486,8 +493,8 @@ pass:
     if(dist>0.)
       odist=odist-dist;
 //Choose best wall to walk along(based on normal)
-//If we have asmall crack on the wall,walk along the main wall(blue vector)
-$SP,"<2>",BI=2$;
+      //If we have asmall crack on the wall,walk along the main wall(blue vector)
+    $SP,"<2>",BI=2$;
 
 
 
@@ -500,28 +507,28 @@ $SP,"<2>",BI=2$;
 
 
     wall2=NULL;
-    cap=I16_MAX;
+    cap=0;
     for(i=0;i!=wall_idx;i++) {
       wall=walls[i];
 //+2 because to steped down by 1(+1 for extra wiggle room)
       if(CheckLineWithBox(walls[i],&cur_pos,radius+2)) {
-	wall_angle=FArg(
-	  wall->end->x-wall->start->x,
-	  wall->end->y-wall->start->y
-	);
-	tmp=Sin(angle-wall_angle+pi/2);
-	if(tmp<cap) {
+        wall_angle=FArg(
+	      wall->end->x-wall->start->x,
+	      wall->end->y-wall->start->y
+	      );
+        tmp=Sin(-wall_angle+pi/2-angle);
+        if(tmp>cap) {
 	  tmp=cap;
 	  wall2=wall;
-	}
-        tmp=Sin(angle-wall_angle-pi/2);
-	if(tmp<cap) {
+        }
+        tmp=Sin(-wall_angle-pi/2-angle);
+        if(tmp>cap) {
 	  tmp=cap;
 	  wall2=wall;
-	}
+        }
       }
     }
-    if(wall2) //???
+    if(wall2&&slide_depth<=3) //???
       SlideWalk(l,wall2,result,angle,radius,cur_height,odist,exclude);
   }
   if(!best&&walked_over_hot) {
@@ -546,6 +553,7 @@ look_for_hot:
   }
 
   DestroyVector(vector);
+  slide_depth--;
   return best;
 }
 #endif        0                    "      '         !      !   õÿÿÿ   .   ÷ÿÿÿ   ÷ÿÿÿ   ,      ³   ×ÿÿÿ   -   ûÿÿÿ.   ñÿÿÿ;   ñÿÿÿ   ¨   áÿÿÿ¦      º      µ   Üÿÿÿ§   áÿÿÿ   º   ÜÿÿÿÃ   ÓÿÿÿÈ   Ûÿÿÿ   Á   ÒÿÿÿÁ   Äÿÿÿ   Ê   Èÿÿÿ¶   Çÿÿÿ   ¹   ÁÿÿÿÌ   ÅÿÿÿÌ   »ÿÿÿ¶   ¹ÿÿÿº   Áÿÿÿ   êÿÿÿ           k      

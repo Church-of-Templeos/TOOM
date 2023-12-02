@@ -7,7 +7,7 @@ U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 dir=1,F64 angle=0) {
   angle+=p->angle;
   CFifoI64 *crossed_f=FifoI64New(16);
   CDoomLinedef *crossed;
-  CDoomLinedef *hit=MoveInLevel(l,&p->x,angle,speed,16,p->height,COLLISF_NO_HIT_THING|COLLISF_SLIDE,crossed_f,p);
+  CDoomLinedef *hit=MoveInLevel(l,&p->x,angle,speed,16,p->height,COLLISF_NO_HIT_THING|COLLISF_SLIDE|COLLISF_ADJUST_FOR_RADIUS,crossed_f,p);
   while(FifoI64Rem(crossed_f,&crossed)) {
     TriggerLinedef(l,crossed,WACTIVATE_WALK,p);
   }

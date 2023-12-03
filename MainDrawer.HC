@@ -19,7 +19,14 @@ CTask *doom_task=Fs;
 F64 ray_cast_table_cos[GR_WIDTH/2];
 F64 ray_cast_table_sin[GR_WIDTH/2];
 Bool paused = FALSE,gameExit=FALSE;
-
+F64 Game_tS() {
+  static Bool last;
+  static F64 pause_tS;
+  static Bool paused2=FALSE;
+  if(paused^^!paused2) {
+     pause_tS=tS;
+  }
+}
 class CJobRunnerData {
   U0 (*fptr)(U8*);
 };
@@ -244,7 +251,7 @@ U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *secto
   if(!texture) return;
   if(GetFlatDC("F_SKY1")==texture) return;
   F64 *intersects=MAlloc((sector->linedef_cnt+1)*8);
-  Bool on,in_sector=GetSectorForCoord(l,cam->x,cam->y)==sector;
+  Bool in_sector=GetSectorForCoord(l,cam->x,cam->y)==sector;
   I64 x,y;
   I64 plane=sector->visplane_idx;
   I64 floorx,floory;
@@ -292,24 +299,28 @@ U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *secto
     ray.y=sin_table[x]*I16_MAX+cam->y;
     cos2=ray_cast_table_cos[x];
     hit_cnt=0;
-    intersects[hit_cnt++]=floor*GR_HEIGHT;
+    if(floor)
+      intersects[hit_cnt++]=maxy;
+    else
+      intersects[hit_cnt++]=miny;
     for(skip=0;skip!=sector->linedef_cnt;skip++) {
       ld=sector->linedefs[skip];
       if(PlaneIntersect(&hit,ld->start,ld->end,&cam->x,&ray)) {
         dist=Sqrt(Sqr(hit.x-cam->x)+Sqr(hit.y-cam->y));
         dist*=cos2;
         dist=(((DIST_SCALE/dist)*(cam->h-at))+GR_HEIGHT/2)/2;
+	dist=Clamp(dist,0,GR_HEIGHT/2);
         intersects[hit_cnt++]=dist;
+already_has:;
       }
     } 
     if(floor) //Most bottom point is good to start at
       QSortI64(intersects,hit_cnt,&F64SortRev); 
     else //Most top point is good to stop at
-      QSortI64(intersects,hit_cnt,&F64Sort); 
-    on=TRUE;
+      QSortI64(intersects,hit_cnt,&F64Sort);
     if(!hit_cnt)
       goto next3;
-    for(idx=hit_cnt-2;idx>=0;idx--) {
+    for(idx=hit_cnt-2;idx>=0;idx-=2) {
       if(floor)  {
 //Reverse sorted
         from=intersects[idx];
@@ -321,7 +332,6 @@ U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *secto
         to=intersects[idx+1];
         dir=1;
       }
-      if(on)
         for(y=from;(dir==1&&y<to)||(dir==-1&&y>to);y+=dir) {
 	  if(y<0) {
 	    y=0-dir;
@@ -379,8 +389,6 @@ U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *secto
 next:;
         }
 next2:;
-      on=!on;
-next2_5:;
     } 
 next3:;
   }

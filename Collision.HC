@@ -131,26 +131,27 @@ F64 IntersectDist(CDoomLinedef *ld,CD2 *a,CD2 *b) {
 Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F64 cur_h,F64 to_travel,CDoomThing *exclude) {
   I64 i;
   CD2 closest_point,side,rel_point;
-  F64 ld_normal1,ld_normal2,angle2;
+  F64 angle2,angle3;
   F64 dist;
   F64 x,y;
-  angle2=FArg(closest_point.x-point->x,closest_point.y-point->y);
   Vector *v=CreateVector(2);
   v->data[0]=ld->end->x-ld->start->x;
   v->data[1]=ld->end->y-ld->start->y;
   rel_point.x=point->x-ld->start->x;
   rel_point.y=point->y-ld->start->y;
-  ld_normal1=FArg(ld->end->x-ld->start->x,ld->end->y-ld->start->y)+pi/2;
-  ld_normal2=FArg(ld->end->x-ld->start->x,ld->end->y-ld->start->y)-pi/2;
+  angle3=FArg(v->data[0],v->data[1]);
   if(IsFrontSideOfVector2D(v,&rel_point)) {
-    angle2=ld_normal1-angle;
-    x=-to_travel*FSin(angle2);
-    MoveInLevel(l,point,ld_normal1+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING,,exclude);
+PrintF("angle3",angle3);
+PrintF("angle",angle);
+    angle2=angle3-angle;
+    x=to_travel*FCos(angle2);
+PrintF("f",x);
+    MoveInLevel(l,point,angle3,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING,,exclude);
   } else{
-    dist=radius-DistFromLine(point,ld->start,ld->end);
-    angle2=ld_normal2-angle;
-    x=-to_travel*FSin(angle2);
-    MoveInLevel(l,point,ld_normal2+pi/2,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING,,exclude);
+    angle2=angle3-angle;
+    x=-to_travel*FCos(angle2);
+PrintF("b",x);
+    MoveInLevel(l,point,angle3,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING,,exclude);
   }
   DestroyVector(v);
 }
@@ -405,7 +406,7 @@ fail_walk:
 		        ||lds[0]->special_type->type=='Floor'
 		        ||lds[0]->special_type->type=='Lift'
 		        ||lds[0]->special_type->type=='Ceil'
-			||lds[0]->special_type->type=='Teleport') {
+		        ||lds[0]->special_type->type=='Teleport') {
 		    if(walked_over_idx<64) {
 		      if(CrosesLine(lds[0],&move1,&move2))  {
 		        tmp=IntersectDist(lds[0],&move1,&move2);
@@ -482,12 +483,11 @@ found:
   result->x=move1.x;
   result->y=move1.y;
 pass:
-  if(flags&COLLISF_SLIDE&&best) {
+  if(flags&COLLISF_SLIDE) {
     if(dist>0.)
       odist=odist-dist;
-//Choose best wall to walk along(based on normal)
-//If we have asmall crack on the wall,walk along the main wall(blue vector)
-$SP,"<2>",BI=2$;
+      //If we have asmall crack on the wall,walk along the main wall(blue vector)
+    $SP,"<2>",BI=2$;
 
 
 
@@ -500,25 +500,32 @@ $SP,"<2>",BI=2$;
 
 
     wall2=NULL;
-    cap=I16_MAX;
+    cap=0;
     for(i=0;i!=wall_idx;i++) {
       wall=walls[i];
 //+2 because to steped down by 1(+1 for extra wiggle room)
       if(CheckLineWithBox(walls[i],&cur_pos,radius+2)) {
-	wall_angle=FArg(
-	  wall->end->x-wall->start->x,
-	  wall->end->y-wall->start->y
-	);
-	tmp=Sin(angle-wall_angle+pi/2);
-	if(tmp<cap) {
-	  tmp=cap;
-	  wall2=wall;
-	}
-        tmp=Sin(angle-wall_angle-pi/2);
-	if(tmp<cap) {
-	  tmp=cap;
-	  wall2=wall;
-	}
+        vector->data[0]=wall->end->x-wall->start->x;
+        vector->data[1]=wall->end->y-wall->start->y;
+        wall_angle=FArg(
+	      wall->end->x-wall->start->x,
+	      wall->end->y-wall->start->y
+	      );
+        move2.x=wall->start->x-cur_pos.x;
+        move2.y=wall->start->y-cur_pos.y;
+        if(IsFrontSideOfVector2D(vector,&move2)) {
+	  tmp=Abs(Cos(wall_angle-angle));
+	  if(tmp>cap) {
+	    tmp=cap;
+	    wall2=wall;
+	  }
+        } else {
+	  tmp=Abs(Cos(angle-wall_angle));
+	  if(tmp>cap) {
+	    tmp=cap;
+	    wall2=wall;
+	  }
+        }
       }
     }
     if(wall2) //???

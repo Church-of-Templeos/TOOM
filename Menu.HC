@@ -40,6 +40,7 @@ U64 Menu(CMenuItem *items,I64 offx,I64 offy) {
     cnt++;
   }
   cur_active=0;
+  FlushMsgs;
   while(code==INVALID_PTR) {
     if(Blink)
       skull=FramePtr("M_SKULL1");

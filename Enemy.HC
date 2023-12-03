@@ -249,7 +249,7 @@ Bool MMove(CDoomLevel *l,CMonsterThinker *m) {
 	self->template(CDoomMonsterTemplate*)->speed*TICK_FPS_SCALE,
 	self->template->radius,
 	self->height,
-	allow_float|COLLISF_NO_HIT_THING|COLLISF_MONSTER|COLLISF_SLIDE,
+	allow_float|COLLISF_NO_HIT_THING|COLLISF_MONSTER|COLLISF_SLIDE|COLLISF_ADJUST_FOR_RADIUS,
 	crossed,
 	self
 	);
@@ -486,9 +486,9 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *thing=t->self;
   CDoomThing *target=t->target;
   CD2 dummy;
-  I64 drop=0;
+  I64 drop=COLLISF_ADJUST_FOR_RADIUS;
   if(!(thing->flags&TF_FLOATING))
-    drop=COLLISF_NO_DROP;
+    drop|=COLLISF_NO_DROP;
   F64 angle,dist=ToF64(RandU64&0xf),off=(Rand-.5)*pi/8.;
   if(!target) return;
   angle=FArg(target->x-thing->x,target->y-thing->y)+off;

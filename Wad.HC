@@ -279,7 +279,7 @@ class CDoomLevel {
  I64 block_map_x_off,block_map_y_off;
   I64 block_map_cols,block_map_rows;
   I64 *block_map_offsets;
-  I64 skill;
+  I64 skill,episode;
   CDoomSector **block_map_data;
   CDoomLinedef **action_linedefs;
   CLevelStats stats;
@@ -958,6 +958,7 @@ pass_thing:
 skip_thing:
     wthing++;
   }
+  level->episode=level_name[1]-'1'+1;
 //Load vertexes first P
   cnt=wad_dir[3].lump_size/sizeof(CWadVertex);
   vertex=wad_dir[3].ptr+wad->body;

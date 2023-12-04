@@ -46,7 +46,10 @@ U64 Menu(CMenuItem *items,I64 offx,I64 offy) {
       skull=FramePtr("M_SKULL1");
     else
       skull=FramePtr("M_SKULL2");
+retry:
     switch(ScanMsg(&a,&b)) {
+      case 0:
+	break;
       start:
         msx=ms.pos.x;
         msy=ms.pos.y;
@@ -63,7 +66,7 @@ U64 Menu(CMenuItem *items,I64 offx,I64 offy) {
 	  code=items[cur_active].value;
 	  break;
       end:
-        break;
+        goto retry;  //try all events for frame
       case MSG_KEY_DOWN:
         if(b&0xff==SC_CURSOR_UP&&cur_active>0) {
 	  cur_active--;
@@ -79,7 +82,8 @@ U64 Menu(CMenuItem *items,I64 offx,I64 offy) {
 	      code=items[cur_active].value;
 	  }
 	}
-        break;
+      default:
+        goto retry; //try all events for frame
     }
     DCFill;
     for(idx=0;idx!=cnt;idx++) {

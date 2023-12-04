@@ -141,16 +141,12 @@ Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F6
   rel_point.y=point->y-ld->start->y;
   angle3=FArg(v->data[0],v->data[1]);
   if(IsFrontSideOfVector2D(v,&rel_point)) {
-PrintF("angle3",angle3);
-PrintF("angle",angle);
     angle2=angle3-angle;
     x=to_travel*FCos(angle2);
-PrintF("f",x);
     MoveInLevel(l,point,angle3,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING,,exclude);
   } else{
     angle2=angle3-angle;
     x=-to_travel*FCos(angle2);
-PrintF("b",x);
     MoveInLevel(l,point,angle3,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING,,exclude);
   }
   DestroyVector(v);
@@ -500,32 +496,16 @@ pass:
 
 
     wall2=NULL;
-    cap=0;
+    cap=I16_MAX;
     for(i=0;i!=wall_idx;i++) {
       wall=walls[i];
 //+2 because to steped down by 1(+1 for extra wiggle room)
       if(CheckLineWithBox(walls[i],&cur_pos,radius+2)) {
-        vector->data[0]=wall->end->x-wall->start->x;
-        vector->data[1]=wall->end->y-wall->start->y;
-        wall_angle=FArg(
-	      wall->end->x-wall->start->x,
-	      wall->end->y-wall->start->y
-	      );
-        move2.x=wall->start->x-cur_pos.x;
-        move2.y=wall->start->y-cur_pos.y;
-        if(IsFrontSideOfVector2D(vector,&move2)) {
-	  tmp=Abs(Cos(wall_angle-angle));
-	  if(tmp>cap) {
-	    tmp=cap;
-	    wall2=wall;
-	  }
-        } else {
-	  tmp=Abs(Cos(angle-wall_angle));
-	  if(tmp>cap) {
-	    tmp=cap;
-	    wall2=wall;
-	  }
-        }
+	tmp=DistFromLine(result,wall->start,wall->end);
+	if(tmp<cap) {
+	  cap=tmp;
+	  wall2=wall;
+	}
       }
     }
     if(wall2) //???

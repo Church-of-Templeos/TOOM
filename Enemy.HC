@@ -1260,7 +1260,7 @@ U0 LoadMonsterInfo() {
   AddState(t->missile_state="SKULL.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"SKULL.S_POSS_ATK2");
   AddState(t->missile_state="SKULL.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&SkullAttack,"SKULL.S_POSS_RUN");
   AddState(t->pain_state="SKULL.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"SKULL.S_POSS_RUN");
-  AddState(t->death_state="SKULL.S_POSS_DIE",STATE_NO_REPEAT,t->_hurt_frames,&Fall,NULL);
+  AddState(t->death_state="SKULL.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,NULL);
 //Shotgun guy
   t=doom_thing_types[9];
   t->reaction_time=1/35.*8;
@@ -1284,7 +1284,7 @@ U0 LoadMonsterInfo() {
   AddState("SHOTGUN.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&SPosAttack,"SHOTGUN.S_POSS_RUN");
   AddState(t->pain_state="SHOTGUN.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"SHOTGUN.S_POSS_RUN");
   AddState(t->death_state="SHOTGUN.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
-  AddState(t->gib_state="SHOTGUN.S_POSS_GIB",STATE_NO_REPEAT,t->_dying_frames,&XFall,"ST_NULL");
+  AddState(t->gib_state="SHOTGUN.S_POSS_GIB",STATE_NO_REPEAT,t->_gib_frames,&XFall,"ST_NULL");
 
 //Transparent demon
   t=doom_thing_types[0x3a];

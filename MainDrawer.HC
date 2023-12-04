@@ -1342,12 +1342,12 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
       if(up) return floor->base_floor_height;
       return lowest;
     case LIFT_RAISE_32:
-      up=floor->base_floor_height+32<floor->floor_height;
+      up=floor->base_floor_height+32>floor->floor_height;
       if(up)
         return floor->base_floor_height+32;
       return floor->base_floor_height;
     case LIFT_RAISE_24:
-      up=floor->base_floor_height+24<floor->floor_height;
+      up=floor->base_floor_height+24>floor->floor_height;
       if(up)
         return floor->base_floor_height+24;
       return floor->base_floor_height;
@@ -1536,26 +1536,26 @@ floor_defacto:
         s->floor_height=s->target_end;
         s->going_up=FALSE;
 floor_en:
-        if(ld->special_type->type=='Lift'&&!s->reverting) {
-	  if(!s->waiting) {
-	    s->waiting=TRUE;
- 	    Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
+	  if(ld->special_type->type=='Lift'&&!s->reverting) {
+	    if(!s->waiting) {
+	      s->waiting=TRUE;
+	      Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
+	      s->start_tS=tS;
+	    }
+	    if(s->wait_time+s->start_tS>time||s->wait_time<0.) {
+	      return;
+	    }
+	    s->waiting=FALSE;
 	    s->start_tS=tS;
+	    s->reverting=TRUE;
+	    s->target_start=s->floor_height;
+	    s->target_end=s->base_floor_height;
+	  } else {
+	    s->reverting=FALSE;
+	    s->cur_action_linedef=NULL;
+	    s->going_up=FALSE,s->going_down=FALSE;
+	    Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
 	  }
-	  if(s->wait_time+s->start_tS>time) {
-	    return;
-	  }
-	  s->waiting=FALSE;
-	  s->start_tS=tS;
-	  s->reverting=TRUE;
-	  s->target_start=s->floor_height;
-	  s->target_end=s->base_floor_height;
-        } else {
-	  s->reverting=FALSE;
-	  s->cur_action_linedef=NULL;
-	  s->going_up=FALSE,s->going_down=FALSE;
- 	  Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
-        }
       }
     } else if(s->going_down) {
       if(s->floor_height<=s->target_end) {
@@ -2116,10 +2116,11 @@ lactivate:
 	    s->target_start=s->floor_height;
 	    s->target_end=dst;
 	    s->start_tS=tS;
-	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
 	    s->speed=lift->speed;
 	    s->cur_action_linedef=ld;
 	    s->wait_time=lift->delay;
+PrintF("d",lift->delay);
+	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
 	    break; case 'S1':
 	    if(!(flags&WACTIVATE_SWITCH)) return;
 	    goto lactivate1;
@@ -2764,6 +2765,8 @@ pass:
 	    trigger=ld->special_type(CDoomFloor*)->trigger;
 	  else if(ld->special_type->type=='Lift')
 	    trigger=ld->special_type(CDoomLift*)->trigger;
+	PrintI(&ld->special_type->type,ld);
+	PrintI(&trigger,ld);
 	  if(trigger.u8[1]=='P')
 	    TriggerLinedef(l,ld,WACTIVATE_PUSH,p);
 	  else

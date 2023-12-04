@@ -356,6 +356,8 @@ U0 LoadLifts() {
     lift->trigger=trig[0](U16);
     if(*delays!='-')
       lift->delay=Str2F64(delays);
+    else
+      lift->delay=-1;
     if(*speed!='-') {
       if(!StrCmp("Slow",speed))
       lift->speed=DOOR_SPEED_SLOW;

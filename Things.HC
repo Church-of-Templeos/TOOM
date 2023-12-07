@@ -30,6 +30,7 @@ class CDoomProjectileTemplate:CDoomThingTemplate {
   CDoomAnimationFrame *_idle_frames;
   CDoomAnimationFrame *_hit_frames;
   F64 direct,splash,speed;
+  F64 direct_max;
 };
 class CDoomMonsterTemplate:CDoomThingTemplate {
   F64 x,y,angle,pain_chance,pain_time,reaction_time;

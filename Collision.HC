@@ -466,8 +466,10 @@ fin:
     cur_pos.x=move1.x+cos*dist;
     cur_pos.y=move1.y+sin*dist;
     for(i=0;i!=wall_idx;i++)
-      if(CheckLineWithBox(walls[i],&cur_pos,radius))
+      if(CheckLineWithBox(walls[i],&cur_pos,radius)) {
+        best=walls[i];
         goto found;
+      }
     if(HitsAThing(l,&cur_pos,radius,exclude))
       goto found;
     result->x=cur_pos.x;

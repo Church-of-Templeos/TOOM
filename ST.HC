@@ -1,5 +1,5 @@
 //#include "Weapons.HC";
-extern U0 PlayerAttack(F64 shots_per_min,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0);
+extern Bool PlayerAttack(F64 shots_per_min,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0);
 
 #define BG 4
 #define FG 0
@@ -793,7 +793,6 @@ U0 AnimateFire(CDoomPlayer *p)
 	  case 3:
            weapons.oldinum=4;
            weapons.data=0;
-           p->arsenal[weaponIndex]->load->ammo--;
            weapons.inum=8;
            break;
 	  case 4:
@@ -837,7 +836,6 @@ U0 AnimateFire(CDoomPlayer *p)
            weapons.data=15;
            weapons.oldinum=1;
            weapons.inum=10;
-           p->arsenal[weaponIndex]->load->ammo--;
            Play("tttA#...");
            break;
 	  case 1:
@@ -897,13 +895,11 @@ U0 AnimateFire(CDoomPlayer *p)
             weapons.oldinum=0;
             weapons.data=19;
             weapons.inum=17;
-            p->arsenal[weaponIndex]->load->ammo--;
 	    Sleep(5);
             break;
           case 0:
             weapons.oldinum=0;
             weapons.data=18;
-            p->arsenal[weaponIndex]->load->ammo--; 
             weapons.inum=16;
             Sleep(5);
             weapons.on=FALSE;
@@ -919,7 +915,6 @@ U0 AnimateFire(CDoomPlayer *p)
             weapons.inum=21;
             weapons.data=22;
             weapons.y=weapons.y+25;
-            p->arsenal[weaponIndex]->load->ammo--;
             Sleep(5);
             break;
           case 0:
@@ -992,7 +987,6 @@ U0 AnimateFire(CDoomPlayer *p)
           case 0:
             weapons.oldinum=1;
             weapons.inum=33;
-            p->arsenal[weaponIndex]->load->ammo--;
             Sleep(20);
             //weapons.data=33;
             break;
@@ -1001,7 +995,7 @@ U0 AnimateFire(CDoomPlayer *p)
             weapons.x=weapons.x-86;
             weapons.y=weapons.y-92;
             weapons.inum=31;
-            Sleep(240);
+            Sleep(24);
             break;
           case 2:
             weapons.oldinum=0;
@@ -1035,7 +1029,6 @@ U0 AnimateFire(CDoomPlayer *p)
             weapons.data=38;
             Sleep(60);
             //weapons.data=33;
-            p->arsenal[weaponIndex]->load->ammo--;
             break;
           case 2:
             weapons.oldinum=0;
@@ -1158,48 +1151,61 @@ U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
 
 U0 ST_Fire(CDoomPlayer *p)
 {
-  if(weapons.on==FALSE)
-    {
+  if(!weapons.on) {
+//Dont wait for aninmation to be done
     weapons.on=TRUE;
     weapons.oldinum=-1;
+  }
 
-    switch(weaponIndex) {
-      case 0: //First
+  switch(weaponIndex) {
+    case 0: //First
 //TODO test for beserk
-        PlayerAttack(123.5,2,20,32);
+      PlayerAttack(123.5,2,20,32);
+      break;
+    start:
+      case 1: //Pistol
+        if(p->arsenal[weaponIndex]->load->ammo>0) {
+	  if(PlayerAttack(150.,5,15,200*64.))
+	    --p->arsenal[weaponIndex]->load->ammo;
+        }
         break;
-      start:
-        case 1: //Pistol
-	  if(p->arsenal[weaponIndex]->load->ammo>0)
-	    PlayerAttack(150.,5,15,200*64.);
-	  break;
-        case 2: //Shotgun
-	  if(p->arsenal[weaponIndex]->load->ammo>0)
-	    PlayerAttack(56.8,5,15,200*64.);
-	  break;
-        case 3: //Chainhun
-	  if(p->arsenal[weaponIndex]->load->ammo>0)
-	    PlayerAttack(525,5,15,200*64.);
-	  break;
-        case 4: //Rocket
-	  if(p->arsenal[weaponIndex]->load->ammo>0)
-	    PlayerAttack(105,20,160,200*64.,'Rocket');
-	  break;
-        case 5: //Chainsaw
-	  PlayerAttack(525,2,20,32);
-	  break;
-        case 6: //Plsmaa
-	  if(p->arsenal[weaponIndex]->load->ammo>0)
-	    PlayerAttack(700,5,40,200*64.,'Plasma');
-	  break;
-        case 7: //Big poopin gun
+      case 2: //Shotgun
+        if(p->arsenal[weaponIndex]->load->ammo>0) {
+	  if(PlayerAttack(56.8,5,15,200*64.))
+	    --p->arsenal[weaponIndex]->load->ammo;
+        }
+        break;
+      case 3: //Chainhun
+        if(p->arsenal[weaponIndex]->load->ammo>0) {
+	  if(PlayerAttack(525,5,15,200*64.))
+	    --p->arsenal[weaponIndex]->load->ammo;
+        }
+
+        break;
+      case 4: //Rocket
+        if(p->arsenal[weaponIndex]->load->ammo>0) {
+	  if(PlayerAttack(105,20,160,200*64.,'Rocket'))
+	    --p->arsenal[weaponIndex]->load->ammo;
+        }
+        break;
+      case 5: //Chainsaw
+        PlayerAttack(525,2,20,32);
+        break;
+      case 6: //Plsmaa
+        if(p->arsenal[weaponIndex]->load->ammo>0) {
+	  if(PlayerAttack(700,5,40,200*64.,'Plasma'))
+	    --p->arsenal[weaponIndex]->load->ammo;
+        }
+        break;
+      case 7: //Big poopin gun
 //TODO tracer
-	  if(p->arsenal[weaponIndex]->load->ammo>0)
-	    PlayerAttack(52.5,100,800,200*64.,'BFG');
-	  break;
-      end:
-        p->made_a_sound=TRUE;
-    }
+        if(p->arsenal[weaponIndex]->load->ammo>0) {
+	  if(PlayerAttack(52.5,100,800,200*64.,'BFG'))
+	    --p->arsenal[weaponIndex]->load->ammo;
+        }
+        break;
+    end:
+      p->made_a_sound=TRUE;
   }
 }
 

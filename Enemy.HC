@@ -3,6 +3,7 @@ CDoomThingTemplate *imp_fireball;
 CDoomThingTemplate *baron_fireball;
 CDoomThingTemplate *cacodemon_fireball;
 CDoomThingTemplate *rocket;
+CDoomThingTemplate *plasma_ball;
 extern U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage);
 
 #define TICK_FPS_SCALE (1/3.) //Ticks_per_sec/fps
@@ -818,6 +819,8 @@ U0 SpawnMissile(CDoomLevel *l,CDoomThing *t,CDoomThing *target,U64 type) {
     template=cacodemon_fireball;
   } else if(type=='Baron') {
     template=baron_fireball;
+  } else if(type=='Plasma') {
+    template=plasma_ball;
   } else
     throw('Missile');
   self=CAlloc(sizeof CDoomThing);
@@ -1113,6 +1116,19 @@ U0 LoadMonsterInfo() {
   AddState(t->pain_state="IMP.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"IMP.S_POSS_RUN");
   AddState(t->death_state="IMP.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
   AddState(t->gib_state="IMP.S_POSS_GIB",STATE_NO_REPEAT,t->_gib_frames,&XFall,"ST_NULL");
+//Plasma shot
+  plasma_ball=CAlloc(sizeof CDoomProjectileTemplate);
+  p=plasma_ball;
+  p->flags=TF_FLOATING;
+  p->radius=13.;
+  p->height=8.;
+  p->direct=5.; //5 min,40 max
+  p->direct_max=40.;
+  p->speed=875./30;
+  StrCpy(p->spr_base_name,"PLSS");
+  p->animation=p->_idle_frames=GenerateCacheFrames(p,"AB");
+  StrCpy(p->spr_base_name,"PLSE"); //Eploding sprite
+  p->_hit_frames=GenerateCacheFrames(p,"ABCDE");
 //Fireball and I aint talkin alchohol
   imp_fireball=CAlloc(sizeof CDoomProjectileTemplate);
   p=imp_fireball;

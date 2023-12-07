@@ -2672,10 +2672,10 @@ rem:
     SwapWeapon(p,picked_up_gun);
 }
 
-U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0) {
+Bool PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0) {
   static F64 last_attack=0.;
   F64 cooldown=60./shots_per_minute;
-  if(tS<last_attack+cooldown) return;
+  if(tS<last_attack+cooldown) return FALSE;
   last_attack=tS;
   F64 angle=p->angle,r;
   F64 damage=Rand*(max_damage-min_damage)+min_damage;
@@ -2704,6 +2704,7 @@ U0 PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64
   } else {
     SpawnMissile(l,p,target,rocket_type);
   }
+  return TRUE;
 }
 
 U0 UpdateLevel(CDoomLevel *l) {
@@ -2771,8 +2772,6 @@ pass:
 	    trigger=ld->special_type(CDoomFloor*)->trigger;
 	  else if(ld->special_type->type=='Lift')
 	    trigger=ld->special_type(CDoomLift*)->trigger;
-	PrintI(&ld->special_type->type,ld);
-	PrintI(&trigger,ld);
 	  if(trigger.u8[1]=='P')
 	    TriggerLinedef(l,ld,WACTIVATE_PUSH,p);
 	  else

@@ -300,16 +300,16 @@ U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *secto
     cos2=ray_cast_table_cos[x];
     hit_cnt=0;
     if(floor)
-      intersects[hit_cnt++]=maxy;
+      intersects[hit_cnt++]=GR_HEIGHT/2;
     else
-      intersects[hit_cnt++]=miny;
+      intersects[hit_cnt++]=0;
     for(skip=0;skip!=sector->linedef_cnt;skip++) {
       ld=sector->linedefs[skip];
       if(PlaneIntersect(&hit,ld->start,ld->end,&cam->x,&ray)) {
         dist=Sqrt(Sqr(hit.x-cam->x)+Sqr(hit.y-cam->y));
         dist*=cos2;
         dist=(((DIST_SCALE/dist)*(cam->h-at))+GR_HEIGHT/2)/2;
-	dist=Clamp(dist,0,GR_HEIGHT/2);
+        dist=Clamp(dist,0,GR_HEIGHT/2);
         intersects[hit_cnt++]=dist;
 already_has:;
       }
@@ -320,7 +320,7 @@ already_has:;
       QSortI64(intersects,hit_cnt,&F64Sort);
     if(!hit_cnt)
       goto next3;
-    for(idx=hit_cnt-2;idx>=0;idx-=2) {
+    for(idx=hit_cnt-2;idx>=0;idx--) {
       if(floor)  {
 //Reverse sorted
         from=intersects[idx];
@@ -332,62 +332,68 @@ already_has:;
         to=intersects[idx+1];
         dir=1;
       }
-        for(y=from;(dir==1&&y<to)||(dir==-1&&y>to);y+=dir) {
-	  if(y<0) {
-	    y=0-dir;
-	    if(dir==-1)
-	      break;
-	    goto next;
-	  }
-	  if(y>=GR_HEIGHT/2) {
-	    y=GR_HEIGHT/2-1-dir;
-	    if(dir==1)
-	      break;
-	    goto next;
-	  }
-	  dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at));
-	  idist=dist;
-	  db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
-	  already=cam->floor_dc->body+y*cam->floor_dc->width_internal+x;
-	  if(!floor) {
-	    if(skip=IsBlockedByWall(cam,x*2,y*2,idist)) {
-	      y+=skip>>1-1;
-	      goto next;
-	    }
-	  } else {
-	    if(skip=IsBlockedByWallReverse(cam,x*2,y*2,idist)) {
-	      y-=skip>>1+1;
-	      goto next;
-	    }
-	  }
-	  if(*already)
-	    goto next;
-	  if(cam->wall_depths[x]<idist)
-	    goto next2;
-	  if(idist>*db_z)
-	    goto next;
-	  wx=cam->x+(dist/cos2)*cos_table[x];
-	  wy=cam->y+(dist/cos2)*sin_table[x];
-	  dst=&to_dc->body[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
-	  *already=TRUE;
-	  db_z[0]=idist;
-	  db_z[1]=idist;
-	  db_z+=to_dc->width_internal;
-	  db_z[0]=idist;
-	  db_z[1]=idist;
-	  db_z-=to_dc->width_internal;
-	  floorx=(wx<<1)&127; //In doom flats are 64,(*2 for dither super pixel)
-	  floory=(wy<<1)&127;
-	  floorx&=~1;
-	  floory&=~1;
-	  color=texture->body[floorx+floory*128](U16);
-	  color2=texture->body[floorx+(1+floory)*128](U16);
-	  *dst=color;
-	  dst(U8*)+=to_dc->width_internal;
-	  *dst=color2;
-	  dst(U8*)-=to_dc->width_internal;
-next:;
+      dist=DIST_SCALE/((ToF64(ToF64(to+from)/2.*2.)-GR_HEIGHT/2)/(cam->h-at));
+      wx=cam->x+(dist/cos2)*cos_table[x];
+      wy=cam->y+(dist/cos2)*sin_table[x];
+      if(GetSectorForCoord(l,wx,wy)!=sector) {
+        goto next2;
+      }
+      for(y=from;(dir==1&&y<to)||(dir==-1&&y>to);y+=dir) {
+        if(y<0) {
+	  y=0-dir;
+	  if(dir==-1)
+	    break;
+	  goto next;
         }
+        if(y>=GR_HEIGHT/2) {
+	  y=GR_HEIGHT/2-1-dir;
+	  if(dir==1)
+	    break;
+	  goto next;
+        }
+        dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at));
+        idist=dist;
+        db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
+        already=cam->floor_dc->body+y*cam->floor_dc->width_internal+x;
+        if(!floor) {
+	  if(skip=IsBlockedByWall(cam,x*2,y*2,idist)) {
+	    y+=skip>>1-1;
+	    goto next;
+	  }
+        } else {
+	  if(skip=IsBlockedByWallReverse(cam,x*2,y*2,idist)) {
+	    y-=skip>>1+1;
+	    goto next;
+	  }
+        }
+        if(*already)
+	  goto next;
+        if(cam->wall_depths[x]<idist)
+	  goto next2;
+        if(idist>*db_z)
+	  goto next;
+        wx=cam->x+(dist/cos2)*cos_table[x];
+        wy=cam->y+(dist/cos2)*sin_table[x];
+        dst=&to_dc->body[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
+        *already=TRUE;
+        db_z[0]=idist;
+        db_z[1]=idist;
+        db_z+=to_dc->width_internal;
+        db_z[0]=idist;
+        db_z[1]=idist;
+        db_z-=to_dc->width_internal;
+        floorx=(wx<<1)&127; //In doom flats are 64,(*2 for dither super pixel)
+        floory=(wy<<1)&127;
+        floorx&=~1;
+        floory&=~1;
+        color=texture->body[floorx+floory*128](U16);
+        color2=texture->body[floorx+(1+floory)*128](U16);
+        *dst=color;
+        dst(U8*)+=to_dc->width_internal;
+        *dst=color2;
+        dst(U8*)-=to_dc->width_internal;
+next:;
+      }
 next2:;
     } 
 next3:;
@@ -418,7 +424,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   TransformPointToCamera(cam,&clone_st);
   TransformPointToCamera(cam,&clone_en);
   st=&clone_st;
-  en=&clone_en;
+   en=&clone_en;
   F64 start_angle=FArg(st->x,st->y);
   F64 end_angle=FArg(en->x,en->y),tmp,tyf;
   F64 margin;

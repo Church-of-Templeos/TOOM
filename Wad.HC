@@ -484,28 +484,24 @@ U0 AddLinedefToSector(CDoomSector *ld,CDoomSector *s) {
 
 CDoomBSPNode *DoomWhichBSPNode(F64 x,F64 y,CDoomLevel *level,CDoomSubsector **ss=NULL) {
   CDoomBSPNode *cur_node=level->root_node;
-  Vector *pline;
+  CD2 pline_body[2];
   Bool left,right;
   CD2 dummy;
+  F64 x2,y2;
   if(ss) *ss=NULL;
   while(TRUE) {
     if(!cur_node)
       break;
 //Check which side of parition line
-    pline=CreateVector(2);
-    dummy.x=x-cur_node->x;
-    dummy.y=y-cur_node->y;
-    SetVector(pline,cur_node->dx,0);
-    SetVector(pline,cur_node->dy,1);
-    if(IsFrontSideOfVector2D(pline,&dummy)) {
-      DestroyVector(pline);
+    x2=x-cur_node->x;
+    y2=y-cur_node->y;
+    if(y2*cur_node->dx-x2*cur_node->dy<0.) {
       if(cur_node->left_child->signature!='NODE') {
         if(ss) *ss=cur_node->left_child;
         return cur_node;
       }
       cur_node=cur_node->left_child;
     }  else {
-      DestroyVector(pline);
       if(cur_node->right_child->signature!='NODE') {
         if(ss) *ss=cur_node->right_child;
         return cur_node;

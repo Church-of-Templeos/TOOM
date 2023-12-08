@@ -2913,133 +2913,151 @@ U0 PauseMenu()
 }      
 
 #include "Automap.HC";
-
-U0 PlayLevel(U8 *name,I64 difficulty) { 
-  l=LoadWadLevel(wad,name,difficulty);
-  Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
+#include "Menu.HC";
+U0 PlayLevel() { 
+  static Bool in_level=FALSE;
   p=PlayerNew(l);
   PlayerMove(l,p,0);
   InitLevel(l);
-  while(!l->ended&&!gameExit) {
+//Return to parent instance  of PlayLevel(if recursivly called)
+//But be sure to initailize the level and player
+  if(in_level) return;
+  in_level=TRUE;
+  U64 mr;
+  if(Fs->animate_task)
+    Kill(Fs->animate_task,FALSE);
+  Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
+  paused=FALSE;
+  while(!l->ended) {
     UpdateCameraFromPlayer(&cam,p);
-
-
-    AutomapInteract;
-
     DrawDoomWorld(&cam,l,doom_scrn);
-    if(am_state.active)
-      DrawAutomap(gr.dc,l);
-    ST_Start(p);
 
-    //mouse camera pan.
-    cursor_x=ms.pos.x;
-    if(cursor_tx!=cursor_x)
-      {
-      if(cursor_x<1)
+    if(!paused) {
+      AutomapInteract;
+
+      if(am_state.active)
+        DrawAutomap(gr.dc,l);
+      ST_Start(p);
+
+      //mouse camera pan.
+      cursor_x=ms.pos.x;
+      if(cursor_tx!=cursor_x)
         {
-        cursor_x=1;
+        if(cursor_x<1)
+	  {
+	  cursor_x=1;
+        }
+        cursor_x=ms.pos.x;   
+        cursor_tx = cursor_x;
+        if(weaponIndex!=0)
+	  weapons.x_off=cursor_x-GR_WIDTH/2;
       }
-      cursor_x=ms.pos.x;   
-      cursor_tx = cursor_x;
-      if(weaponIndex!=0)
-        weapons.x_off=cursor_x-GR_WIDTH/2;
-    }
 #define SCRN_MARGIN 200
-    #define SCRN_TURN_RATE (pi/1.5/30.)
-    if(SCRN_MARGIN>cursor_x) {
-      p->angle+=Lerp((SCRN_MARGIN-cursor_x)/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
-    } else if(GR_WIDTH-SCRN_MARGIN<cursor_x) {
-      p->angle-=Lerp((cursor_x-(GR_WIDTH-SCRN_MARGIN))/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
-    }
+      #define SCRN_TURN_RATE (pi/1.5/30.)
+      if(SCRN_MARGIN>cursor_x) {
+        p->angle+=Lerp((SCRN_MARGIN-cursor_x)/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
+      } else if(GR_WIDTH-SCRN_MARGIN<cursor_x) {
+        p->angle-=Lerp((cursor_x-(GR_WIDTH-SCRN_MARGIN))/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
+      }
 
 
-    if(p->health>0.) {
-      if(Bt(kbd.down_bitmap,SC_CURSOR_UP)||Bt(kbd.down_bitmap,Char2ScanCode('w')))
-        {
-        p->running=Bt(kbd.down_bitmap,SC_SHIFT);
-        PlayerMove(l,p,1);
-        UpdateCameraFromPlayer(&cam,p);
-        ST_Key(0);
+      if(p->health>0.) {
+        if(Bt(kbd.down_bitmap,SC_CURSOR_UP)||Bt(kbd.down_bitmap,Char2ScanCode('w')))
+	  {
+	  p->running=Bt(kbd.down_bitmap,SC_SHIFT);
+	  PlayerMove(l,p,1);
+	  UpdateCameraFromPlayer(&cam,p);
+	  ST_Key(0);
+        }
+        if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)||Bt(kbd.down_bitmap,Char2ScanCode('s'))) {
+	  p->running=Bt(kbd.down_bitmap,SC_SHIFT);
+	  PlayerMove(l,p,-1);
+	  UpdateCameraFromPlayer(&cam,p);
+	  ST_Key(0);
+        }
+        if(Bt(kbd.down_bitmap,Char2ScanCode('a'))||Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
+	  p->running=Bt(kbd.down_bitmap,SC_SHIFT);
+	  PlayerMove(l,p,1,pi/2);
+	  UpdateCameraFromPlayer(&cam,p);
+	  ST_Key(2);
+        }
+        if(Bt(kbd.down_bitmap,Char2ScanCode('d'))||Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)) {
+	  p->running=Bt(kbd.down_bitmap,SC_SHIFT);
+	  PlayerMove(l,p,1,-pi/2);
+	  UpdateCameraFromPlayer(&cam,p);
+	  ST_Key(1);
+        }
+        if(ms.lb) {
+	  ST_Fire(p);
+        }
+        if(Bt(kbd.down_bitmap,Char2ScanCode('1'))) {
+	  SwapWeapon(p,1);
+        }
+        if(Bt(kbd.down_bitmap,Char2ScanCode('2'))) {
+	  SwapWeapon(p,2);
+        }
+        if(Bt(kbd.down_bitmap,Char2ScanCode('3'))) {
+	  SwapWeapon(p,3);
+        }
+        if(Bt(kbd.down_bitmap,Char2ScanCode('4'))) {
+	  SwapWeapon(p,4);
+        }
+        if(Bt(kbd.down_bitmap,Char2ScanCode('5'))) {
+	  SwapWeapon(p,5);
+        }
+        if(Bt(kbd.down_bitmap,Char2ScanCode('6'))) {
+	  SwapWeapon(p,6);
+        }
+        if(Bt(kbd.down_bitmap,Char2ScanCode('7'))) {
+	  SwapWeapon(p,7);
+        }
+        if(Bt(kbd.down_bitmap,Char2ScanCode('8'))) {
+	  SwapWeapon(p,8);
+        }
+        if(Bt(kbd.down_bitmap,Char2ScanCode('0'))) {
+	  SwapWeapon(p,0);
+        }
+        if(Bt(kbd.down_bitmap,Char2ScanCode(' ')&0xff)) {
+	  PressAWall(l,&p->x,p->angle,p->height);
+        }
       }
-      if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)||Bt(kbd.down_bitmap,Char2ScanCode('s'))) {
-        p->running=Bt(kbd.down_bitmap,SC_SHIFT);
-        PlayerMove(l,p,-1);
-        UpdateCameraFromPlayer(&cam,p);
-        ST_Key(0);
+      if(Bt(kbd.down_bitmap,Char2ScanCode(CH_ESC)&0xff)) {
+        paused=TRUE;
+        FlushMsgs; //Flush Esc msg
       }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('a'))||Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
-        p->running=Bt(kbd.down_bitmap,SC_SHIFT);
-        PlayerMove(l,p,1,pi/2);
-        UpdateCameraFromPlayer(&cam,p);
-        ST_Key(2);
-      }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('d'))||Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)) {
-        p->running=Bt(kbd.down_bitmap,SC_SHIFT);
-        PlayerMove(l,p,1,-pi/2);
-        UpdateCameraFromPlayer(&cam,p);
-        ST_Key(1);
-      }
-      if(ms.lb) {
-        ST_Fire(p);
-      }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('1'))) {
-        SwapWeapon(p,1);
-      }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('2'))) {
-        SwapWeapon(p,2);
-      }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('3'))) {
-        SwapWeapon(p,3);
-      }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('4'))) {
-        SwapWeapon(p,4);
-      }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('5'))) {
-        SwapWeapon(p,5);
-      }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('6'))) {
-        SwapWeapon(p,6);
-      }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('7'))) {
-        SwapWeapon(p,7);
-      }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('8'))) {
-        SwapWeapon(p,8);
-      }
-      if(Bt(kbd.down_bitmap,Char2ScanCode('0'))) {
-        SwapWeapon(p,0);
-      }
-      if(Bt(kbd.down_bitmap,Char2ScanCode(' ')&0xff)) {
-        PressAWall(l,&p->x,p->angle,p->height);
+    } else {
+      mr=MainMenu;
+      if(!mr) {
+        paused=FALSE;
       }
     }
-    if(Bt(kbd.down_bitmap,Char2ScanCode(CH_ESC)&0xff)) {
-      paused=TRUE;
-      PauseMenu;//
-     
-      //DCFill;
-      //ST_Exit();
-      //break;
-    }
+
     UpdateLevel(l);
-//    if(!Bt(&doom_scrn_in_draw,0))
-//      DCBlotColor8(gr.dc,doom_scrn);
-//PrintI("winmgr.fps",winmgr.fps);
     Refresh;
   }
 ret:
-  if(l->ended) Intermission(l,name[1]-'1',name[3]-'1');
+  if(l->ended) Intermission(l,l->map_name[1]-'1',l->map_name[3]-'1');
   DCFill;
   FreeLevel(l);
+  l=NULL;
+  in_level=FALSE;
   return;
 fin_level:
+  in_level=FALSE;
   return;
 }
 
-#include "Menu.HC";
-MainMenu;
-#endif
-        ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      
+U64 r;
+while(TRUE) {
+  DCFill;
+  r=MainMenu;
+  Refresh;
+  if(!r) {
+    DCFill;
+    break;
+  }
+}
+#endif        ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      
 !   Éÿÿÿ0   ûÿÿÿ
 0   ûÿÿÿb   ðÿÿÿ
 b   ðÿÿÿQ   ¼ÿÿÿ

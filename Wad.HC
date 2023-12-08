@@ -285,6 +285,7 @@ class CDoomLevel {
   CLevelStats stats;
 //ended is TRUE if we exited the level by pressing a button etc
   Bool has_red_key,has_blue_key,has_yellow_key,ended;
+  U8 map_name[5]; //EXMY
 };
 
 class CWadTexturePatch {
@@ -1264,6 +1265,7 @@ skip_thing:
   Free(dsect_list);
   Free(dnode_list);
   Free(dlinedef_list);
+  StrCpy(level->map_name,level_name);
   return level;
 }
 

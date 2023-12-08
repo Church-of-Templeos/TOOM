@@ -828,11 +828,8 @@ U0 SpawnMissile(CDoomLevel *l,CDoomThing *t,CDoomThing *target,U64 type) {
     angle=FArg(target->x-t->x,target->y-t->y);
   } else
     angle=t->angle;
-//Spawn outsdie of radius of both t and self
-//1.5 for square bound box
-  dist=1*5*template->radius+1.5*t->template->radius;
-  self->x=t->x+dist*Cos(angle);
-  self->y=t->y+dist*Sin(angle);
+  self->x=t->x;
+  self->y=t->y;
   self->angle=angle;
   self->height=t->height+t->template->height/2;
   self->template=template;

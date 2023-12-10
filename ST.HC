@@ -205,7 +205,7 @@ U0 DoomPrint(CDC *dc,I64 x,I64 y,U8 *fmt,...) {
       StrPrint(lump_name,"STCFN%3d",c-'!');
       while(StrOcc(lump_name,' '))
         *StrFirstOcc(lump_name," ")='0';
-      ch_dc=FramePtr(lump_name);
+      ch_dc=GetGrLump(lump_name);
       GrBlot(dc,x,y,ch_dc);
       x+=ch_dc->width;
     } else 
@@ -554,101 +554,101 @@ U0 ST_ReadOnce()
 
     for(idx=0;idx!=10;idx++) {
       StrPrint(dummy,"STGNUM%d",idx);
-      STGNUM[idx]=FramePtr(dummy);
+      STGNUM[idx]=GetGrLump(dummy);
     }
 
     for(idx=0;idx!=6;idx++) {
       StrPrint(dummy,"STKEYS%d",idx);
-      STKEYS[idx]=FramePtr(dummy);
+      STKEYS[idx]=GetGrLump(dummy);
     }
 
-    STARMS=FramePtr("STARMS");
+    STARMS=GetGrLump("STARMS");
 
 
-    ST = FramePtr("STBAR");
-    NUM0=FramePtr("STTNUM0");
-    NUM1=FramePtr("STTNUM1");
-    NUM2=FramePtr("STTNUM2");
-    NUM3=FramePtr("STTNUM3");
-    NUM4=FramePtr("STTNUM4");
-    NUM5=FramePtr("STTNUM5");
-    NUM6=FramePtr("STTNUM6");
-    NUM7=FramePtr("STTNUM7");
-    NUM8=FramePtr("STTNUM8");
-    NUM9=FramePtr("STTNUM9");
-    NUMPCT=FramePtr("STTPRCNT");
+    ST = GetGrLump("STBAR");
+    NUM0=GetGrLump("STTNUM0");
+    NUM1=GetGrLump("STTNUM1");
+    NUM2=GetGrLump("STTNUM2");
+    NUM3=GetGrLump("STTNUM3");
+    NUM4=GetGrLump("STTNUM4");
+    NUM5=GetGrLump("STTNUM5");
+    NUM6=GetGrLump("STTNUM6");
+    NUM7=GetGrLump("STTNUM7");
+    NUM8=GetGrLump("STTNUM8");
+    NUM9=GetGrLump("STTNUM9");
+    NUMPCT=GetGrLump("STTPRCNT");
 
-    NUMS0=FramePtr("STYSNUM0");
-    NUMS1=FramePtr("STYSNUM1");
-    NUMS2=FramePtr("STYSNUM2");
-    NUMS3=FramePtr("STYSNUM3");
-    NUMS4=FramePtr("STYSNUM4");
-    NUMS5=FramePtr("STYSNUM5");
-    NUMS6=FramePtr("STYSNUM6");
-    NUMS7=FramePtr("STYSNUM7");
-    NUMS8=FramePtr("STYSNUM8");
-    NUMS9=FramePtr("STYSNUM9");
+    NUMS0=GetGrLump("STYSNUM0");
+    NUMS1=GetGrLump("STYSNUM1");
+    NUMS2=GetGrLump("STYSNUM2");
+    NUMS3=GetGrLump("STYSNUM3");
+    NUMS4=GetGrLump("STYSNUM4");
+    NUMS5=GetGrLump("STYSNUM5");
+    NUMS6=GetGrLump("STYSNUM6");
+    NUMS7=GetGrLump("STYSNUM7");
+    NUMS8=GetGrLump("STYSNUM8");
+    NUMS9=GetGrLump("STYSNUM9");
 
     //FACES
 
-    FACE00=FramePtr("STFST01");
-    FACE0R=FramePtr("STFST00");
-    FACE0L=FramePtr("STFST02");
+    FACE00=GetGrLump("STFST01");
+    FACE0R=GetGrLump("STFST00");
+    FACE0L=GetGrLump("STFST02");
 
 
     //WEAPONS
     //PUNCH
-    PUNCH=FramePtr("PUNGA0");
-    PUNCH1=FramePtr("PUNGB0");
-    PUNCH2=FramePtr("PUNGC0");
-    PUNCH3=FramePtr("PUNGD0");
+    PUNCH=GetGrLump("PUNGA0");
+    PUNCH1=GetGrLump("PUNGB0");
+    PUNCH2=GetGrLump("PUNGC0");
+    PUNCH3=GetGrLump("PUNGD0");
 
     //PISTOL
-    PISTOL=FramePtr("PISGA0");
-    PISTOLU=FramePtr("PISGB0");
-    PISTOL1=FramePtr("PISGC0");
-    PISTOL2=FramePtr("PISGA0");
-    PISTOL3=FramePtr("PISGA0");
-    PISTOLF=FramePtr("PISFA0");
+    PISTOL=GetGrLump("PISGA0");
+    PISTOLU=GetGrLump("PISGB0");
+    PISTOL1=GetGrLump("PISGC0");
+    PISTOL2=GetGrLump("PISGA0");
+    PISTOL3=GetGrLump("PISGA0");
+    PISTOLF=GetGrLump("PISFA0");
 //SHOTGUN   
-    SHOTGUN=FramePtr("SHTGA0");
-    SHOTGUN1=FramePtr("SHTGB0");
-    SHOTGUN2=FramePtr("SHTGC0");
-    SHOTGUN3=FramePtr("SHTGD0");
-    SHOTGUNF1=FramePtr("SHTFA0");
-    SHOTGUNF2=FramePtr("SHTFB0");
+    SHOTGUN=GetGrLump("SHTGA0");
+    SHOTGUN1=GetGrLump("SHTGB0");
+    SHOTGUN2=GetGrLump("SHTGC0");
+    SHOTGUN3=GetGrLump("SHTGD0");
+    SHOTGUNF1=GetGrLump("SHTFA0");
+    SHOTGUNF2=GetGrLump("SHTFB0");
 //CHAINGUN
-    CHAINGUN=FramePtr("CHGGA0");
-    CHAINGUN1=FramePtr("CHGGB0");
-    CHAINGUNF1=FramePtr("CHGFA0");
-    CHAINGUNF2=FramePtr("CHGFB0");
+    CHAINGUN=GetGrLump("CHGGA0");
+    CHAINGUN1=GetGrLump("CHGGB0");
+    CHAINGUNF1=GetGrLump("CHGFA0");
+    CHAINGUNF2=GetGrLump("CHGFB0");
 
     //MISSILELAUNCHER
-    MISSILELAUNCHER=FramePtr("MISGA0");
-    MISSILELAUNCHER1=FramePtr("MISGB0");
-    MISSILELAUNCHERF1=FramePtr("MISFA0");
-    MISSILELAUNCHERF2=FramePtr("MISFB0");
-    MISSILELAUNCHERF3=FramePtr("MISFC0");
-    MISSILELAUNCHERF4=FramePtr("MISFD0");
+    MISSILELAUNCHER=GetGrLump("MISGA0");
+    MISSILELAUNCHER1=GetGrLump("MISGB0");
+    MISSILELAUNCHERF1=GetGrLump("MISFA0");
+    MISSILELAUNCHERF2=GetGrLump("MISFB0");
+    MISSILELAUNCHERF3=GetGrLump("MISFC0");
+    MISSILELAUNCHERF4=GetGrLump("MISFD0");
 
     //CHAINSAW
-    CHAINSAW = FramePtr("SAWGA0"); 
-    CHAINSAW1 = FramePtr("SAWGB0"); 
-    CHAINSAW2 = FramePtr("SAWGC0"); 
-    CHAINSAW3 = FramePtr("SAWGAD0"); 
+    CHAINSAW = GetGrLump("SAWGA0"); 
+    CHAINSAW1 = GetGrLump("SAWGB0"); 
+    CHAINSAW2 = GetGrLump("SAWGC0"); 
+    CHAINSAW3 = GetGrLump("SAWGAD0"); 
 
     //PLASMAGUN
-    PLASMAGUN = FramePtr("PLSGA0");
-    PLASMAGUN1 = FramePtr("PLSGB0");
-    PLASMAGUNF1 = FramePtr("PLSFA0");
-    PLASMAGUNF2 = FramePtr("PLSFB0");
+    PLASMAGUN = GetGrLump("PLSGA0");
+    PLASMAGUN1 = GetGrLump("PLSGB0");
+    PLASMAGUNF1 = GetGrLump("PLSFA0");
+    PLASMAGUNF2 = GetGrLump("PLSFB0");
 
     //BFG
-    BFG=FramePtr("BFGA0");
-    BFG1=FramePtr("BFGB0");
-    BFG2=FramePtr("BFGC0");
-    BFGF1=FramePtr("BFGFA0");
-    BFGF2=FramePtr("BFGFB0");
+    BFG=GetGrLump("BFGA0");
+    BFG1=GetGrLump("BFGB0");
+    BFG2=GetGrLump("BFGC0");
+    BFGF1=GetGrLump("BFGFA0");
+    BFGF2=GetGrLump("BFGFB0");
 
     toom_faces.p[0]=FACE00;
     toom_faces.p[1]=FACE0R;

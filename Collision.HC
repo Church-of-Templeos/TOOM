@@ -402,7 +402,8 @@ fail_walk:
 		        ||lds[0]->special_type->type=='Floor'
 		        ||lds[0]->special_type->type=='Lift'
 		        ||lds[0]->special_type->type=='Ceil'
-		        ||lds[0]->special_type->type=='Teleport') {
+		        ||lds[0]->special_type->type=='Teleport'
+			||lds[0]->special_type->type=='Exit') {
 		    if(walked_over_idx<64) {
 		      if(CrosesLine(lds[0],&move1,&move2))  {
 		        tmp=IntersectDist(lds[0],&move1,&move2);

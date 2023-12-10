@@ -117,9 +117,9 @@ U0 IntermessionLoadData(I64 ep,I64 level) {
       break;
   }
   StrPrint(buf,"WIMAP%d",ep);
-  if(!FramePtr(buf))
+  if(!GetGrLump(buf))
     LoadGrLump(wad,buf);
-  background=FramePtr(buf);
+  background=GetGrLump(buf);
   for(idx=0;idx!=anim_cnt;idx++) {
     ep_ptr[idx].frame_grs=CAlloc(8*ep_ptr[idx].frames);
     for(idx2=0;idx2!=ep_ptr[idx].frames;idx2++) {
@@ -128,9 +128,9 @@ U0 IntermessionLoadData(I64 ep,I64 level) {
 //TempleOS pads with ' ',use '0' instead
         while(tmp=StrFirstOcc(buf," "))
 	  *tmp='0';
-        while(!FramePtr(buf))
+        while(!GetGrLump(buf))
 	  LoadGrLump(wad,buf);
-        ep_ptr[idx].frame_grs[idx2]=FramePtr(buf);
+        ep_ptr[idx].frame_grs[idx2]=GetGrLump(buf);
       } else 
         ep_ptr[idx].frame_grs[idx2]=ep_ptr[4].frame_grs[idx];
     }
@@ -148,7 +148,7 @@ I64 PrintNum(CDC *to_dc,I64 x,I64 y,I64 num) {
   }while(num);
   for(idx=0;idx<digits;idx++) {
     StrPrint(buf2,"WINUM%d",buf[idx]);
-    dc=FramePtr(buf2);
+    dc=GetGrLump(buf2);
     x-=dc->width;
     GrBlot(to_dc,x,y,dc);
   }
@@ -160,7 +160,7 @@ U0 DrawPercent(CDC *to_dc,I64 x,I64 y,F64 have,F64 max) {
     max=1.;
   }
   PrintNum(to_dc,x,y,have/max*100);
-  GrBlot(to_dc,x,y,FramePtr("WIPCNT"));
+  GrBlot(to_dc,x,y,GetGrLump("WIPCNT"));
 }
 
 U0 DrawAnimatedBackground(CDC *to_dc,I64 ep,I64 l) {
@@ -200,7 +200,7 @@ skip:;
 
 U0 DrawSplats(CDC *to_dc,I64 ep,I64 l) {
   I64 idx,x,y;
-  CDC *s=FramePtr("WISPLAT");
+  CDC *s=GetGrLump("WISPLAT");
   for(idx=0;idx!=l;idx++) {
     x=2*lnodes[ep][idx].x-s->x*2;
     y=2*lnodes[ep][idx].y-s->y*2;
@@ -208,12 +208,12 @@ U0 DrawSplats(CDC *to_dc,I64 ep,I64 l) {
   }
 
   //Use smaller one if not fit
-  s=FramePtr("WIURH0");
+  s=GetGrLump("WIURH0");
   x=2*lnodes[ep][l].x-s->x*2;
   y=2*lnodes[ep][l].y-s->y*2;
   if(x>=0&&x+s->width<=GR_WIDTH
         &&y>=0&&y+s->height<=GR_HEIGHT) {
-    s=FramePtr("WIURH1");
+    s=GetGrLump("WIURH1");
     x=2*lnodes[ep][l].x-s->x*2;
     y=2*lnodes[ep][l].y-s->y*2;
   }
@@ -225,7 +225,7 @@ U0 DrawSplats(CDC *to_dc,I64 ep,I64 l) {
 U0 DrawStats(CDC *to_dc,CDoomLevel *l,I64 ep,I64 l2,I64 tick=0) {
   I64 lw=3*16/2;
   I64 y=STATSY;
-  GrBlot(to_dc,STATSX,y,FramePtr("WIOSTK"));
+  GrBlot(to_dc,STATSX,y,GetGrLump("WIOSTK"));
   if(tick<l->stats.have_kills) {
     DrawPercent(to_dc,GR_WIDTH-STATSX,y,tick,l->stats.max_kills);
     tick=0;
@@ -234,7 +234,7 @@ U0 DrawStats(CDC *to_dc,CDoomLevel *l,I64 ep,I64 l2,I64 tick=0) {
     tick-=l->stats.have_kills;
   }
   y+=lw;
-  GrBlot(to_dc,STATSX,y,FramePtr("WIOSTS"));
+  GrBlot(to_dc,STATSX,y,GetGrLump("WIOSTS"));
   if(tick<l->stats.have_secrets) {
     DrawPercent(to_dc,GR_WIDTH-STATSX,y,tick,l->stats.max_secrets);
     tick=0;
@@ -243,7 +243,7 @@ U0 DrawStats(CDC *to_dc,CDoomLevel *l,I64 ep,I64 l2,I64 tick=0) {
     tick-=l->stats.have_secrets;
   }
   y+=lw;
-  GrBlot(to_dc,STATSX,y,FramePtr("WIOSTI"));
+  GrBlot(to_dc,STATSX,y,GetGrLump("WIOSTI"));
   if(tick<l->stats.have_items) {
     DrawPercent(to_dc,GR_WIDTH-STATSX,y,tick,l->stats.max_items);
     tick=0;
@@ -270,31 +270,31 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
       y=TITLEY;
       StrPrint(buf,"WILV%d%d",ep,l); //Lvel name
       LoadGrLump(wad,buf); //Will load once
-      dc=FramePtr(buf);
+      dc=GetGrLump(buf);
       if(!dc) {
         StrPrint(buf,"CWILV%d%d",ep,l); //Lvel name,ultimate doom
         LoadGrLump(wad,buf); //Will load once
-        dc=FramePtr(buf);
+        dc=GetGrLump(buf);
       }
       GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
       y+=(5*dc->height)/4;
-      dc=FramePtr("WIF");
+      dc=GetGrLump("WIF");
       GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
       DrawSplats(gr.dc,ep,l);
     } else {
       y=TITLEY;
       StrPrint(buf,"WILV%d%d",ep,l+1); //Lvel name
       LoadGrLump(wad,buf); //Will load once
-      dc=FramePtr(buf);
+      dc=GetGrLump(buf);
       if(!dc) {
         StrPrint(buf,"CWILV%d%d",ep,l); //Lvel name,ultimate doom
         LoadGrLump(wad,buf); //Will load once
-        dc=FramePtr(buf);
+        dc=GetGrLump(buf);
       }
       if(!dc) return; //??? TODO text intermission
       GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
       y+=(5*dc->height)/4;
-      dc=FramePtr("WIENTER");
+      dc=GetGrLump("WIENTER");
       GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
       DrawStats(gr.dc,lev,ep,l,(tS-start_ts)*30.);
     }

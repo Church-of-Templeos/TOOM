@@ -314,18 +314,40 @@ U8 *Upper8(U8 *eight) {
   return eight;
 }
 
+CDC *TextureName2DC(U8 *name) {
+  U8 buf[16];
+  U8 name2[9];
+  name2[8]=0;
+  MemCpy(name2,name,8);
+  Upper8(name2);
+  StrPrint(buf,"Txr.%s",name);
+  return FramePtr(buf);
+}
+
+CDC *SpriteName2DC(U8 *name) {
+  U8 buf[16];
+  U8 name2[9];
+  name2[8]=0;
+  MemCpy(name2,name,8);
+  Upper8(name2);
+  StrPrint(buf,"Spr.%s",name);
+  return FramePtr(buf);
+}
+
+
 CDC *PNameIndexToDC(I64 idx,CDoomGr *gr) {
-  U8 name[9];
+  U8 name[9],buf[16];
   name[8]=0;
   MemCpy(name,&gr->pnames[idx],8);
   Upper8(name);
-  return FramePtr(name);
+  StrPrint(buf,"Pat.%s",name);
+  return FramePtr(buf);
 }
 
 
 U0 LoadWadTEXTUREs(CWadTEXTURE1 *header,CDoomGr *gr) {
   I64 texture,i,anim_cnt,x,y;
-  U8 name[9];
+  U8 name[9],buf[16];
   CDC *result,*patch;
   CWadTexture *map_texture;
   for(texture=0;texture!=header->num_textures;texture++) {
@@ -350,7 +372,8 @@ U0 LoadWadTEXTUREs(CWadTEXTURE1 *header,CDoomGr *gr) {
     result->flags|=DCF_NO_TRANSPARENTS;
 fin:
     Upper8(name);
-    FramePtrAdd(name,result);
+    StrPrint(buf,"Txr.%s",name);
+    FramePtrAdd(buf,result);
   }
 }
 
@@ -530,7 +553,7 @@ I64 PNameIndex(U8 *name,CDoomGr *gr) {
   }
   return -1;
 }
-
+extern CDC *GetGrLump(U8 *name);
 U0 LoadGrLump(CWad *wad,U8 *name) {
   I64 idx;
   for(idx=wad_cnt-1;idx>=0;idx--) {
@@ -540,23 +563,38 @@ U0 LoadGrLump(CWad *wad,U8 *name) {
   }
   return ;
 pass:
-  Upper8(name);
-  if(FramePtr(name)) return;
   CWadDirectory *wad_dir=wad->body+wad->directory_ptr;
-  U8 lump_name[9];
   wad_dir+=W_CheckNumForName(name,wad);
-  CDC *gr=ReadDoomImage(wad->body+wad_dir->ptr);
+  Upper8(name);
+  U8 lump_name[9],buf[16];
   lump_name[8]=0;
   MemCpy(lump_name,wad_dir->lump_name,8);
   Upper8(lump_name);
-  FramePtrAdd(lump_name,gr);
+  StrPrint(buf,"Gr.%s",lump_name);
+  if(FramePtr(buf))
+    return;
+  CDC *gr=ReadDoomImage(wad->body+wad_dir->ptr);
+  FramePtrAdd(buf,gr);
 }
+
+CDC *GetGrLump(U8 *name) {
+  CDC *ret;
+  U8 name2[9],buf[16];
+  name2[8]=0;
+  MemCpy(name2,name,8);
+  StrPrint(buf,"Gr.%s",name2);
+  if(ret=FramePtr(buf)) 
+    return ret;
+  LoadGrLump(wad,name);
+  return FramePtr(buf);
+}
+
 
 CDoomGr *LoadWadGr(CWad *wad) {
   CDoomGr *ret=CAlloc(sizeof(CDoomGr));
   CWadDirectory *wad_dir;
   I64 idx,pass;
-  U8 lump_name[9],*tmp;
+  U8 lump_name[9],*tmp,buf[16];
   CWadPnames *pnames;
   CDC *gr;
 //Load Player palett
@@ -575,7 +613,10 @@ found_sstart:
     if(StrCmp8(wad_dir->lump_name,"S_END")) {
       lump_name[8]=0;
       MemCpy(lump_name,wad_dir->lump_name,8);
-      LoadGrLump(wad,lump_name);
+      gr=ReadDoomImage(wad->body+wad_dir->ptr);
+      Upper8(lump_name);
+      StrPrint(buf,"Spr.%s",lump_name);
+      FramePtrAdd(buf,gr);
       goto found_sstart;
     }
     pass++;
@@ -597,9 +638,10 @@ found_fstart:
         gr=ReadDoomFlat(wad->body+wad_dir->ptr,ret->palette);
         lump_name[8]=0;
         MemCpy(lump_name,wad_dir->lump_name,8);
-	tmp=MStrPrint("F.%s",lump_name);
+        tmp=MStrPrint("F.%s",lump_name);
         Upper8(tmp);
         FramePtrAdd(tmp,gr);
+        Free(tmp);
       }
       goto found_fstart;
     }
@@ -629,8 +671,9 @@ found_pstart:
         lump_name[8]=0;
         MemCpy(lump_name,wad_dir->lump_name,8);
         gr=ReadDoomImage(wad->body+wad_dir->ptr);
-	Upper8(lump_name);
-        FramePtrAdd(lump_name,gr);
+        Upper8(lump_name);
+        StrPrint(buf,"Pat.%s",lump_name);
+        FramePtrAdd(buf,gr);
       }
       goto found_pstart;
     }
@@ -692,7 +735,7 @@ found_pstart:
     LoadGrLump(wad,lump_name);
 
   }
-  //FACES
+//FACES
 
   LoadGrLump(wad,"STFST01");
   LoadGrLump(wad,"STFST00");
@@ -741,7 +784,7 @@ found_pstart:
   LoadGrLump(wad,"M_EPISOD");
   LoadGrLump(wad,"M_SGTTL");
 
-//numbers
+  //numbers
   LoadGrLump(wad,"STCFN048");
   LoadGrLump(wad,"STCFN049");
   LoadGrLump(wad,"STCFN050");
@@ -753,7 +796,7 @@ found_pstart:
   LoadGrLump(wad,"STCFN056");
   LoadGrLump(wad,"STCFN057");
 
-//letters
+  //letters
   LoadGrLump(wad,"STCFN065");
   LoadGrLump(wad,"STCFN066");
   LoadGrLump(wad,"STCFN067");
@@ -979,13 +1022,13 @@ skip_thing:
     name[8]=0;
     MemCpy(name,wside->middle_texture_name,8);
     Upper8(name);
-    dside->middle_texture[0]=FramePtr(name);
+    dside->middle_texture[0]=TextureName2DC(name);
     MemCpy(name,wside->upper_texture_name,8);
     Upper8(name);
-    dside->upper_texture[0]=FramePtr(name);
+    dside->upper_texture[0]=TextureName2DC(name);
     MemCpy(name,wside->lower_texture_name,8);
     Upper8(name);
-    dside->lower_texture[0]=FramePtr(name);
+    dside->lower_texture[0]=TextureName2DC(name);
 //https://doomwiki.org/wiki/Animated_wall
     for(x=0;x!=3;x++) {
       switch(x) {
@@ -1000,49 +1043,49 @@ skip_thing:
 	  MemCpy(name,wside->lower_texture_name,8);
       }
       if(!StrNCmp(name,"BLODGR1",5)) {
-        arr[0]=FramePtr("BLODGR1");
-        arr[1]=FramePtr("BLODGR2");
-        arr[2]=FramePtr("BLODGR3");
-        arr[3]=FramePtr("BLODGR4");
+        arr[0]=TextureName2DC("BLODGR1");
+        arr[1]=TextureName2DC("BLODGR2");
+        arr[2]=TextureName2DC("BLODGR3");
+        arr[3]=TextureName2DC("BLODGR4");
       }
       if(!StrNCmp(name,"BLODRIP1",7)) {
-        arr[0]=FramePtr("BLODRIP1");
-        arr[1]=FramePtr("BLODRIP2");
-        arr[2]=FramePtr("BLODRIP3");
-        arr[3]=FramePtr("BLODRIP4");
+        arr[0]=TextureName2DC("BLODRIP1");
+        arr[1]=TextureName2DC("BLODRIP2");
+        arr[2]=TextureName2DC("BLODRIP3");
+        arr[3]=TextureName2DC("BLODRIP4");
       }
       if(!StrNCmp(name,"FIREBLU1",7)) {
-        arr[0]=FramePtr("FIREBLU1");
-        arr[1]=FramePtr("FIREBLU2");
+        arr[0]=TextureName2DC("FIREBLU1");
+        arr[1]=TextureName2DC("FIREBLU2");
       }
       if(!StrNCmp(name,"FIRELAV3",7)) {
-        arr[0]=FramePtr("FIRELAVA3");
-        arr[1]=FramePtr("FIRELAVA");
+        arr[0]=TextureName2DC("FIRELAVA3");
+        arr[1]=TextureName2DC("FIRELAVA");
       }
       if(!StrNCmp("FIREMAG1",name,7)) {
-        arr[0]=FramePtr("FIREMAG1");
-        arr[1]=FramePtr("FIREMAG2");
-        arr[2]=FramePtr("FIREMAG3");
+        arr[0]=TextureName2DC("FIREMAG1");
+        arr[1]=TextureName2DC("FIREMAG2");
+        arr[2]=TextureName2DC("FIREMAG3");
       }
       if(!StrNCmp("FIREWALA",name,7)) {
-        arr[0]=FramePtr("FIREMALA");
-        arr[1]=FramePtr("FIREWALB");
-        arr[2]=FramePtr("FIREWALL");
+        arr[0]=TextureName2DC("FIREMALA");
+        arr[1]=TextureName2DC("FIREWALB");
+        arr[2]=TextureName2DC("FIREWALL");
       }
       if(!StrNCmp("GSTFONT1",name,7)) {
-        arr[0]=FramePtr("GSTFONT1");
-        arr[1]=FramePtr("GSTFONT2");
-        arr[2]=FramePtr("GSTFONT3");
+        arr[0]=TextureName2DC("GSTFONT1");
+        arr[1]=TextureName2DC("GSTFONT2");
+        arr[2]=TextureName2DC("GSTFONT3");
       }
       if(!StrNCmp("ROCKRED1",name,7)) {
-        arr[0]=FramePtr("ROCKRED1");
-        arr[1]=FramePtr("ROCKRED2");
-        arr[2]=FramePtr("ROCKRED3");
+        arr[0]=TextureName2DC("ROCKRED1");
+        arr[1]=TextureName2DC("ROCKRED2");
+        arr[2]=TextureName2DC("ROCKRED3");
       }
       if(!StrNCmp("SLADRIP1",name,7)) {
-        arr[0]=FramePtr("SLADRIP1");
-        arr[1]=FramePtr("SLADRIP2");
-        arr[2]=FramePtr("SLADRIP3");
+        arr[0]=TextureName2DC("SLADRIP1");
+        arr[1]=TextureName2DC("SLADRIP2");
+        arr[2]=TextureName2DC("SLADRIP3");
       }
     }
     dside_list[idx]=dside;

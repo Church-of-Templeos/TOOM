@@ -594,9 +594,9 @@ U0 CreatePuffTemplates() {
     blood_templates[i]=CAlloc(sizeof CDoomThingTemplate);
     blood_templates[i]->_animation=CAlloc(sizeof(CDoomAnimationFrame)*2);
     switch(i) {
-      case 0: what=FramePtr("BLUDA0"); break;
-      case 1: what=FramePtr("BLUDB0"); break;
-      case 2: what=FramePtr("BLUDC0"); break;
+      case 0: what=SpriteName2DC("BLUDA0"); break;
+      case 1: what=SpriteName2DC("BLUDB0"); break;
+      case 2: what=SpriteName2DC("BLUDC0"); break;
     }
     for(j=0;j!=8;j++) {
       blood_templates[i]->_animation->faces[j]=what;
@@ -607,10 +607,10 @@ U0 CreatePuffTemplates() {
     smoke_templates[i]=CAlloc(sizeof CDoomThingTemplate);
     smoke_templates[i]->_animation=CAlloc(sizeof(CDoomAnimationFrame)*2);
     switch(i) {
-      case 0: what=FramePtr("PUFFA0"); break;
-      case 1: what=FramePtr("PUFFB0"); break;
-      case 2: what=FramePtr("PUFFC0"); break;
-      case 3: what=FramePtr("PUFFD0"); break;
+      case 0: what=SpriteName2DC("PUFFA0"); break;
+      case 1: what=SpriteName2DC("PUFFB0"); break;
+      case 2: what=SpriteName2DC("PUFFC0"); break;
+      case 3: what=SpriteName2DC("PUFFD0"); break;
     }
     for(j=0;j!=8;j++) {
       smoke_templates[i]->_animation->faces[j]=what;

@@ -31,7 +31,7 @@ U0 MenuDraw(CDC *dc,CMenuItem *items,I64 offx,I64 offy,I64 cur_active=0) {
   I64 cnt=0,idx;
   h=offy*2;
   for(idx=0;items[idx].state!=-1;idx++) {
-    skull=FramePtr(items[idx].name);
+    skull=GetGrLump(items[idx].name);
     items[idx].gr=skull;
     items[idx].x=offx*2;
     items[idx].y=h;
@@ -39,9 +39,9 @@ U0 MenuDraw(CDC *dc,CMenuItem *items,I64 offx,I64 offy,I64 cur_active=0) {
     cnt++;
   }
   if(Blink)
-    skull=FramePtr("M_SKULL1");
+    skull=GetGrLump("M_SKULL1");
   else
-    skull=FramePtr("M_SKULL2");
+    skull=GetGrLump("M_SKULL2");
   for(idx=0;idx!=cnt;idx++) {
     GrBlot(dc,items[idx].x,items[idx].y,items[idx].gr);
     if(cur_active==idx) {

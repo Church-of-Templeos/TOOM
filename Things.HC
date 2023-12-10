@@ -2,7 +2,7 @@
 #define MONSTER_GR "Pushin P"
 //https://doomwiki.org/wiki/Thing_types
 #define THINGS_FILE "ThingProps.TXT"
-
+extern CDC SpriteName2DC(U8*);
 class CDoomAnimationFrame {
   U8 chr,pad[7];
   CDC *faces[8];
@@ -155,17 +155,17 @@ CDC *_GetThingFaceSprite(CDoomThingTemplate *template,F64 angle,U8 ani_frame='A'
 //TROO[frame]0 //All roations
   buttplate[5]='0';
   buttplate[6]=0;
-  if(ret=FramePtr(buttplate))
+  if(ret=SpriteName2DC(buttplate))
     return ret;
 //TROO[frame][rotaionface]
   buttplate[5]='0'+face;
-  if(ret=FramePtr(buttplate))
+  if(ret=SpriteName2DC(buttplate))
     return ret;
 //TROO[frame][rotaionface][frame][reflected_face]
   buttplate[6]=ani_frame;
   for(try_face=0;try_face!=9;try_face++) {
     buttplate[7]=try_face+'0';
-    if(ret=FramePtr(buttplate)) {
+    if(ret=SpriteName2DC(buttplate)) {
        if(reflect) *reflect=TRUE;
        return ret;
     }
@@ -174,7 +174,7 @@ CDC *_GetThingFaceSprite(CDoomThingTemplate *template,F64 angle,U8 ani_frame='A'
   buttplate[7]='0'+face;
   for(try_face=0;try_face!=9;try_face++) {
     buttplate[5]=try_face+'0';
-    if(ret=FramePtr(buttplate)) {
+    if(ret=SpriteName2DC(buttplate)) {
        return ret;
     }
   }

@@ -1128,16 +1128,16 @@ U0 DrawSky(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
   CDC *texture;
   switch(l->episode) {
    case 1:
-     texture=FramePtr("SKY1");
+     texture=GetGrLump("SKY1");
    break;
    case 2:
-     texture=FramePtr("SKY2");
+     texture=GetGrLump("SKY2");
    break;
    case 3:
-     texture=FramePtr("SKY3");
+     texture=GetGrLump("SKY3");
    break;
    case 5:
-     texture=FramePtr("SKY4");
+     texture=GetGrLump("SKY4");
    break;
   }
   I64 iy,ix,off=texture->width*cam->angle/pi,tx,ty;
@@ -2359,17 +2359,17 @@ CDC *AltSwitchTexture(U8 *txt,Bool on=FALSE) {
   I64 idx=40;
   while(idx--) {
     StrCpy(buf,switch_textures[idx]);
-    if(!FramePtr(buf))
+    if(!TextureName2DC(buf))
       goto skip;
-    if(FramePtr(buf)==txt&&!on) {
+    if(TextureName2DC(buf)==txt&&!on) {
       buf[2]='2';
-      return FramePtr(buf);
+      return TextureName2DC(buf);
     }
     if(on) {
       buf[2]='2';       
-      if(FramePtr(buf)==txt) {
+      if(TextureName2DC(buf)==txt) {
         buf[2]='1';
-        return FramePtr(buf);
+        return TextureName2DC(buf);
       }
     }
 skip:;
@@ -2869,48 +2869,6 @@ U0 FreeLevel(CDoomLevel *l) {
 
 
 //#include "Serialize.HC";
-
-U0 PauseMenu()
-{
- static CDC *save = FramePtr("M_SGTTL");
- static CDC *quit = FramePtr("M_QUITG");
-
- while(paused)
- {
-  //UpdateCameraFromPlayer(&cam,p);
-
-  DrawDoomWorld(&cam,l,doom_scrn);
-  GrBlot(doom_scrn,250,250,save);
-  GrBlot(doom_scrn,250,300,quit);
-  Sleep(120);
-
-  if(ms.pos.x>=250&&ms.pos.x<475) 
-  {
-   if(ms.pos.y>=250&&ms.pos.y<=280)
-   {
-     if(ms.lb)
-     {
-//      SaveGame();
-      paused=FALSE;
-      break;
-     }
-   }
-   if(ms.pos.y>=300&&ms.pos.y<=330)
-   {
-     if(ms.lb){
-      DCFill;
-      gameExit=TRUE;
-      break;
-     }
-   }
-  }
-  if(Bt(kbd.down_bitmap,Char2ScanCode(CH_ESC)&0xff)) {
-      //DCFill;
-      paused=FALSE;
-      break;
-  }
- }
-}      
 
 #include "Automap.HC";
 #include "Menu.HC";

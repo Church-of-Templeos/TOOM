@@ -1,17 +1,62 @@
 //
 // DELETETHISSTUFFWHENDONETESTIN
 //
-class CB
-{
-  I64 three;
-  I64 four;
+
+//extern class CDoomAnimationFrame;
+class CDoomThing:CQue {
+  F64 x,y,angle,height,health;/*
+  F64 momx,momy,momz; //Move momentum
+  F64 anim_start_tS;
+  CDoomAnimationFrame *animation;
+  U16 thing_type,pad[3];
+  CDoomThingTemplate *template;
+  I64 flags;
+  Bool solid,anim_no_repeat,pad[6];
+  U8 *thinker;*/
+};
+/*
+class CWadBSPNode {
+  I16 x,y;
+  I16 dx,dy;
+  CBoundBoxI16 left,right;
+//Dont ask me what these do
+  U16 left_child,right_child;
 };
 
-class CA
-{
-  U8 *one;
-  CB two;
+class CDoomSidedef:CQue {
+  I16 yoff,xoff;
+  CDC *upper_texture[4]; //These are for animations
+  CDC *lower_texture[4];
+  CDC *middle_texture[4];
+  CDoomSector *sector;
 };
+*/
+
+class CDoomLevel 
+{
+  CQue things;/*//sidedefs;
+  CQue subsectors;
+  CQue bsp_nodes;
+  CQue thinkers;
+  CDoomBSPSeg *segs;
+  CQue sectors;
+  CDoomBSPNode *root_node;
+  I64 vertice_cnt;
+  CD2 *vertices;
+  CQue linedefs;
+ I64 block_map_x_off,block_map_y_off;
+  I64 block_map_cols,block_map_rows;
+  I64 *block_map_offsets;
+  I64 skill,episode;
+  CDoomSector **block_map_data;
+  CDoomLinedef **action_linedefs;
+  CLevelStats stats;
+//ended is TRUE if we exited the level by pressing a button etc
+  Bool has_red_key,has_blue_key,has_yellow_key,ended;
+  U8 map_name[5]; //EXMY
+ */
+};
+
 
 class AmmoType{
   U64 ammo;
@@ -40,18 +85,6 @@ class CDoomThingTemplate {
   I64 flags;
 } *doom_thing_types[0x10000];
 
-//extern class CDoomAnimationFrame;
-class CDoomThing:CQue {
-  F64 x,y,angle,height,health;
-  F64 momx,momy,momz; //Move momentum
-  F64 anim_start_tS;
-  //CDoomAnimationFrame *animation;
-  U16 thing_type,pad[3];
-  CDoomThingTemplate *template;
-  I64 flags;
-  Bool solid,anim_no_repeat,pad[6];
-  U8 *thinker;
-};
 class CDoomPlayer:CDoomThing 
 {
   F64 armor;
@@ -65,8 +98,8 @@ CDoomPlayer *PlayerNew() {
   U16 gunsInit=0;
   CDoomPlayer *p=CAlloc(sizeof(CDoomPlayer));
   //QueIns(p,&l->things);
-  p->template=doom_thing_types[1];
-  p->flags|=TF_SHOOTABLE;
+  //p->template=doom_thing_types[1];
+  //p->flags|=TF_SHOOTABLE;
   p->health=100;
   p->armor=100;
   p->arsenal=CAlloc(sizeof(GunAvail*)*8);  
@@ -144,8 +177,7 @@ CDoomPlayer *PlayerNew() {
 class SaveGame
 {
   CDoomPlayer *p;
-  //CDoomCamera *c;
-  //CDoomLevel *l;
+  CDoomLevel *l;
 };
 
 U8 *ReadALine(U8 **fbuf)
@@ -198,12 +230,25 @@ SaveGame *LoadGame(U8 *fileptr)
 
 
 }
-U8 *Bin2Str(U8 *data,I64 len) {
+
+U8 *Bin2Str(U8 *data,I64 len)
+{
+  U8 *str=CAlloc(len*2+1);
+  I64 idx=0;
+  for(idx=0;idx!=len;idx++) {
+    CatPrint(str,"%X%X",data[idx]>>4,data[idx]&0b1111);
+  }
+  return str;
+}
+
+U8 *Bin2StrOld(U8 *data,I64 len)
+{
   U8 *str=CAlloc(len*2+1);
   while(--len>=0)
     CatPrint(str,"%X",data[len]);
   return str;
 }
+
 U8 *DumpClass(U8 *ptr, U8 *lc=lastclass)
 {
  CHashClass *cls=HashFind(lc,Fs->hash_table,HTT_CLASS);
@@ -232,21 +277,126 @@ U8 *DumpClass(U8 *ptr, U8 *lc=lastclass)
  return stringToWrite; 
 }
 
-U0 SaveGame()//in final product, pass in the SaveGame components
-{
+U8 *Str2Bin(U8 *data,I64 len) {
+  
+  U8 *bin=CAlloc(len>>1);
+  U8 buf[3];
+  buf[2]=0;
+  I64 idx=0,v;
+  for(idx=0;idx!=len;idx++) {
+    buf[0](U16)=data[idx*2](U16);
+    v=Str2I64(buf,16);
+    bin[idx]=v;
+  }
+  return bin;
+}
 
-  CDoomPlayer *p = PlayerNew(); 
-  Print(DumpClass(&p));
 
-  //CA *main = MAlloc(sizeof(CA));
-  //main->two = MAlloc(sizeof(CB));
-  //DumpClass(&main);
-  //Free(main->two);
-  //Free(main);
+U0 LoadClassRlizzler(U8 *to, U8 *lc=lastclass) {
+  I64 i;
+  CHashClass *cls=HashFind(lc,Fs->hash_table,HTT_CLASS);
+  CMemberLst *mlst;
+  U8 **ptr_ptr;
+  while(cls)
+  {
+   for(mlst=cls->member_lst_and_root;mlst;mlst=mlst->next)
+   {
+     if(mlst->member_class->ptr_stars_cnt) {
+      ptr_ptr=to+mlst->offset;
+      "%s,At %P we have %P\n",mlst->str,to+mlst->offset,*ptr_ptr;
+     }
+   }
+   cls=cls->base_class;
+  } 
+}
 
 
-  //Need to Free Player in the main game
+U0 LoadClass(U8 *buffer,U8 *to,U8 *lc=lastclass) {
+ CHashClass *cls=HashFind(lc,Fs->hash_table,HTT_CLASS);
+ CMemberLst *mlst;
+ U8 mname[STR_LEN],*mname_ptr=mname,*bin,*en;
+ I64 off,rt,stars,dim;
+ while(cls)
+ {
+  for(mlst=cls->member_lst_and_root;mlst;mlst=mlst->next)
+  {
+    buffer=StrScan(buffer,"%s,%d,%d,%d,%d(",&mname_ptr,&off,&rt,&stars,&dim);
+    en=StrFirstOcc(buffer,")");
+    if(!en) throw('Serial');
+    bin=Str2Bin(buffer,en-buffer);$LK,"",A="FI:"$
+    MemCpy(to+off,bin,(en-buffer)/2); //2 digits per byte
+    Free(bin);
+    buffer=en+1;
+  }
+  cls=cls->base_class;
+ }
+ LoadClassRlizzler(to,lc); 
  
 }
 
-SaveGame;
+
+CDoomLevel *TESTLoadWadThings()
+{
+  CDoomLevel *l = MAlloc(sizeof(CDoomLevel));
+  QueInit(&l->things);
+  CDoomThing *thing = MAlloc(sizeof(CDoomThing));
+  thing->x = 10;
+  thing->y = 20;
+  thing->angle = 42.69;
+
+  QueIns(thing,l->things.last);
+  return l;
+
+}
+
+U0 SaveGame(U8 *filename)//in final product, pass in the SaveGame components
+{
+
+  CDoomPlayer *p = PlayerNew(),p2;
+  //CDoomLevel *l = TESTLoadWadThings();
+
+  
+  U8 *ser;
+  ser=DumpClass(p);
+
+  //U8 *ser2;
+  //ser2=DumpClass(l);
+  Print(ser);
+
+  if(!FileFind("/Saves")) DirMk("/Saves");
+
+  CDoc *doc=DocNew(MStrPrint("%s%s%s","/Saves/",filename,".DD"));
+  DocPrint(doc,"[PLAYER]:\n%s\n",ser);
+  //DocPrint(doc,"[LEVEL]:\n%s\n",ser2);
+  DocWrite(doc); //Write to disk
+  DocDel(doc);
+   
+  Free(ser);
+}
+
+U0 LoadPreviousGame(U8 *filename)
+{
+  if(!FileFind(filename)) return;
+
+  CDoc *doc = DocRead(filename);
+  U8 *ser = DocSave(doc);
+  U8 *optr = ser;
+
+  CDoomPlayer pl;
+  //CDoomLevel l;
+
+  U8 buf[STR_LEN],*buf_ptr=buf;;
+  ser=StrScan(ser,"[%s]:\n",&buf_ptr);//str scan moves the original ptr
+  if(!StrCmp(buf,"PLAYER")) Beep;
+
+  LoadClass(ser,&pl);
+  //LoadClass2(ser,&pl);
+  ClassRep(&pl);
+  DocDel(doc);
+
+  Free(optr);
+ 
+}
+
+SaveGame("test");
+LoadPreviousGame("/Saves/test.DD");

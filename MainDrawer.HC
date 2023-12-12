@@ -1136,7 +1136,7 @@ U0 DrawSky(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
    case 3:
      texture=GetGrLump("SKY3");
    break;
-   case 5:
+   case 4:
      texture=GetGrLump("SKY4");
    break;
   }

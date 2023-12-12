@@ -153,8 +153,9 @@ againm:;
         "M_RDTHIS",'RDTHIS','r',
         "M_QUITG",'QUITG','q'
         );
-  U8 level[STR_LEN];
-  U64 r;
+  U8 level[STR_LEN],next=FALSE;
+  U64 r,a,b;
+  CDC *dc;
   switch(state) {
     case 0:
       r=MenuInteract(gr.dc,items,97,67);
@@ -165,34 +166,65 @@ againm:;
       } else if(r=='SAVEG') {
 //TODO
       } else if(r=='RDTHIS') {
+        state=4;
       } else if(r=='QUITG') {
         DCFill;
         Exit;
       } else if(!r)
-	return 0;
-     break;
+        return 0;
+      break;
     case 1:
       ep=EpisodeMenu;
       if(ep&&ep!=INVALID_PTR) {
         state=2;
       } else if(!ep)
-	state=0;
+        state=0;
       break;
     case 2:
       s=NewGameMenu;
       if(s&&s!=INVALID_PTR) {
-	state=0;
+        state=0;
         StrPrint(level,"E%cM1",ep);
-	  if(l)
-	    FreeLevel(l);
-	  active_menu=NULL;
-          l=LoadWadLevel(wad,level,s-'1'+1);
+        if(l)
+	  FreeLevel(l);
+        active_menu=NULL;
+        l=LoadWadLevel(wad,level,s-'1'+1);
 //This will check if we are in a level,otherwise the world is just swapped with l
-          PlayLevel;
-          return 0;
+        PlayLevel;
+        return 0;
       } else if(!s)
-	state=1;
+        state=1;
       break;
+    start:
+      switch(ScanMsg(&a,&b)) {
+        case MSG_KEY_DOWN:
+	  if(a=='\n')
+	    next=TRUE;
+	  else if(a==CH_ESC)
+	    next=TRUE;
+	  break;
+        case MSG_MS_L_DOWN:
+	  next=TRUE;
+	  break;
+      }
+      case 4:
+        dc=GetGrLump("HELP1");
+        GrBlot(,0,0,dc);
+        if(next) {
+          state=5;
+	  FlushMsgs;
+	}
+        break;
+      case 5:
+        dc=GetGrLump("HELP2");
+        GrBlot(,0,0,dc);
+        if(next) {
+	  state=0;
+	  FlushMsgs;
+	}
+        break;
+    end:
+      ;
   }
   return INVALID_PTR;
 }

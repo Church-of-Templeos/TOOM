@@ -20,10 +20,7 @@ CWad *LoadWad(U8 *filename) {
   wad_cnt++;
 }
 
-if(FileFind("DOOM.WAD"))
-  LoadWad("DOOM.WAD");
-else
-  LoadWad("freedoom1.wad");
+#include "ModMan.HC";
 
 
 #define TICK_TIME (1/30.)

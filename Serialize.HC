@@ -92,6 +92,7 @@ class CDoomPlayer:CDoomThing
   CDoomThing *stare_at;
   GunAvail **arsenal;
   Bool running,made_a_sound;
+  CQue dummy_que;
 };
 
 CDoomPlayer *PlayerNew() {
@@ -249,32 +250,41 @@ U8 *Bin2StrOld(U8 *data,I64 len)
   return str;
 }
 
-U8 *DumpClass(U8 *ptr, U8 *lc=lastclass)
+U8 *DumpClass(U8 *ptr, U8 *lc=lastclass,I64 off=0)
 {
- CHashClass *cls=HashFind(lc,Fs->hash_table,HTT_CLASS);
- CMemberLst *mlst;
- U8 *stringToWrite = NULL,*data,*tmp;
- I64 len,total;
- if(!cls) return;
- while(cls)
- {
-  for(mlst=cls->member_lst_and_root;mlst;mlst=mlst->next)
-  {
-   tmp = MStrPrint("%s%s,%d,%d,%d,%d(%s)\n",stringToWrite,
-	mlst->str,
-	mlst->offset,
-	mlst->member_class->raw_type,
-	mlst->member_class->ptr_stars_cnt,
-	mlst->dim.total_cnt,
-	data=Bin2Str(ptr+mlst->offset,mlst->size));
-   Free(stringToWrite); //Free old value
-   Free(data);
-   stringToWrite=tmp;   
+  CHashClass *cls=HashFind(lc,Fs->hash_table,HTT_CLASS),*cls2;
+  CMemberLst *mlst;
+  U8 *stringToWrite = NULL,*data,*tmp;
+  I64 len,total;
+  if(!cls) return;
+  cls=OptClassFwd(cls);
+  while(cls)
+    {
+    for(mlst=cls->member_lst_and_root;mlst;mlst=mlst->next)
+      {
+      cls2=mlst->member_class;
+      cls2=OptClassFwd(cls2);
+      if(cls2->ptr_stars_cnt||cls2->type&HTT_INTERNAL_TYPE) {
+"%d,%d\n",off,mlst->offset;
+        tmp = MStrPrint("%s%s,%d,%d,%d,%d(%s)\n",stringToWrite,
+	      mlst->str,
+	      off+mlst->offset,
+	      mlst->member_class->raw_type,
+	      mlst->member_class->ptr_stars_cnt,
+	      mlst->dim.total_cnt,
+	      data=Bin2Str(ptr+mlst->offset+off,mlst->size));
+        Free(data);
+      } else {
+	tmp=MStrPrint("%s%s",stringToWrite,data=DumpClass(ptr+mlst->offset+off,cls2->str,off+mlst->offset));
+        Free(data);
+      }
+      Free(stringToWrite); //Free old value
+      stringToWrite=tmp;   
+    }
+    cls=cls->base_class;
   }
-  cls=cls->base_class;
- }
 
- return stringToWrite; 
+  return stringToWrite; 
 }
 
 U8 *Str2Bin(U8 *data,I64 len) {
@@ -290,13 +300,13 @@ U8 *Str2Bin(U8 *data,I64 len) {
   }
   return bin;
 }
-
-
+//The address to patch,and the wanted pointer
+//The pointer from the disk
 U0 LoadClassRlizzler(U8 *to, U8 *lc=lastclass) {
   I64 i;
   CHashClass *cls=HashFind(lc,Fs->hash_table,HTT_CLASS);
   CMemberLst *mlst;
-  U8 **ptr_ptr;
+  U8 **ptr_ptr,*tmp;
   while(cls)
   {
    for(mlst=cls->member_lst_and_root;mlst;mlst=mlst->next)
@@ -304,36 +314,97 @@ U0 LoadClassRlizzler(U8 *to, U8 *lc=lastclass) {
      if(mlst->member_class->ptr_stars_cnt) {
       ptr_ptr=to+mlst->offset;
       "%s,At %P we have %P\n",mlst->str,to+mlst->offset,*ptr_ptr;
+      tmp=MStrPrint("RelocFor.%X",to+mlst->offset);
+      FramePtrAdd(tmp,*ptr_ptr);
+      Free(tmp);
      }
    }
    cls=cls->base_class;
   } 
 }
+$SP,"<1>",BI=1$$PB$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//FramePtr(Ptr.[disk_ptr])==new_loaded_ptr
+U8 *MapPointerFromDiskToMem(U8 *disk) {
+  CHashTable *tab=Fs->hash_table;
+  U8 buf[STR_LEN],*buf_ptr=buf;
+  U8 *value;
+  I64 bucket,best_dist=I64_MAX;
+  CHashGeneric *tmph,*best=NULL;
+  for(bucket=0;bucket<=tab->mask;bucket++) {
+    for(tmph=tab->body[bucket];tmph;tmph=tmph->next) {
+      if(StrOcc(tmph->str,'.')) {
+        StrScan(tmph->str,"%s.%X",&buf_ptr,&value);
+        if(!StrCmp("Ptr",buf)) {
+"%x,%x\n",value,disk;
+	  if(value<=disk) {
+	    if(disk-value<best_dist) {
+	      best_dist=disk-value;
+	      best=tmph;
+	    }
+	  }
+        }
+      }
+    }
+  }
+  if(best) 
+    return best->user_data0+best_dist;
+  return NULL;
+}
+U0 PatchItems() {
+  CHashTable *tab=Fs->hash_table;
+  U8 buf[STR_LEN],*buf_ptr=buf;
+  U8 **value,*new_ptr;
+  I64 bucket;
+  CHashGeneric *tmph;
+  for(bucket=0;bucket<=tab->mask;bucket++) {
+    for(tmph=tab->body[bucket];tmph;tmph=tmph->next) {
+      if(StrOcc(tmph->str,'.')) {
+        StrScan(tmph->str,"%s.%X",&buf_ptr,&value);
+	if(!StrCmp("RelocFor",buf)) {
+	   new_ptr=MapPointerFromDiskToMem(tmph->user_data0);
+	   *value=new_ptr;
+        }
+      }
+    }
+  }
+}
+
 
 
 U0 LoadClass(U8 *buffer,U8 *to,U8 *lc=lastclass) {
- CHashClass *cls=HashFind(lc,Fs->hash_table,HTT_CLASS);
- CMemberLst *mlst;
- U8 mname[STR_LEN],*mname_ptr=mname,*bin,*en;
- I64 off,rt,stars,dim;
- while(cls)
- {
-  for(mlst=cls->member_lst_and_root;mlst;mlst=mlst->next)
-  {
+  CHashClass *cls=HashFind(lc,Fs->hash_table,HTT_CLASS);
+  CMemberLst *mlst;
+  U8 mname[STR_LEN],*mname_ptr=mname,*bin,*en;
+  I64 off,rt,stars,dim;
+  while(*buffer&&*buffer!='\n'&&*buffer!='[') {
     buffer=StrScan(buffer,"%s,%d,%d,%d,%d(",&mname_ptr,&off,&rt,&stars,&dim);
     en=StrFirstOcc(buffer,")");
     if(!en) throw('Serial');
     bin=Str2Bin(buffer,en-buffer);$LK,"",A="FI:"$
     MemCpy(to+off,bin,(en-buffer)/2); //2 digits per byte
     Free(bin);
-    buffer=en+1;
+    buffer=en+2; //Skip )\n
   }
-  cls=cls->base_class;
- }
- LoadClassRlizzler(to,lc); 
- 
-}
+  LoadClassRlizzler(to,lc); 
 
+}
 
 CDoomLevel *TESTLoadWadThings()
 {
@@ -354,10 +425,13 @@ U0 SaveGame(U8 *filename)//in final product, pass in the SaveGame components
 
   CDoomPlayer *p = PlayerNew(),p2;
   //CDoomLevel *l = TESTLoadWadThings();
+  QueInit(p);
+  QueInit(&p->dummy_que);
 
   
   U8 *ser;
   ser=DumpClass(p);
+  QueCnt(&p->dummy_que);
 
   //U8 *ser2;
   //ser2=DumpClass(l);
@@ -366,8 +440,8 @@ U0 SaveGame(U8 *filename)//in final product, pass in the SaveGame components
   if(!FileFind("/Saves")) DirMk("/Saves");
 
   CDoc *doc=DocNew(MStrPrint("%s%s%s","/Saves/",filename,".DD"));
-  DocPrint(doc,"[PLAYER]:\n%s\n",ser);
-  //DocPrint(doc,"[LEVEL]:\n%s\n",ser2);
+  DocPrint(doc,"[PLAYER.%X]:\n%s\n",p,ser);
+//  DocPrint(doc,"[LEVEL.%X]:\n%s\n",ser2,);
   DocWrite(doc); //Write to disk
   DocDel(doc);
    
@@ -386,10 +460,14 @@ U0 LoadPreviousGame(U8 *filename)
   //CDoomLevel l;
 
   U8 buf[STR_LEN],*buf_ptr=buf;;
-  ser=StrScan(ser,"[%s]:\n",&buf_ptr);//str scan moves the original ptr
-  if(!StrCmp(buf,"PLAYER")) Beep;
+  U8 *disk_address;
+  ser=StrScan(ser,"[%s.%X]:\n",&buf_ptr,&disk_address);//str scan moves the original ptr
+  StrPrint(buf,"Ptr.%X",disk_address);
+  FramePtrAdd(buf,&pl);
 
   LoadClass(ser,&pl);
+  
+  PatchItems;
   //LoadClass2(ser,&pl);
   ClassRep(&pl);
   DocDel(doc);
@@ -399,4 +477,4 @@ U0 LoadPreviousGame(U8 *filename)
 }
 
 SaveGame("test");
-LoadPreviousGame("/Saves/test.DD");
+LoadPreviousGame("/Saves/test.DD");        ”     	Ë  G      ó¶ÍÛ¶­Û¼­][×®mÛæÿÿ?OÒ$I’4I’$I’$i’$I&‰HŠ$I’'I“$IÒ$IÒ$IÒ$I’$É“<É“$M’$I’$IÒ$I‘$I’$I’$I’$I’$I’$I2I%I˜$I˜I’$I¶mÛ°Û†mÃ¶aÛ¶aÛ¶Û¶mØ¶mØ¶mÛæmÛ¼­Ûºm›·mÛ¶mÛ¶mÛ¶mÛ¶mÛ¶mÛ¶mÛ¶u[·u›·mÛ 	!   `      ömÚ¶mÛ¶mÛ¶mÛ	+          ¶mÛ¶mÛ¶mÛ¶mÛ¶mÛö 	   µ   #   ¶m›¶oÛ	!   ´   -   ‘`CmÛl	   Ã   +   R$É’$Ù 	   ½       äI’'	   Ñ   &   ë¶Í¶m	   ¹   9   I	   ±   8   ¤D’$y	   Æ   9   L’$É 	   Î   2   umÛ$)2Ò¶nÛ<	V   &      ¤mÛ¦oÛ¶mÛ·}Û¶íÛ´mÛ¶mÛ¶mÛ¶mÛ¶mÛ¶í	      d   ´mÛ´mß¶mÛ6	#   "   r   ’(Š¢˜l  `Øæ­«	   /   b   ´m›¶M	*   ;   h   $yÛìºmC$IÒþOž4	?   G   e   ôMßôM’”’$I’Ì¶mÛ¶}Û6mßµm	6   d   j   É¶ns»µ#Éó$Ïm]gÛ¾mž$I	   j   x   d’$AÂ„¤D’   

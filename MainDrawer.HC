@@ -81,6 +81,7 @@ class CVisplane {
 I64 class CWallCommand {
   I16 start,end;
   I32 dist;
+  CDoomLinedef *ld;
 };
 
 
@@ -512,7 +513,6 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  vp=&cam->visplanes[sd->sector->visplane_idx];
           if(vp->sector_limits[ix>>1]<idist||vp->sector_limits[ix>>1]==I32_MAX)
 	    vp->sector_limits[ix>>1]=idist;
-          ld->seen=TRUE; //$BK,1$TODO Something more ellobarote$BK,0$
 	  for(ty=0;ty!=2;ty++) {
 	    if(!ty)
 	      ih2=0;
@@ -628,6 +628,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  }
 
           wall_cmd=&cam->wall_commands[ix>>1][cam->wall_command_cnts[ix>>1]];
+	  wall_cmd->ld=ld;
 	  wall_cmd->end=0;
 	  wall_cmd->start=GR_HEIGHT;
 	  wall_cmd->dist=idist;
@@ -1164,30 +1165,53 @@ skip:;
   }
 }
 
-U0 WallCmdSort(CWallCommand a,CWallCommand b) {
-  if(a.start==b.start) {
-    return a.end-b.end;
+U0 WallCmdSort(CWallCommand *a,CWallCommand *b) {  
+  if(a->start==b->start) {
+    return a->end-b->end;
   }
-  return a.start-b.start;
+  return a->start-b->start;
+}
+Bool WallCmdIsCovered(CWallCommand *others,CWallCommand *wall,I64 cnt) {
+  I64 idx;
+  Bool visible=FALSE;
+  I64 y=ClampI64(wall->start,0,GR_HEIGHT/2),ey=ClampI64(wall->end,0,GR_HEIGHT/2);
+  I64 a,b;
+  U8 check[GR_HEIGHT/2];
+  CWallCommand *other;
+  MemSet(check,0,GR_HEIGHT/2);
+  MemSet(check+y,TRUE,ey-y);
+  for(idx=0;idx!=cnt;idx++) {
+    other=&others[idx];
+    if(other!=wall&&other->dist<wall->dist) {
+      a=ClampI64(other->start,0,GR_HEIGHT/2);
+      b=ClampI64(other->end,0,GR_HEIGHT/2);
+      MemSet(check+a,FALSE,b-a);
+    }
+  }
+  while(y<ey)
+    if(check[y++])
+      return FALSE;
+  return TRUE;
 }
 U0 MergeWallCommands(CDoomCamera *cam) {
   I64 i=0,i2,cnt,new_cnt;
   CWallCommand *cmds;
   for(i=0;i!=GR_WIDTH/2;i++) {
-    QSortI64(cmds=cam->wall_commands[i],cnt=cam->wall_command_cnts[i],&WallCmdSort);
-/*PrintI("x",i*2);
-    for(i2=1;i2<cnt;i2++) {
-      if(cmds[new_cnt].end>=cmds[i2].end) {
-//Reject it
+    cmds=&cam->wall_commands[i];
+    QSort(cmds,cnt=cam->wall_command_cnts[i],sizeof(CWallCommand),&WallCmdSort);
+    new_cnt=0;
+    for(i2=0;i2!=cnt;i2++) {
+      if(WallCmdIsCovered(cmds,&cmds[i2],cnt)) {
+        ; //Exclude from result
       } else {
-DbgPrint("s:%d,e:%d",cmds[new_cnt].start,cmds[new_cnt].end);
-        cmds[++new_cnt]=cmds[i2];
+        if(new_cnt!=i2)
+	  MemCpy(&cmds[new_cnt],&cmds[i2],sizeof CWallCommand);
+        new_cnt++;
       }
     }
-    cam->wall_command_cnts[i]=new_cnt+1;*/
+    cam->wall_command_cnts[i]=new_cnt;
   }
 }
-
 U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   CDoomSector *sector;  
   CDoomThing *thing;
@@ -1244,6 +1268,12 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
       DrawAThing(to_dc,thing,cam);
   }
   DrawSky(to_dc,l,cam);
+  for(idx=0;idx!=GR_WIDTH/2;idx++) {
+    for(idx2=0;idx2!=cam->wall_command_cnts[idx];idx2++) {
+//Earlier we trimmed out the hidden wall commands that are behind walls
+	cam->wall_commands[idx][idx2].ld->seen=TRUE;
+    }
+  }
   LBtr(&doom_scrn_in_draw,0);
 }
 
@@ -2125,7 +2155,6 @@ lactivate:
 	    s->speed=lift->speed;
 	    s->cur_action_linedef=ld;
 	    s->wait_time=lift->delay;
-PrintF("d",lift->delay);
 	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
 	    break; case 'S1':
 	    if(!(flags&WACTIVATE_SWITCH)) return;

@@ -27,10 +27,8 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
   p->flags|=TF_SHOOTABLE;
   p->health=100;
   p->armor=0;
-  p->arsenal=CAlloc(sizeof(GunAvail*)*8);  
   for(gunsInit=0;gunsInit<8;gunsInit++)
   {
-    p->arsenal[gunsInit] = CAlloc(sizeof(GunAvail));
     //p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));
     //p->arsenal[gunsInit]->load->ammo=999;
     //p->arsenal[gunsInit]->load->baseDamage=2;
@@ -39,48 +37,48 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
     switch(gunsInit)
     {
       case 0://fists
-	p->arsenal[gunsInit]->available = TRUE;
-        p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));    
-        p->arsenal[gunsInit]->load->ammo=0;
-        p->arsenal[gunsInit]->baseDamage=2;
-        p->arsenal[gunsInit]->load->splash=FALSE;   
+	p->arsenal[gunsInit].available = TRUE;
+        p->arsenal[gunsInit].load = CAlloc(sizeof(AmmoType));
+        p->arsenal[gunsInit].load->ammo=0;
+        p->arsenal[gunsInit].baseDamage=2;
+        p->arsenal[gunsInit].load->splash=FALSE;   
         break;
       case 1://pistol
-	p->arsenal[gunsInit]->available = TRUE;
-        p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));
-        p->arsenal[gunsInit]->load->ammo=50;
-        p->arsenal[gunsInit]->baseDamage=4;
-        p->arsenal[gunsInit]->load->splash=FALSE;   
+	p->arsenal[gunsInit].available = TRUE;
+        p->arsenal[gunsInit].load = CAlloc(sizeof(AmmoType));
+        p->arsenal[gunsInit].load->ammo=50;
+        p->arsenal[gunsInit].baseDamage=4;
+        p->arsenal[gunsInit].load->splash=FALSE;   
         break;
       case 2://shotgun
-        p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));
-        p->arsenal[gunsInit]->load->ammo=0;
-        p->arsenal[gunsInit]->baseDamage=4;
-        p->arsenal[gunsInit]->load->splash=FALSE;   
+        p->arsenal[gunsInit].load = CAlloc(sizeof(AmmoType));
+        p->arsenal[gunsInit].load->ammo=0;
+        p->arsenal[gunsInit].baseDamage=4;
+        p->arsenal[gunsInit].load->splash=FALSE;   
         break;
       case 3://chaingun
-        p->arsenal[gunsInit]->load = p->arsenal[1]->load;
-        p->arsenal[gunsInit]->baseDamage=4;
+        p->arsenal[gunsInit].load = p->arsenal[1].load;
+        p->arsenal[gunsInit].baseDamage=4;
         break;
       case 4://rocket launcher
-        p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));
-        p->arsenal[gunsInit]->load->ammo=0;
-        p->arsenal[gunsInit]->baseDamage=20;
-        p->arsenal[gunsInit]->load->splash=TRUE;
+        p->arsenal[gunsInit].load = CAlloc(sizeof(AmmoType));
+        p->arsenal[gunsInit].load->ammo=0;
+        p->arsenal[gunsInit].baseDamage=20;
+        p->arsenal[gunsInit].load->splash=TRUE;
         break;
       case 5://chainsaw
-        p->arsenal[gunsInit]->load = p->arsenal[0]->load;
-        p->arsenal[gunsInit]->baseDamage=3;
+        p->arsenal[gunsInit].load = p->arsenal[0].load;
+        p->arsenal[gunsInit].baseDamage=3;
         break;
       case 6://plasma
-        p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));
-        p->arsenal[gunsInit]->load->ammo=0;
-        p->arsenal[gunsInit]->baseDamage=5;
-        p->arsenal[gunsInit]->load->splash=FALSE;
+        p->arsenal[gunsInit].load = CAlloc(sizeof(AmmoType));
+        p->arsenal[gunsInit].load->ammo=0;
+        p->arsenal[gunsInit].baseDamage=5;
+        p->arsenal[gunsInit].load->splash=FALSE;
         break;
       case 7://bfg
-        p->arsenal[gunsInit]->load = p->arsenal[6]->load;
-        p->arsenal[gunsInit]->baseDamage=100;
+        p->arsenal[gunsInit].load = p->arsenal[6].load;
+        p->arsenal[gunsInit].baseDamage=100;
         break;
     }
 

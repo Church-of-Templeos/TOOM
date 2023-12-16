@@ -1,5 +1,5 @@
 
-if(FileFind("DOOM.WAD"))
+if(FileFind("DOOM.WAD"))
 {
   LoadWad("DOOM.WAD");
 }

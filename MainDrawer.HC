@@ -9,6 +9,7 @@ U0 DbgPrint(U8*,...) {}
 #ifndef MemSetI64
 #define MemSetI64 MemSetU64
 #endif
+#include "Serialize.HC";
 #include "FastTrig.HC";
 #include "Wad.HC";
 #include "Intermission.HC";
@@ -58,7 +59,7 @@ class CDoomPlayer:CDoomThing {
   F64 armor;
 //When you die,the player stares at the thing that killed the player
   CDoomThing *stare_at;
-  GunAvail **arsenal;
+  GunAvail arsenal[8];
   Bool running,made_a_sound;
 };
 
@@ -1849,9 +1850,7 @@ U0 BuildStairs(CDoomLevel *l,CDoomLinedef *ld) {
       s2=s;
 loop:
       step+=st->step;
-      PrintF("s",s2);
-      PrintF("step",step);
-      think=AddThinker(l,&StairThinker,sizeof(CStairsThinker));
+      think=AddThinker(l,&StairThinker,"CStairsThinker");
       think->start_h=s->floor_height;
       think->start_tS=tS;
       think->target_h=step;
@@ -1919,7 +1918,7 @@ U0 TeleportThing(CDoomLevel *l,CDoomTeleporter *tp,I64 sector_tag,CDoomThing *wh
 	   fog->x=cur->x;
 	   fog->y=cur->y;
 	   fog->anim_start_tS=tS;
-	   fog->thinker=AddThinker(l,&TeleportFogThinker,sizeof CTeleportThinker);
+	   fog->thinker=AddThinker(l,&TeleportFogThinker,"CTeleportThinker");
 	   fog->thinker(CTeleportThinker*)->fog=fog;
 	 }
 	 return;
@@ -2072,7 +2071,7 @@ donut_activate:
 	    if(s->cur_action_linedef)
 	      return;
 	    s->cur_action_linedef=ld;
-            dt=AddThinker(l,&DonutThinker,sizeof(CDonutThinker));
+            dt=AddThinker(l,&DonutThinker,"CDonutThinker");
 	    dt->ld=ld;
 	    dt->start_tS=tS;
 	    break; case 'S1':
@@ -2405,12 +2404,18 @@ skip:;
   }
   return NULL;
 }
+class CButtonThinker:CDoomThinkerBase {
+  CDoomSector *s;
+  F64 switch_tS;
+  I64 which_part;
+  Bool repeat;  
+};
 
-U0 ButtonThinker(CDoomLevel *l,CDoomThinker *t) {
-  CDoomSidedef *sd=t->user_data1;
-  Bool repeat=t->user_data2;
-  F64 reset_time=t->user_data3(F64);
-  I64 which_texture=t->user_data4;
+U0 ButtonThinker(CDoomLevel *l,CButtonThinker *t) {
+  CDoomSidedef *sd=t->s;
+  Bool repeat=t->repeat;
+  F64 reset_time=t->switch_tS;
+  I64 which_texture=t->which_part;
   U8 on_off_idx='2'; 
   CDC *dc;
   if(!repeat) {
@@ -2446,11 +2451,11 @@ set_and_ret:
   goto set_and_ret;
 }
 U0 AddButtonThinker(CDoomLevel *l,CDoomSidedef *s,I64 which_part,Bool repeat=TRUE) {
-  CDoomThinker *t=AddThinker(l,&ButtonThinker);
-  t->user_data1=s;
-  t->user_data2=repeat;
-  t->user_data3(F64)=tS+2.;
-  t->user_data4=which_part;
+  CButtonThinker *t=AddThinker(l,&ButtonThinker,"CButtonThinker");
+  t->s=s;
+  t->repeat=repeat;
+  t->switch_tS=tS+2.;
+  t->which_part=which_part;
 }
 
 U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags,CDoomThing *who) {
@@ -2488,11 +2493,11 @@ U0 CheckPowerupPickup(CDoomLevel *l) {
     if(SqrI64(2*t->template->radius)>=SqrI64(p->x-t->x)+SqrI64(p->y-t->y)) {
       switch(t->template->type) {
         case 2006: //BFG
-	  new_gun=!p->arsenal[7]->available;
-	  p->arsenal[7]->available=TRUE;
+	  new_gun=!p->arsenal[7].available;
+	  p->arsenal[7].available=TRUE;
 	  picked_up_gun=7;
 cell:
-	  load=p->arsenal[6]->load;
+	  load=p->arsenal[6].load;
 	  orig=load->ammo;
 	  if(l->skill==0||l->skill==5)
 	    load->ammo+=40;
@@ -2508,9 +2513,9 @@ rem:
 	  }
 	  break;
         case 2002: //Chaingun
-	  new_gun=!p->arsenal[3]->available;
-	  load=p->arsenal[3]->load;
-	  p->arsenal[3]->available=TRUE;
+	  new_gun=!p->arsenal[3].available;
+	  load=p->arsenal[3].load;
+	  p->arsenal[3].available=TRUE;
 	  picked_up_gun=3;
 	  orig=load->ammo;
 	  if(l->skill==0||l->skill==5)
@@ -2522,21 +2527,21 @@ rem:
 	    goto rem;
 	  break;
         case 2005: //Chainsaw
-	  new_gun=!p->arsenal[5]->available;
+	  new_gun=!p->arsenal[5].available;
 	  picked_up_gun=5;
-	  p->arsenal[5]->available=TRUE;
+	  p->arsenal[5].available=TRUE;
 	  break;
         case 2004: //Plasma gun
-	  new_gun=!p->arsenal[6]->available;
+	  new_gun=!p->arsenal[6].available;
 	  picked_up_gun=6;
-	  load=p->arsenal[6]->load;
-	  p->arsenal[6]->available=TRUE;
+	  load=p->arsenal[6].load;
+	  p->arsenal[6].available=TRUE;
 	  goto cell;
         case 2003: //Rocket luancher
 	  picked_up_gun=4;
-	  new_gun=!p->arsenal[4]->available;
-	  load=p->arsenal[4]->load;
-	  p->arsenal[4]->available=TRUE;
+	  new_gun=!p->arsenal[4].available;
+	  load=p->arsenal[4].load;
+	  p->arsenal[4].available=TRUE;
 	  orig=load->ammo;
 	  if(l->skill==0||l->skill==5)
 	    load->ammo+=2;
@@ -2549,9 +2554,9 @@ rem:
 	  break;
         case 2001: //Shutgun
 	  picked_up_gun=2;
-	  new_gun=!p->arsenal[2]->available;
-	  load=p->arsenal[2]->load;
-	  p->arsenal[2]->available=TRUE;
+	  new_gun=!p->arsenal[2].available;
+	  load=p->arsenal[2].load;
+	  p->arsenal[2].available=TRUE;
 	  orig=load->ammo;
 	  if(l->skill==0||l->skill==5)
 	    load->ammo+=8;
@@ -2562,7 +2567,7 @@ rem:
 	    goto rem;
 	  break;
         case 2008: //4 shells
-	  load=p->arsenal[2]->load;
+	  load=p->arsenal[2].load;
 	  orig=load->ammo;
 	  load->ammo+=4;
 	  load->ammo=ClampI64(load->ammo,0,maxShells);
@@ -2570,7 +2575,7 @@ rem:
 	    goto rem;
 	  break;
         case 2048: //Box of bullets
-	  load=p->arsenal[1]->load;
+	  load=p->arsenal[1].load;
 	  orig=load->ammo;
 	  if(l->skill==0||l->skill==5)
 	    load->ammo+=100;
@@ -2581,7 +2586,7 @@ rem:
 	    goto rem;
 	  break;
         case 2046: //Box of rockets
-	  load=p->arsenal[4]->load;
+	  load=p->arsenal[4].load;
 	  orig=load->ammo;
 	  if(l->skill==0||l->skill==5)
 	    load->ammo+=10;
@@ -2592,7 +2597,7 @@ rem:
 	    goto rem;
 	  break;
         case 2049: //Box of shotfgu
-	  load=p->arsenal[2]->load;
+	  load=p->arsenal[2].load;
 	  orig=load->ammo;
 	  if(l->skill==0||l->skill==5)
 	    load->ammo+=40;
@@ -2603,7 +2608,7 @@ rem:
 	    goto rem;
 	  break;
         case 2007: //clip
-	  load=p->arsenal[1]->load;
+	  load=p->arsenal[1].load;
 	  orig=load->ammo;
 	  if(l->skill==0||l->skill==5)
 	    load->ammo+=20;
@@ -2616,7 +2621,7 @@ rem:
         case 2047: //Energy cell
 	  goto cell;
         case 17: //Energy cell pack
-	  load=p->arsenal[6]->load;
+	  load=p->arsenal[6].load;
 	  orig=load->ammo;
 	  load->ammo+=20;
 	  load->ammo=ClampI64(load->ammo,0,maxCells);
@@ -2624,7 +2629,7 @@ rem:
 	    goto rem;
 	  break;
         case 2010: //Rocket
-	  load=p->arsenal[4]->load;
+	  load=p->arsenal[4].load;
 	  orig=load->ammo;
 	  load->ammo+=1;
 	  load->ammo=ClampI64(load->ammo,0,maxRockets);
@@ -2757,7 +2762,7 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
   CDoomLinedef *ld;
   CDoomSidedef *sd;
   Vector *ldv;
-  dummy.x=where->x;
+   dummy.x=where->x;
   dummy.y=where->y;
   ld=MoveInLevel(l,&dummy,angle,64.,16.,height,0);
   if(ld) {
@@ -2897,8 +2902,8 @@ U0 FreeLevel(CDoomLevel *l) {
 }
 
 
-//#include "Serialize.HC";
-
+extern U0 SaveGame(U8 *filename);
+extern U0 LoadGame(U8 *filename);
 #include "Automap.HC";
 #include "Menu.HC";
 U0 PlayLevel() { 
@@ -2906,6 +2911,8 @@ U0 PlayLevel() {
   p=PlayerNew(l);
   PlayerMove(l,p,0);
   InitLevel(l);
+  SaveGame("T:/Poop");
+  LoadGame("T:/Poop");
 //Return to parent instance  of PlayLevel(if recursivly called)
 //But be sure to initailize the level and player
   if(in_level) return;
@@ -3033,8 +3040,8 @@ fin_level:
   in_level=FALSE;
   return;
 }
-
-U64 r;
+#include "Save.HC";
+/*U64 r;
 while(TRUE) {
   DCFill;
   r=MainMenu;
@@ -3043,7 +3050,9 @@ while(TRUE) {
     DCFill;
     break;
   }
-}
+}*/
+l=LoadWadLevel(wad,"E1M1",3);
+PlayLevel;
 #endif        ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      
 !   Éÿÿÿ0   ûÿÿÿ
 0   ûÿÿÿb   ðÿÿÿ

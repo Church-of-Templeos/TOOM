@@ -1,7 +1,6 @@
 #ifndef DOOM_WAD
 #define DOOM_WAD" Whats Poppin"
 #define DEBUG 1
-
 class CWad {
   U8 body[0];
   U8 ident[4];
@@ -370,6 +369,7 @@ U0 LoadWadTEXTUREs(CWadTEXTURE1 *header,CDoomGr *gr) {
 fin:
     Upper8(name);
     StrPrint(buf,"Txr.%s",name);
+    UH(buf,result);
     FramePtrAdd(buf,result);
   }
 }
@@ -450,6 +450,7 @@ U8 *W_GetLumpPtrFromNum(I64 idx,CWad *wad,I64 *lump_len=NULL) {
 // Nroot,Get pointer to lump
 //
 U8 *W_GetLumpPtrFromName(U8 *name,CWad *wad,I64 *lump_len=NULL,I64 which=1) {
+PrintI(name,wad);
   I64 idx=W_CheckNumForName(name,wad,which);
   return W_GetLumpPtrFromNum(idx,wad,lump_len);
 }
@@ -571,6 +572,7 @@ pass:
   if(FramePtr(buf))
     return;
   CDC *gr=ReadDoomImage(wad->body+wad_dir->ptr);
+  UH(buf,gr);
   FramePtrAdd(buf,gr);
 }
 
@@ -637,6 +639,7 @@ found_fstart:
         MemCpy(lump_name,wad_dir->lump_name,8);
         tmp=MStrPrint("F.%s",lump_name);
         Upper8(tmp);
+        UH(buf,gr);
         FramePtrAdd(tmp,gr);
         Free(tmp);
       }
@@ -670,6 +673,7 @@ found_pstart:
         gr=ReadDoomImage(wad->body+wad_dir->ptr);
         Upper8(lump_name);
         StrPrint(buf,"Pat.%s",lump_name);
+	UH(buf,gr);
         FramePtrAdd(buf,gr);
       }
       goto found_pstart;
@@ -885,22 +889,6 @@ Bool InBound(F64 a,F64 l,F64 h) {
   return h-.1<=a<=l+.1;
 }
 
-F64 PassesThroughLineAtY(I64 x,CD2 *a,CD2 *b) {
-  F64 slope;
-  F64 res;
-  if(a->x==b->x) {
-    if(x==ToI64(a->x))
-      return Max(a->y,b->y);
-    return -1;
-  }
-  slope=(b->y-a->y)/(b->x-a->x);
-  res=slope*(x-a->x)+a->y;
-  if(InBound(x,a->x,b->x)&&InBound(res,a->y,b->y))
-      return res;
-  return -1;
-}
-
-
 class CWadBlockMapHeader {
   I16 x_off,y_off;
   I16 num_cols,num_rows;
@@ -914,7 +902,7 @@ CDC *GetFlatDC(U8 *name) {
 CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name,I64 skill=1) {
   I64 idx,cnt,x,y,min,max;
   U16 *offs;
-  U8 name[9];
+  U8 name[STR_LEN];
   CDC **arr;
   CDoomLevel *level=CAlloc(sizeof CDoomLevel);
   CDoomThing *dthing;
@@ -1001,6 +989,7 @@ skip_thing:
   vertex=wad_dir[3].ptr+wad->body;
   level->vertice_cnt=cnt;
   level->vertices=MAlloc(sizeof(CD2)*cnt);
+  UH2("LVERTS",level->vertices);
   if(StrCmp8("VERTEXES",wad_dir[3].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
     level->vertices[idx].x=vertex->x;
@@ -1014,6 +1003,8 @@ skip_thing:
   if(StrCmp8("SIDEDEFS",wad_dir[2].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
     dside=CAlloc(sizeof CDoomSidedef);
+    StrPrint(name,"SD.%d",idx);
+    UH2(name,dside);
     dside->xoff=wside->x_offset;
     dside->yoff=wside->y_offset;
     name[8]=0;
@@ -1095,6 +1086,9 @@ skip_thing:
   if(StrCmp8("LINEDEFS",wad_dir[1].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
     dlinedef=CAlloc(sizeof(CDoomLinedef));
+    StrPrint(name,"LD.%d",idx);
+    UH2(name,dlinedef);
+
     dlinedef->start=wlinedef->start_vertex+level->vertices;
     dlinedef->end=wlinedef->end_vertex+level->vertices;
     if(wlinedef->front!=0xffff)
@@ -1118,6 +1112,8 @@ skip_thing:
   dnode_list=MAlloc(cnt*8);
   for(idx=0;idx!=cnt;idx++) {
     dnode=CAlloc(sizeof CDoomBSPNode);
+    StrPrint(name,"ND.%d",idx);
+    UH2(name,dnode);
     dnode->x=wnode->x;
     dnode->y=wnode->y;
     dnode->dx=wnode->dx;
@@ -1139,6 +1135,7 @@ skip_thing:
   cnt=wad_dir[4].lump_size/sizeof(CWadSeg);
   wseg=wad_dir[4].ptr+wad(U8*);
   dseg_list=level->segs=CAlloc(sizeof(CDoomBSPSeg)*cnt);
+  UH2("SEGS",dseg_list);
   if(StrCmp8("SEGS",wad_dir[4].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
     dseg=&dseg_list[idx];
@@ -1156,6 +1153,8 @@ skip_thing:
   if(StrCmp8("SSECTORS",wad_dir[5].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
     dss=CAlloc(sizeof(CDoomSubsector));
+    StrPrint(name,"SubS.%d",idx);
+    UH2(name,dss);
     QueIns(dss,&level->subsectors);
     dss->signature='SSECTOR';
     dss->cnt=wss->cnt;
@@ -1191,6 +1190,8 @@ skip_thing:
   if(StrCmp8("SECTORS",wad_dir[7].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
     dsect=CAlloc(sizeof(CDoomSector));
+    StrPrint(name,"Sec.%d",idx);
+    UH2(name,dsect);
     QueIns(dsect,level->sectors.last);
     dsect->idx=idx;
     dsect->floor_height=wsect->floor_height;
@@ -1275,6 +1276,7 @@ skip_thing:
   level->block_map_y_off=wbmh->y_off;
   level->block_map_x_off=wbmh->x_off;
   level->block_map_offsets=MAlloc(8*cnt);
+  UH2("BMO",level->block_map_offsets);
   level->block_map_cols=wbmh->num_cols;
   level->block_map_rows=wbmh->num_rows;
   for(x=0;x!=wbmh->num_cols;x++) {
@@ -1294,6 +1296,7 @@ skip_thing:
   offs+=cnt;
   cnt=(wad_dir[9].lump_size-sizeof(CWadBlockMapHeader)-cnt*sizeof(I16))/sizeof(I16);
   level->block_map_data=MAlloc(8*cnt);
+  UH2("BMD",level->block_map_data);
   while(--cnt>=0) {
     if(offs[cnt]==0xFFFF)
       level->block_map_data[cnt]=NULL;
@@ -1333,12 +1336,4 @@ U0 DumpWad(CWad *wad) {
 //
 CDoomGr *dgr=LoadWadGr(wads[0]);
 CDoomLevel *l=NULL;
-/*
-DCFill;
-if(l)
-  while(TRUE) {
-    DrawLevelOverview(l,gr.dc,1/8.,TRUE);
-    Refresh;
-  }
-*/
 #endif

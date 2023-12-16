@@ -727,4 +727,11 @@ LoadDonuts;
 LoadTeleporters;
 LoadStairs;
 LoadScrollers1;
+I64 idx;
+U8 buf[STR_LEN];
+for(idx=0;idx!=0x10000;idx++)
+  if(action_sector_types[idx]) {
+    StrPrint(buf,"ACTION%d",idx,action_sector_types[idx]);
+    UH(buf,action_sector_types[idx]);
+  }
 #endif

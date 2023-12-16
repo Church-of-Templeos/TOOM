@@ -1,6 +1,7 @@
 #ifndef THINKER_H
 #define THINKER_H "BigBrain"
 class CDoomThinkerBase:CQue {
+  U8 cls_name[64];
   U8 (*fun_ptr)(CDoomLevel *,CDoomThinkerBase *);
 };
 class CDoomThinker:CDoomThinkerBase {
@@ -22,8 +23,11 @@ U0 UpdateThinkers(CDoomLevel *l) {
     (*cur->fun_ptr)(l,cur);
   }
 }
-CDoomThinker *AddThinker(CDoomLevel *l,U8 (*fun_ptr)(CDoomLevel *,CDoomThinker *),I64 sz=sizeof(CDoomThinker)) {
-  CDoomThinker *t=CAlloc(sz);
+CDoomThinker *AddThinker(CDoomLevel *l,U8 (*fun_ptr)(CDoomLevel *,CDoomThinker *),U8 *cls_name) {
+  CHashClass *cls=HashFind(cls_name,Fs->hash_table,HTT_CLASS);
+  if(!cls) throw('Class');
+  CDoomThinker *t=CAlloc(cls->size);
+  StrCpy(t->cls_name,cls_name);
   QueIns(t,l->thinkers.next);
   t->fun_ptr=fun_ptr;
   return t;

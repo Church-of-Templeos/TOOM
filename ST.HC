@@ -333,7 +333,7 @@ U0 DrawNumber(CDoomPlayer *p, U32 x, U32 y,U32 xInc, U16 weapon,Bool small)
     }
     else
     {
-      ammoNum = p->arsenal[weapon]->load->ammo;
+      ammoNum = p->arsenal[weapon].load->ammo;
     }
 
     U16 hundreds = ammoNum/100;
@@ -501,7 +501,7 @@ U0 ST_refreshBackground(CDoomPlayer *p)
 	  break;
       end:;
     }
-    if(!p->arsenal[idx]->available) {
+    if(!p->arsenal[idx].available) {
       GrBlot(doom_scrn,ix,iy,STGNUM[idx]);
     } else
       GrBlot(doom_scrn,ix,iy,ReturnSprite(idx,FALSE));
@@ -720,7 +720,7 @@ U0 AnimateFire(CDoomPlayer *p)
 {
    if(weapons.on)
    {
-    if(p->arsenal[weaponIndex]->load->ammo>0||weaponIndex==0||weaponIndex==5)
+    if(p->arsenal[weaponIndex].load->ammo>0||weaponIndex==0||weaponIndex==5)
     {
      switch(weaponIndex)
      {
@@ -1056,7 +1056,7 @@ U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
 {
   if(!weapons.on)
   {
-  if(!p->arsenal[weapon]->available)
+  if(!p->arsenal[weapon].available)
     return;
   weaponIndex = weapon;
 
@@ -1164,44 +1164,44 @@ U0 ST_Fire(CDoomPlayer *p)
       break;
     start:
       case 1: //Pistol
-        if(p->arsenal[weaponIndex]->load->ammo>0) {
+        if(p->arsenal[weaponIndex].load->ammo>0) {
 	  if(PlayerAttack(150.,5,15,200*64.))
-	    --p->arsenal[weaponIndex]->load->ammo;
+	    --p->arsenal[weaponIndex].load->ammo;
         }
         break;
       case 2: //Shotgun
-        if(p->arsenal[weaponIndex]->load->ammo>0) {
+        if(p->arsenal[weaponIndex].load->ammo>0) {
 	  if(PlayerAttack(56.8,5,15,200*64.))
-	    --p->arsenal[weaponIndex]->load->ammo;
+	    --p->arsenal[weaponIndex].load->ammo;
         }
         break;
       case 3: //Chainhun
-        if(p->arsenal[weaponIndex]->load->ammo>0) {
+        if(p->arsenal[weaponIndex].load->ammo>0) {
 	  if(PlayerAttack(525,5,15,200*64.))
-	    --p->arsenal[weaponIndex]->load->ammo;
+	    --p->arsenal[weaponIndex].load->ammo;
         }
 
         break;
       case 4: //Rocket
-        if(p->arsenal[weaponIndex]->load->ammo>0) {
+        if(p->arsenal[weaponIndex].load->ammo>0) {
 	  if(PlayerAttack(105,20,160,200*64.,'Rocket'))
-	    --p->arsenal[weaponIndex]->load->ammo;
+	    --p->arsenal[weaponIndex].load->ammo;
         }
         break;
       case 5: //Chainsaw
         PlayerAttack(525,2,20,32);
         break;
       case 6: //Plsmaa
-        if(p->arsenal[weaponIndex]->load->ammo>0) {
+        if(p->arsenal[weaponIndex].load->ammo>0) {
 	  if(PlayerAttack(700,5,40,200*64.,'Plasma'))
-	    --p->arsenal[weaponIndex]->load->ammo;
+	    --p->arsenal[weaponIndex].load->ammo;
         }
         break;
       case 7: //Big poopin gun
 //TODO tracer
-        if(p->arsenal[weaponIndex]->load->ammo>0) {
+        if(p->arsenal[weaponIndex].load->ammo>0) {
 	  if(PlayerAttack(52.5,100,800,200*64.,'BFG'))
-	    --p->arsenal[weaponIndex]->load->ammo;
+	    --p->arsenal[weaponIndex].load->ammo;
         }
         break;
     end:

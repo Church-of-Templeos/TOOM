@@ -126,12 +126,13 @@ U0 ParseThingProps() {
 	  template->flags|=TF_SHOOTABLE;
 	  break;
         case '^':
-PrintI("&",dec);
 	  template->flags|=TF_FLOATING;
 	  break;
       }
     }
     doom_thing_types[dec]=template;
+    StrPrint(flags,"THG%d",dec);
+    UH(flags,template);
 skip:
     Free(line);
   }

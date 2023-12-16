@@ -36,6 +36,7 @@ U0 AddState(U8 *name,F64 ticks,CDoomAnimationFrame *f,U8 *fptr=NULL,U8 *next=NUL
   s->anim_frames=f;
   s->action=fptr;
   s->next_state=next;
+  UH(name,s);
   FramePtrAdd(name,s);
 }
 
@@ -398,7 +399,7 @@ U0 InitMonsters(CDoomLevel *l) {
     switch(thing->template->type) {
       case 2035:
         thing->health=thing->template(CDoomMonsterTemplate*)->health;
-        einstein=AddThinker(l,&BarrelThinker,sizeof CBarrelThinker);
+        einstein=AddThinker(l,&BarrelThinker,"CBarrelThinker");
 	einstein->signature='Barrel';
         einstein(CBarrelThinker*)->self=thing;
         thing->thinker=einstein;
@@ -424,7 +425,7 @@ U0 InitMonsters(CDoomLevel *l) {
       case 84:
       case 3004:
         thing->health=thing->template(CDoomMonsterTemplate*)->health;
-        einstein=AddThinker(l,&MonsterThinker,sizeof CMonsterThinker);
+        einstein=AddThinker(l,&MonsterThinker,"CMonsterThinker");
 //	einstein->reaction_time=thing->template(CDoomMonsterTemplate*)->reaction_time;
 	einstein->signature='Monster';
         einstein->self=thing;
@@ -588,11 +589,16 @@ U0 FaceTarget(CDoomLevel *l,CMonsterThinker *t)  {
 CDoomThingTemplate *blood_templates[3];
 CDoomThingTemplate *smoke_templates[4];
 U0 CreatePuffTemplates() {
+  U8 buf[STR_LEN];
   I64 i,j;
   CDC *what;
   for(i=0;i!=3;i++) {
     blood_templates[i]=CAlloc(sizeof CDoomThingTemplate);
+    StrPrint(buf,"BLOOD:%d",i);
+    UH(buf,blood_templates[i]);
     blood_templates[i]->_animation=CAlloc(sizeof(CDoomAnimationFrame)*2);
+    StrPrint(buf,"BLOODA:%d",i);
+    UH(buf,blood_templates[i]->_animation);
     switch(i) {
       case 0: what=SpriteName2DC("BLUDA0"); break;
       case 1: what=SpriteName2DC("BLUDB0"); break;
@@ -606,6 +612,10 @@ U0 CreatePuffTemplates() {
   for(i=0;i!=4;i++) {
     smoke_templates[i]=CAlloc(sizeof CDoomThingTemplate);
     smoke_templates[i]->_animation=CAlloc(sizeof(CDoomAnimationFrame)*2);
+    StrPrint(buf,"SMOKE:%d",i);
+    UH(buf,smoke_templates[i]);
+    StrPrint(buf,"SMUKEA:%d",i);
+    UH(buf,smoke_templates[i]->_animation);
     switch(i) {
       case 0: what=SpriteName2DC("PUFFA0"); break;
       case 1: what=SpriteName2DC("PUFFB0"); break;
@@ -681,7 +691,7 @@ U0 SpawnBloodPuff(CDoomLevel *l,CD2 *at,F64 h,F64 damage) {
   } else {
     blood->template=blood_templates[2];
   }
-  t=AddThinker(l,&PuffThinker,sizeof CPuffThinker);
+  t=AddThinker(l,&PuffThinker,"CPuffThinker");
   t->spawn_time=tS;
   QueIns(blood,&l->things);
   t->self=blood;
@@ -698,7 +708,7 @@ U0 SpawnSmokePuff(CDoomLevel *l,CD2 *at,F64 h,F64 attack_range) {
     smoke->template=smoke_templates[2];
   } else
     smoke->template=smoke_templates[0];
-  t=AddThinker(l,&PuffThinker,sizeof CPuffThinker);
+  t=AddThinker(l,&PuffThinker,"CPuffThinker");
   t->spawn_time=tS;
   QueIns(smoke,&l->things);
   t->self=smoke;
@@ -835,7 +845,7 @@ U0 SpawnMissile(CDoomLevel *l,CDoomThing *t,CDoomThing *target,U64 type) {
   self->template=template;
   self->flags=template->flags;
   QueIns(self,l->things.next);
-  think=AddThinker(l,&MissileThinker,sizeof CMissileThinker);
+  think=AddThinker(l,&MissileThinker,"CMissileThinker");
   think->self=self;
   think->shooter=t;
   if(target&&target->template) { //???
@@ -1088,17 +1098,17 @@ U0 LoadMonsterInfo() {
   t->health=20;
   t->_idle_frames=t->_animation;
   StrCpy(t->spr_base_name,"BEXP");
-  t->_dying_frames=GenerateCacheFrames(t,"ABCDE");
+  UH("barrelDIE",t->_dying_frames=GenerateCacheFrames(t,"ABCDE"));
   //https://doomwiki.org/wiki/Imp
   AddState("ST_NULL",0.,NULL,&NullState,"ST_NULL");
   t=doom_thing_types[0xbb9];
-  t->_idle_frames=GenerateCacheFrames(t,"AB");
-  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
-  t->_melee_frames=GenerateCacheFrames(t,"EFG");
-  t->_attack_frames=GenerateCacheFrames(t,"EFG");
-  t->_hurt_frames=GenerateCacheFrames(t,"HH");
-  t->_dying_frames=GenerateCacheFrames(t,"IJKLM");
-  t->_gib_frames=GenerateCacheFrames(t,"NOPQRSTU");
+  UH("impidle",t->_idle_frames=GenerateCacheFrames(t,"AB"));
+  UH("impchase",t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD"));
+  UH("impmelee",t->_melee_frames=GenerateCacheFrames(t,"EFG"));
+  UH("impatk",t->_attack_frames=GenerateCacheFrames(t,"EFG"));
+  UH("imphurt",t->_hurt_frames=GenerateCacheFrames(t,"HH"));
+  UH("impdie",t->_dying_frames=GenerateCacheFrames(t,"IJKLM"));
+  UH("impohfuck",t->_gib_frames=GenerateCacheFrames(t,"NOPQRSTU"));
   t->pain_time=1/35.*4;
   t->reaction_time=1/35.*8;
   t->health=60;
@@ -1123,9 +1133,9 @@ U0 LoadMonsterInfo() {
   p->direct_max=40.;
   p->speed=875./30;
   StrCpy(p->spr_base_name,"PLSS");
-  p->animation=p->_idle_frames=GenerateCacheFrames(p,"AB");
+  UH("plasmaidle",p->animation=p->_idle_frames=GenerateCacheFrames(p,"AB"));
   StrCpy(p->spr_base_name,"PLSE"); //Eploding sprite
-  p->_hit_frames=GenerateCacheFrames(p,"ABCDE");
+  UH("plasmahit",p->_hit_frames=GenerateCacheFrames(p,"ABCDE"));
 //Fireball and I aint talkin alchohol
   imp_fireball=CAlloc(sizeof CDoomProjectileTemplate);
   p=imp_fireball;
@@ -1135,8 +1145,8 @@ U0 LoadMonsterInfo() {
   p->radius=6.;
   p->height=8.;
   StrCpy(p->spr_base_name,"BAL1");
-  p->animation=p->_idle_frames=GenerateCacheFrames(p,"AB");
-  p->_hit_frames=GenerateCacheFrames(p,"CDE");
+  UH("impfireidle",p->animation=p->_idle_frames=GenerateCacheFrames(p,"AB"));
+  UH("impfirehit",p->_hit_frames=GenerateCacheFrames(p,"CDE"));
 //https://doomwiki.org/wiki/Baron_of_Hell
   t=doom_thing_types[0xbbb];
   t->pain_time=1/35.*4;
@@ -1146,13 +1156,13 @@ U0 LoadMonsterInfo() {
   t->pain_chance=16.8/100.;
   t->speed=8.; //TODO check it
   t->mass=1000.;
-  t->_idle_frames=GenerateCacheFrames(t,"AB");
-  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
-  t->_melee_frames=GenerateCacheFrames(t,"EFG");
-  t->_attack_frames=GenerateCacheFrames(t,"EFG");
-  t->_hurt_frames=GenerateCacheFrames(t,"HH");
-  t->_dying_frames=GenerateCacheFrames(t,"IJKLM");
-  t->_gib_frames=GenerateCacheFrames(t,"NOPQRSTU");
+  UH("baronidle",t->_idle_frames=GenerateCacheFrames(t,"AB"));
+  UH("baronchase",t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD"));
+  UH("baronmelee",t->_melee_frames=GenerateCacheFrames(t,"EFG"));
+  UH("baronatk",t->_attack_frames=GenerateCacheFrames(t,"EFG"));
+  UH("baronhurt",t->_hurt_frames=GenerateCacheFrames(t,"HH"));
+  UH("barondie",t->_dying_frames=GenerateCacheFrames(t,"IJKLM"));
+  UH("baronohfuck",t->_gib_frames=GenerateCacheFrames(t,"NOPQRSTU"));
   AddState(t->spawn_state="BARON.S_POSS_STND",10,t->_idle_frames,&Look,"BARON.S_POSS_STND");
   AddState(t->see_state="BARON.S_POSS_RUN",0,t->_chase_frames,&Chase,"BARON.S_POSS_RUN");
   AddState(t->missile_state="BARON.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"BARON.S_POSS_ATK2");
@@ -1170,8 +1180,8 @@ U0 LoadMonsterInfo() {
   p->radius=6.;
   p->height=8.;
   StrCpy(p->spr_base_name,"BAL7");
-  p->animation=p->_idle_frames=GenerateCacheFrames(p,"AB");
-  p->_hit_frames=GenerateCacheFrames(p,"CDE");
+  UH("boogeridle",p->animation=p->_idle_frames=GenerateCacheFrames(p,"AB"));
+  UH("boogerihit",p->_hit_frames=GenerateCacheFrames(p,"CDE"));
 //Flying meatball
   t=doom_thing_types[0xbbd];
   t->pain_time=1/35.*6;
@@ -1180,12 +1190,12 @@ U0 LoadMonsterInfo() {
   t->speed=8.;
   t->mass=400;
   t->pain_chance=.50;
-  t->_idle_frames=GenerateCacheFrames(t,"A");
-  t->_chase_frames=GenerateCacheFrames(t,"A");
-  t->_melee_frames=GenerateCacheFrames(t,"BCD");
-  t->_attack_frames=GenerateCacheFrames(t,"BCD");
-  t->_hurt_frames=GenerateCacheFrames(t,"BCD");
-  t->_dying_frames=GenerateCacheFrames(t,"GHIJKL");
+  UH("cacoidle",t->_idle_frames=GenerateCacheFrames(t,"A"));
+  UH("cacochase",t->_chase_frames=GenerateCacheFrames(t,"A"));
+  UH("cacomele",t->_melee_frames=GenerateCacheFrames(t,"BCD"));
+  UH("cacoatk",t->_attack_frames=GenerateCacheFrames(t,"BCD"));
+  UH("cacohurt",t->_hurt_frames=GenerateCacheFrames(t,"BCD"));
+  UH("cacdie",t->_dying_frames=GenerateCacheFrames(t,"GHIJKL"));
 //Kako in greek
   AddState(t->spawn_state="CACO.S_POSS_STND",5*4,t->_idle_frames,&Look,"CACO.S_POSS_STND");
   AddState(t->see_state="CACO.S_POSS_RUN",0,t->_chase_frames,&Chase,"CACO.S_POSS_RUN");
@@ -1203,8 +1213,8 @@ U0 LoadMonsterInfo() {
   p->radius=6.;
   p->height=8.;
   StrCpy(p->spr_base_name,"BAL2");
-  p->animation=p->_idle_frames=GenerateCacheFrames(p,"AB");
-  p->_hit_frames=GenerateCacheFrames(p,"CDE");
+  UH("kakoboogeridle",p->animation=p->_idle_frames=GenerateCacheFrames(p,"AB"));
+  UH("kakoboogerhit",p->_hit_frames=GenerateCacheFrames(p,"CDE"));
 //Cyber demon
   t=doom_thing_types[0x10];
   t->pain_time=1/35.*4;
@@ -1213,12 +1223,12 @@ U0 LoadMonsterInfo() {
   t->speed=16.;
   t->mass=1000;
   t->pain_chance=20./255;
-  t->_idle_frames=GenerateCacheFrames(t,"AB");
-  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
-  t->_melee_frames=GenerateCacheFrames(t,"EFEFEF");
-  t->_attack_frames=GenerateCacheFrames(t,"EFEFEF");
-  t->_hurt_frames=GenerateCacheFrames(t,"G");
-  t->_dying_frames=GenerateCacheFrames(t,"HIJKLMNOPP");
+  UH("cyberhit",t->_idle_frames=GenerateCacheFrames(t,"AB"));
+  UH("cyberchase",t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD"));
+  UH("cybermele",t->_melee_frames=GenerateCacheFrames(t,"EFEFEF"));
+  UH("cuberatk",t->_attack_frames=GenerateCacheFrames(t,"EFEFEF"));
+  UH("cyberhurt",t->_hurt_frames=GenerateCacheFrames(t,"G"));
+  UH("cyberdie",t->_dying_frames=GenerateCacheFrames(t,"HIJKLMNOPP"));
 //Rocket
   rocket=CAlloc(sizeof CDoomProjectileTemplate);
   p=rocket;
@@ -1229,8 +1239,8 @@ U0 LoadMonsterInfo() {
   p->speed=700./30.;
   p->height=8.;
   StrCpy(p->spr_base_name,"MISL");
-  p->animation=p->_idle_frames=GenerateCacheFrames(p,"A");
-  p->_hit_frames=GenerateCacheFrames(p,"BCD");
+  UH("rocketidle",p->animation=p->_idle_frames=GenerateCacheFrames(p,"A"));
+  UH("rockethit",p->_hit_frames=GenerateCacheFrames(p,"BCD"));
 //Pink demon
   t=doom_thing_types[0xbba];
   t->reaction_time=1/35.*8;
@@ -1240,12 +1250,12 @@ U0 LoadMonsterInfo() {
   t->mass=400.;
   t->damage=4;
   t->pain_chance=180./255.;
-  t->_idle_frames=GenerateCacheFrames(t,"AB");
-  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
-  t->_melee_frames=GenerateCacheFrames(t,"EFG");
-  t->_attack_frames=GenerateCacheFrames(t,"EFG");
-  t->_hurt_frames=GenerateCacheFrames(t,"HH");
-  t->_dying_frames=GenerateCacheFrames(t,"IJKLMN");
+  UH("pinkidle",t->_idle_frames=GenerateCacheFrames(t,"AB"));
+  UH("pinkchase",t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD"));
+  UH("pinkmelee",t->_melee_frames=GenerateCacheFrames(t,"EFG"));
+  UH("pinkatk",t->_attack_frames=GenerateCacheFrames(t,"EFG"));
+  UH("pinkhurt",t->_hurt_frames=GenerateCacheFrames(t,"HH"));
+  UH("pinkdie",t->_dying_frames=GenerateCacheFrames(t,"IJKLMN"));
   AddState(t->spawn_state="PANKY.S_POSS_STND",10,t->_idle_frames,&Look,"PANKY.S_POSS_STND");
   AddState(t->see_state="PANKY.S_POSS_RUN",0,t->_chase_frames,&Chase,"PANKY.S_POSS_RUN");
   AddState(t->melee_state="PANKY.S_POSS_ATK1",t->reaction_time,t->_idle_frames,&FaceTarget,"PANKY.S_POSS_ATK2");
@@ -1262,12 +1272,12 @@ U0 LoadMonsterInfo() {
   t->mass=50.;
   t->pain_chance=1;
   t->damage=3.;
-  t->_idle_frames=GenerateCacheFrames(t,"AB");
-  t->_chase_frames=GenerateCacheFrames(t,"AB");
-  t->_melee_frames=GenerateCacheFrames(t,"CDCD");
-  t->_attack_frames=GenerateCacheFrames(t,"CDCD");
-  t->_hurt_frames=GenerateCacheFrames(t,"EE");
-  t->_dying_frames=GenerateCacheFrames(t,"FGHIJK");
+  UH("skullidle",t->_idle_frames=GenerateCacheFrames(t,"AB"));
+  UH("skullchase",t->_chase_frames=GenerateCacheFrames(t,"AB"));
+  UH("skullmele",t->_melee_frames=GenerateCacheFrames(t,"CDCD"));
+  UH("skullatk",t->_attack_frames=GenerateCacheFrames(t,"CDCD"));
+  UH("skullhurt",t->_hurt_frames=GenerateCacheFrames(t,"EE"));
+  UH("skulldie",t->_dying_frames=GenerateCacheFrames(t,"FGHIJK"));
   AddState(t->spawn_state="SKULL.S_POSS_STND",10,t->_idle_frames,&Look,"SKULL.S_POSS_STND");
   AddState(t->see_state="SKULL.S_POSS_RUN",0,t->_chase_frames,&Chase,"SKULL.S_POSS_RUN");
   AddState(t->missile_state="SKULL.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"SKULL.S_POSS_ATK2");
@@ -1283,13 +1293,13 @@ U0 LoadMonsterInfo() {
   t->mass=100;
   t->damage=3;
   t->pain_chance=170./255.;
-  t->_idle_frames=GenerateCacheFrames(t,"AB");
-  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
-  t->_melee_frames=GenerateCacheFrames(t,"EFE");
-  t->_attack_frames=GenerateCacheFrames(t,"EFE");
-  t->_dying_frames=GenerateCacheFrames(t,"HIJKL");
-  t->_hurt_frames=GenerateCacheFrames(t,"GG");
-  t->_gib_frames=GenerateCacheFrames(t,"MNOPQRSTU");
+  UH("shotidle",t->_idle_frames=GenerateCacheFrames(t,"AB"));
+  UH("shotchase",t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD"));
+  UH("shotmele",t->_melee_frames=GenerateCacheFrames(t,"EFE"));
+  UH("shotatk",t->_attack_frames=GenerateCacheFrames(t,"EFE"));
+  UH("shotdie",t->_dying_frames=GenerateCacheFrames(t,"HIJKL"));
+  UH("shothurt",t->_hurt_frames=GenerateCacheFrames(t,"GG"));
+  UH("shotgib",t->_gib_frames=GenerateCacheFrames(t,"MNOPQRSTU"));
 
   AddState(t->spawn_state="SHOTGUN.S_POSS_STND",STATE_UNTIL_ANIM_DONE,t->_idle_frames,&Look,"SHOTGUN.S_POSS_STND");
   AddState(t->see_state="SHOTGUN.S_POSS_RUN",0,t->_chase_frames,&Chase,"SHOTGUN.S_POSS_RUN");
@@ -1308,12 +1318,12 @@ U0 LoadMonsterInfo() {
   t->mass=400.;
   t->pain_chance=180./255.;
   t->damage=4.;
-  t->_idle_frames=GenerateCacheFrames(t,"AB");
-  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
-  t->_melee_frames=GenerateCacheFrames(t,"EFG");
-  t->_attack_frames=GenerateCacheFrames(t,"EFG");
-  t->_hurt_frames=GenerateCacheFrames(t,"HH");
-  t->_dying_frames=GenerateCacheFrames(t,"IJKLMN");
+  UH("specidle",t->_idle_frames=GenerateCacheFrames(t,"AB"));
+  UH("specchase",t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD"));
+  UH("specmele",t->_melee_frames=GenerateCacheFrames(t,"EFG"));
+  UH("specatk",t->_attack_frames=GenerateCacheFrames(t,"EFG"));
+  UH("spechurt",t->_hurt_frames=GenerateCacheFrames(t,"HH"));
+  UH("specdie",t->_dying_frames=GenerateCacheFrames(t,"IJKLMN"));
 //TODO fix
   AddState(t->spawn_state="TRANS.S_POSS_STND",10,t->_idle_frames,&Look,"TRANS.S_POSS_STND");
   AddState(t->see_state="TRANS.S_POSS_RUN",0,t->_chase_frames,&Chase,"TRANS.S_POSS_RUN");
@@ -1331,12 +1341,12 @@ U0 LoadMonsterInfo() {
   t->mass=1000;
   t->pain_chance=40/255.;
   t->damage=3;
-  t->_idle_frames=GenerateCacheFrames(t,"AB");
-  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDDEEFF");
-  t->_melee_frames=GenerateCacheFrames(t,"GHH");
-  t->_attack_frames=GenerateCacheFrames(t,"GHHH");
-  t->_hurt_frames=GenerateCacheFrames(t,"II");
-  t->_dying_frames=GenerateCacheFrames(t,"JKLMNOPQRSS");
+  UH("spididle",t->_idle_frames=GenerateCacheFrames(t,"AB"));
+  UH("spidchase",t->_chase_frames=GenerateCacheFrames(t,"AABBCCDDEEFF"));
+  UH("spidmele",t->_melee_frames=GenerateCacheFrames(t,"GHH"));
+  UH("spidatk",t->_attack_frames=GenerateCacheFrames(t,"GHHH"));
+  UH("spidhurt",t->_hurt_frames=GenerateCacheFrames(t,"II"));
+  UH("spiddie",t->_dying_frames=GenerateCacheFrames(t,"JKLMNOPQRSS"));
 //Zombieman
   t=doom_thing_types[0xbbc];
   t->reaction_time=1/35.*8;
@@ -1345,13 +1355,13 @@ U0 LoadMonsterInfo() {
   t->speed=8;
   t->mass=100;
   t->pain_chance=200/255.;
-  t->_idle_frames=GenerateCacheFrames(t,"AB");
-  t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD");
-  t->_melee_frames=GenerateCacheFrames(t,"EFE");
-  t->_attack_frames=GenerateCacheFrames(t,"EFE");
-  t->_hurt_frames=GenerateCacheFrames(t,"GG");
-  t->_dying_frames=GenerateCacheFrames(t,"HIJKL");
-  t->_gib_frames=GenerateCacheFrames(t,"MNOPQRSTU");
+  UH("zomidle",t->_idle_frames=GenerateCacheFrames(t,"AB"));
+  UH("zomchase",t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD"));
+  UH("zommele",t->_melee_frames=GenerateCacheFrames(t,"EFE"));
+  UH("zomatk",t->_attack_frames=GenerateCacheFrames(t,"EFE"));
+  UH("zomhurt",t->_hurt_frames=GenerateCacheFrames(t,"GG"));
+  UH("zomdie",t->_dying_frames=GenerateCacheFrames(t,"HIJKL"));
+  UH("zomdxdie",t->_gib_frames=GenerateCacheFrames(t,"MNOPQRSTU"));
   AddState(t->spawn_state="ZOMBIE.S_POSS_STND",10,t->_idle_frames,&Look,"ZOMBIE.S_POSS_STND");
   AddState(t->see_state="ZOMBIE.S_POSS_RUN",0,t->_chase_frames,&Chase,"ZOMBIE.S_POSS_RUN");
   AddState(t->missile_state="ZOMBIE.S_POSS_ATK1",0,t->_idle_frames,&FaceTarget,"ZOMBIE.S_POSS_ATK2");

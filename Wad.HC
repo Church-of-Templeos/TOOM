@@ -240,15 +240,11 @@ class CDoomSector:CQue {
 //Private
 //I will render the floors then I will cast them to the screen
 //I tried everything else but I just cant figure out how to draw the floors
-  F64 shape_start_x,shape_start_y;
   CDoomLinedef *cur_action_linedef;
   CDoomThing *noise_thing; //Last thing that made a noise
-  F64 wait_time;
-  F64 speed;
-  F64 start_tS,door_height_offset;
-  F64 target_end,target_start;
+  F64 door_height_offset;
   I64 visplane_idx;
-  Bool drawn,closing,opening,activated,waiting,going_up,going_down,reverting;
+  Bool drawn,activated;
   Bool paused; //Pause the action on the sector
   Bool sound_check;
 };

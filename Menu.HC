@@ -100,7 +100,8 @@ retry:
 	  code=items[cur_active].value;
         } else if(a==CH_ESC) {
 	  code=0;
-         goto fin;
+          FlushMsgs;
+          goto fin;
 	} else {
           for(idx=0;idx!=cnt;idx++) {
 	    if(items[idx].hot_key==a)
@@ -162,9 +163,9 @@ againm:;
       if(r=='NGAME') {
         state=1;
       } else if(r=='LOADG') {
-//TODO
+	LoadGame("/Poop");
       } else if(r=='SAVEG') {
-//TODO
+	SaveGame("/Poop");
       } else if(r=='RDTHIS') {
         state=4;
       } else if(r=='QUITG') {

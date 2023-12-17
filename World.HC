@@ -43,9 +43,9 @@ class CDoomDoor {
 class CDoomLift {
   U64 type;
   U64 trigger;
+  F64 delay;
   I64 target;
   I64 model;
-  F64 delay;
   F64 speed;
   U8 zero_type;
   U8 texture_change;
@@ -77,18 +77,9 @@ class CDoomLift {
 #define FLOOR_MODEL_TRIGGER 1
 #define FLOOR_MODEL_NUMBERED 2
 
-class CDoomFloor {
-  U64 type;
-  U64 trigger;
+class CDoomFloor:CDoomLift {
   U64 direction;
-  F64 speed;
-  Bool texture_change;
-  Bool type_change;
-  Bool pad[6];
-  I64 model;
-  I64 monster;
   I64 crush;
-  I64 target;
 };
 
 #define CEIL_DST_FLOOR 1

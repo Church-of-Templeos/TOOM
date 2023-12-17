@@ -176,6 +176,41 @@ U0 SaveGame(U8 *filename) {
       DocPrint(doc,"%n\n",cur(CButtonThinker*)->switch_tS);
       DocPrint(doc,"%d\n",cur(CButtonThinker*)->which_part);
       DocPrint(doc,"%d\n",cur(CButtonThinker*)->repeat);
+    } else if(!StrCmp("CCeilThinker",cur(CDoomThinker*)->cls_name)) {
+      DocPrint(doc,"%n\n",cur(CCeilThinker*)->target_start);
+      DocPrint(doc,"%n\n",cur(CCeilThinker*)->target_end);
+      DocPrint(doc,"%n\n",cur(CCeilThinker*)->start_tS);
+      DocPrint(doc,"%n\n",cur(CCeilThinker*)->speed);
+      DocPrint(doc,"%n\n",cur(CCeilThinker*)->wait);
+      DocPrint(doc,"%d\n",GetSectorIndex(l,cur(CCeilThinker*)->s));
+      DocPrint(doc,"%d\n",cur(CCeilThinker*)->going_up);
+      DocPrint(doc,"%d\n",cur(CCeilThinker*)->going_up);
+    } else if(!StrCmp("CLiftThinker",cur(CDoomThinker*)->cls_name)) {
+      DocPrint(doc,"%n\n",cur(CLiftThinker*)->target_start);
+      DocPrint(doc,"%n\n",cur(CLiftThinker*)->target_end);
+      DocPrint(doc,"%n\n",cur(CLiftThinker*)->start_tS);
+      DocPrint(doc,"%n\n",cur(CLiftThinker*)->speed);
+      DocPrint(doc,"%n\n",cur(CLiftThinker*)->wait_time);
+      DocPrint(doc,"%d\n",GetSectorIndex(l,cur(CLiftThinker*)->s));
+      DocPrint(doc,"%d\n",GetLinedefIndex(l,cur(CLiftThinker*)->ld));
+      DocPrint(doc,"%s\n",GetUNStr(cur(CLiftThinker*)->action));
+      DocPrint(doc,"%d\n",cur(CLiftThinker*)->going_up);
+      DocPrint(doc,"%d\n",cur(CLiftThinker*)->going_down);
+      DocPrint(doc,"%d\n",cur(CLiftThinker*)->reverting);
+      DocPrint(doc,"%d\n",cur(CLiftThinker*)->waiting);
+    } else if(!StrCmp("CDoorThinker",cur(CDoomThinker*)->cls_name)) {
+      DocPrint(doc,"%n\n",cur(CDoorThinker*)->target_start);
+      DocPrint(doc,"%n\n",cur(CDoorThinker*)->target_end);
+      DocPrint(doc,"%n\n",cur(CDoorThinker*)->start_tS);
+      DocPrint(doc,"%n\n",cur(CDoorThinker*)->speed);
+      DocPrint(doc,"%n\n",cur(CDoorThinker*)->wait_time);
+      DocPrint(doc,"%d\n",GetSectorIndex(l,cur(CDoorThinker*)->s));
+      DocPrint(doc,"%d\n",GetLinedefIndex(l,cur(CDoorThinker*)->ld));
+      DocPrint(doc,"%s\n",GetUNStr(cur(CDoorThinker*)->action));
+      DocPrint(doc,"%d\n",cur(CDoorThinker*)->opening);
+      DocPrint(doc,"%d\n",cur(CDoorThinker*)->closing);
+      DocPrint(doc,"%d\n",cur(CDoorThinker*)->waiting);
+      DocPrint(doc,"%d\n",cur(CDoorThinker*)->reverting);
     }
   }
   DocPrint(doc,"ARSENAL:\n");
@@ -406,14 +441,70 @@ U0 LoadGame(U8 *filename) {
 	    }
 	  } else if(!StrCmp("CButtonThinker",thinker(CDoomThinker*)->cls_name)) {
 	    thinker->doom.fun_ptr=&ButtonThinker;
-	    ptr=StrScan("%d\n",&i64);
+	    ptr=StrScan(ptr,"%d\n",&i64);
 	    thinker(CButtonThinker*)->s=GetNthSidedef(l,i64);
-	    ptr=StrScan("%n\n",&f64);
+	    ptr=StrScan(ptr,"%n\n",&f64);
 	    thinker(CButtonThinker*)->switch_tS=f64;
-	    ptr=StrScan("%d\n",&i64);
+	    ptr=StrScan(ptr,"%d\n",&i64);
 	    thinker(CButtonThinker*)->which_part=i64;
-	    ptr=StrScan("%d\n",&i64);
+	    ptr=StrScan(ptr,"%d\n",&i64);
 	    thinker(CButtonThinker*)->repeat=i64;
+	  } else if(!StrCmp("CCeilThinker",thinker(CDoomThinker*)->cls_name)) {
+	    thinker->doom.fun_ptr=&CeilThinker;
+	    ptr=StrScan(ptr,"%n\n",&thinker(CCeilThinker*)->target_start);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CCeilThinker*)->target_end);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CCeilThinker*)->start_tS);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CCeilThinker*)->speed);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CCeilThinker*)->wait);
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CCeilThinker*)->s=GetNthSector(l,i64);
+//These are U8's
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CCeilThinker*)->going_up=i64;
+	    ptr=StrScan(ptr,"%d\n",&thinker(CCeilThinker*)->going_down);
+	    thinker(CCeilThinker*)->going_down=i64;
+	  } else if(!StrCmp("CLiftThinker",thinker(CDoomThinker*)->cls_name)) {
+	    thinker->doom.fun_ptr=&LiftThinker;
+	    ptr=StrScan(ptr,"%n\n",&thinker(CLiftThinker*)->target_start);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CLiftThinker*)->target_end);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CLiftThinker*)->start_tS);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CLiftThinker*)->speed);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CLiftThinker*)->wait_time);
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CLiftThinker*)->s=GetNthSector(l,i64);
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CLiftThinker*)->ld=GetNthSector(l,i64);
+	    ptr=StrScan(ptr,"%s\n",&buf_ptr);
+	    thinker(CLiftThinker*)->action=FramePtr(buf);
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CLiftThinker*)->going_up=i64;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CLiftThinker*)->going_down=i64;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CLiftThinker*)->reverting=i64;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CLiftThinker*)->waiting=i64;
+	  } else if(!StrCmp("CDoorThinker",thinker(CDoomThinker*)->cls_name)) {
+	    thinker->doom.fun_ptr=&DoorThinker;
+	    ptr=StrScan(ptr,"%n\n",&thinker(CDoorThinker*)->target_start);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CDoorThinker*)->target_end);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CDoorThinker*)->start_tS);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CDoorThinker*)->speed);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CDoorThinker*)->wait_time);
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CDoorThinker*)->s=GetNthSector(l,i64);
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CDoorThinker*)->s=GetNthLinedef(l,i64);
+	    ptr=StrScan(ptr,"%s\n",&buf_ptr);
+	    thinker(CDoorThinker*)->action=FramePtr(buf);
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CDoorThinker*)->opening=i64;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CDoorThinker*)->closing=i64;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CDoorThinker*)->waiting=i64;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CDoorThinker*)->reverting=i64;
 	  }
 	  thinker=thinker->doom.next;
         }
@@ -439,9 +530,9 @@ U0 LoadGame(U8 *filename) {
 	      avail->load=p->arsenal[6].load;
 	      break;
 	  }
-	  ptr=StrScan("%d\n",&i64);
+	  ptr=StrScan(ptr,"%d\n",&i64);
 	  avail->available=i64;
-	  ptr=StrScan("%d\n",&i64);
+	  ptr=StrScan(ptr,"%d\n",&i64);
 	  avail->load->ammo=i64;
         }
         state++;

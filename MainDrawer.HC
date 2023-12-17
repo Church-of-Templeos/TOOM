@@ -1,6 +1,6 @@
 #ifndef DOOM_MAIN
 #define DOOM_MAIN "Doom" 
-#exe {Cd(__DIR__);};
+#exe {Cd(__DIR__);};;
 #ifndef PrintI 
 U0 PrintI(U8*,I64) {}
 U0 PrintF(U8*,F64) {}
@@ -20,13 +20,22 @@ CTask *doom_task=Fs;
 F64 ray_cast_table_cos[GR_WIDTH/2];
 F64 ray_cast_table_sin[GR_WIDTH/2];
 Bool paused = FALSE,gameExit=FALSE;
-F64 Game_tS() {
+F64 Server_tS() {
   static Bool last;
-  static F64 pause_tS;
+  static F64 pause_tS=tS,unpause_tS=tS;
+  static F64 total_pause_time=0;
   static Bool paused2=FALSE;
-  if(paused^^!paused2) {
-     pause_tS=tS;
+  if(paused&&!paused2) {
+    pause_tS=tS;
+    paused2=TRUE;
+  } else if(!paused&&paused2) {
+    unpause_tS=tS;
+    total_pause_time+=unpause_tS-pause_tS;
+    paused2=FALSE;
   }
+  if(paused)
+    return pause_tS;
+  return tS-total_pause_time;
 }
 class CJobRunnerData {
   U0 (*fptr)(U8*);
@@ -445,10 +454,10 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   if(ld->special_type&&ld->special_type->type=='Scroll1'&&sd==ld->front) {
     scroll1=ld->special_type;
     if(scroll1->x)
-      xoff+=tS*30*scroll1->x;
+      xoff+=Server_tS*30*scroll1->x;
     else if(scroll1->offset_type) {
-      yoff=yoff*tS*30;
-      xoff=xoff*tS*30;
+      yoff=yoff*Server_tS*30;
+      xoff=xoff*Server_tS*30;
     }
   }
   if(ld->front==sd)
@@ -806,7 +815,7 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   if(thing->template==doom_thing_types[1]) return; //Dont render player
   if(!thing->animation) thing->animation=thing->template->_animation;
   if(!thing->animation) return; //???
-  I64 anim_frame=(tS-thing->anim_start_tS)*4,frame_cnt,face;
+  I64 anim_frame=(Server_tS-thing->anim_start_tS)*4,frame_cnt,face;
   F64 angle,gap;
   CDC *sprite;
   CD2 p;
@@ -877,19 +886,19 @@ I64 FrameCnt(CDC **arr) {
 
 CDC *GetMiddleTexture(CDoomSidedef *s) {
   if(!s->middle_texture[0]) return NULL;
-  I64 t=ToI64(tS*4)%FrameCnt(s->middle_texture);
+  I64 t=ToI64(Server_tS*4)%FrameCnt(s->middle_texture);
   return s->middle_texture[t];
 }
 
 CDC *GetUpperTexture(CDoomSidedef *s) {
   if(!s->upper_texture[0]) return NULL;
-  I64 t=ToI64(tS*4)%FrameCnt(s->upper_texture);
+  I64 t=ToI64(Server_tS*4)%FrameCnt(s->upper_texture);
   return s->upper_texture[t];
 }
 
 CDC *GetLowerTexture(CDoomSidedef *s) {
   if(!s->lower_texture[0]) return NULL;
-  I64 t=ToI64(tS*4)%FrameCnt(s->lower_texture);
+  I64 t=ToI64(Server_tS*4)%FrameCnt(s->lower_texture);
   return s->lower_texture[t];
 }
 U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
@@ -1244,7 +1253,7 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
 
   MergeWallCommands(cam);
 
-  af=tS*4;
+  af=Server_tS*4;
   for(idx2=0;idx2!=cam->visplane_cnt;idx2++) {
     sorted[idx2]=&cam->visplanes[idx2];
   }
@@ -1358,7 +1367,7 @@ U0 SongTask(U8 *title) {
 
 
 
-F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
+F64 GetTargetLiftHeight(CDoomSector *floor,I64 type,Bool going_up=TRUE) {
   F64 lowest=floor->floor_height,highest=floor->floor_height,diff;
   I64 idx,idx2;
   CDoomSidedef *sd;
@@ -1406,9 +1415,7 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
       }
       return lowest;     
     case LIFT_LOW_HIGH_REPEAT:
-      if(!floor->going_down) {
-        floor->going_up=TRUE;
-        floor->going_down=FALSE;
+      if(going_up) {
         for(idx=0;idx!=floor->linedef_cnt;idx++) {
 	  sd=floor->linedefs[idx]->front;
 	  if(sd&&sd!=floor)
@@ -1419,8 +1426,6 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type) {
         }
         return highest;
       } else {
-        floor->going_up=FALSE;
-        floor->going_down=TRUE;
         for(idx=0;idx!=floor->linedef_cnt;idx++) {
 	  sd=floor->linedefs[idx]->front;
 	  if(sd&&sd!=floor)
@@ -1455,153 +1460,297 @@ Bool OutsideOfRange(F64 p,F64 s,F64 e) {
   return TRUE;
 }
 
-U0 UpdateSector(CDoomSector *s) {
-  F64 time=tS,ceil=I16_MAX,dir;
+F64 GetTargetCeilHeight(CDoomSector *s,I64 target) {
   I64 idx;
-  CDoomLinedef *ld=s->cur_action_linedef;
-  if(!ld) return;
+  CDoomSector *other;
+  F64 to=s->ceil_height;
+  switch(target) {
+    case CEIL_DST_FLOOR:
+      return s->floor_height;
+    case CEIL_DST_HIGHEST_CEIL:
+      for(idx=0;idx!=s->linedef_cnt;idx++) {
+        if(s->linedefs[idx]->back&&s!=s->linedefs[idx]->back->sector) {
+	  other=s->linedefs[idx]->back->sector;
+        } else if(s->linedefs[idx]->front&&s!=s->linedefs[idx]->front->sector) {
+	  other=s->linedefs[idx]->front->sector;
+        }
+        if(other)
+	  to=Max(to,other->ceil_height);
+      }
+      return to;
+    case CEIL_DST_FLOOR8:
+      return s->floor_height+8;
+    case CEIL_DST_LOWEST_CEIL:
+      for(idx=0;idx!=s->linedef_cnt;idx++) {
+        if(s->linedefs[idx]->back&&s!=s->linedefs[idx]->back->sector) {
+	  other=s->linedefs[idx]->back->sector;
+        } else if(s->linedefs[idx]->front&&s!=s->linedefs[idx]->front->sector) {
+	  other=s->linedefs[idx]->front->sector;
+        }
+        if(other)
+	  to=Min(to,other->ceil_height);
+      }
+      return to;
+    case CEIL_DST_HIGHEST_FLOOR:
+      to=s->floor_height;
+      for(idx=0;idx!=s->linedef_cnt;idx++) {
+        if(s->linedefs[idx]->back&&s!=s->linedefs[idx]->back->sector) {
+	  other=s->linedefs[idx]->back->sector;
+        } else if(s->linedefs[idx]->front&&s!=s->linedefs[idx]->front->sector) {
+	  other=s->linedefs[idx]->front->sector;
+        }
+        if(other)
+	  to=Min(to,other->floor_height);
+      }
+      return to;
+  }
+}
+
+class CCeilThinker:CDoomThinkerBase {
+  F64 target_start,target_end;
+  F64 start_tS,speed,wait;
+  CDoomSector*s;
+  Bool going_up,going_down;
+};
+U0 CeilThinker(CDoomLevel *l,CCeilThinker *t) {
+  CDoomSector *s=t->s;
   if(s->paused) return;
-  if(ld->special_type->type=='Ceil') {
-    if(!s->going_up&&!s->going_down) {
-      if(s->target_end>s->ceil_height)
-        s->going_up=TRUE,s->going_down=FALSE;
-      else
-        s->going_down=TRUE,s->going_up=FALSE;
-    }
-    dir=Sign(s->target_end-s->target_start);
-    s->ceil_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;
-    if(s->going_up&&s->ceil_height>s->target_end) {
-      s->ceil_height=s->target_end;
-      s->going_up=FALSE;
-      s->cur_action_linedef=NULL;
-      Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
-    } else if(s->going_down&&s->ceil_height<s->target_end) {
-      s->ceil_height=s->target_end;
-      s->going_down=FALSE;
-      s->cur_action_linedef=NULL;
-      Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
-    }
-  } else if(ld->special_type->type=='Lift') {
-    if(ld->special_type(CDoomLift*)->target==LIFT_LOW_HIGH_REPEAT) {
-      dir=Sign(s->target_end-s->target_start);
-      s->floor_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;
-      if(s->going_up) {
-        if(s->floor_height>s->target_end) {
-	  s->floor_height=s->target_end;
+  if(!t->going_up&&!t->going_down) {
+    if(t->target_end>s->ceil_height)
+      t->going_up=TRUE,t->going_down=FALSE;
+    else
+      t->going_down=TRUE,t->going_up=FALSE;
+  }
+  F64 dir=Sign(t->target_end-t->target_start);
+  s->ceil_height=dir*t->speed*TIME_SCALE*(Server_tS-t->start_tS)+t->target_start;
+  if(t->going_up&&s->ceil_height>t->target_end) {
+    s->ceil_height=t->target_end;
+    t->going_up=FALSE;
+    s->cur_action_linedef=NULL;
+    Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
+    QueRem(t);
+    Free(t);
+  } else if(t->going_down&&s->ceil_height<t->target_end) {
+    s->ceil_height=t->target_end;
+    t->going_down=FALSE;
+    s->cur_action_linedef=NULL;
+    Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
+    QueRem(t);
+    Free(t);
+  }
+}
+U0 AddCeilThinker(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,CDoomCeil *ceil) {
+  if(s->cur_action_linedef) return;
+  F64 dst=GetTargetCeilHeight(s,ceil->target);  
+  CCeilThinker *t=AddThinker(l,&CeilThinker,"CCeilThinker");
+  t->target_start=s->floor_height;
+  t->target_end=dst;
+  t->start_tS=Server_tS;
+  t->speed=ceil->speed;
+  s->cur_action_linedef=ld;
+}
+//This is used for floors too
+class CLiftThinker:CDoomThinkerBase {
+  F64 target_start,target_end;
+  F64 start_tS,speed,wait_time;
+  CDoomSector*s;
+  CDoomLinedef *ld;
+  CDoomLift *action;
+  Bool going_up,going_down,reverting,waiting;
+};
+
+U0 LiftThinker(CDoomLevel *l,CLiftThinker *t) {
+  CDoomSector *s=t->s;
+  CDoomLift *action=t->action;
+  CDoomLinedef *ld=t->ld;
+  F64 dir;
+  if(action->type=='Lift') {
+    if(action->target==LIFT_LOW_HIGH_REPEAT) {
+      dir=Sign(t->target_end-t->target_start);
+      s->floor_height=dir*t->speed*TIME_SCALE*(Server_tS-t->start_tS)+t->target_start;
+      if(t->going_up) {
+        if(s->floor_height>t->target_end) {
+	  s->floor_height=t->target_end;
 lift_again:
 	  Spawn(&PlaySoundTask,"PSTART","snd",0,Fs);
-	  s->start_tS=tS;
-	  s->target_end=GetTargetLiftHeight(s,ld);
+	  t->start_tS=Server_tS;
+	  t->target_end=GetTargetLiftHeight(s,ld,!t->going_up);
         }
-      } else if(s->going_down) {
-        if(s->floor_height<s->target_end) {
-	  s->floor_height=s->target_end;
+      } else if(t->going_down) {
+        if(s->floor_height<t->target_end) {
+	  s->floor_height=t->target_end;
 	  goto lift_again;
         }
       }
     } else  {
-      if(s->target_end>s->floor_height)
-        s->going_up=TRUE,s->going_down=FALSE;
+      if(t->target_end>s->floor_height)
+        t->going_up=TRUE,t->going_down=FALSE;
       else
-        s->going_down=TRUE,s->going_up=FALSE;
+        t->going_down=TRUE,t->going_up=FALSE;
       goto floor_defacto;
     }
-  } else if(ld->special_type->type=='Door') {
-//A door is fully open when its ceiling height is 4 less than the lowest neighbor ceiling adjacent to it
-    for(idx=0;idx!=s->linedef_cnt;idx++) {
-      if(s->linedefs[idx]->back&&s->linedefs[idx]->back->sector!=s)
-        ceil=Min(s->linedefs[idx]->back->sector->base_ceil_height-4,ceil);
-      else if(s->linedefs[idx]->front&&s->linedefs[idx]->front->sector!=s)
-        ceil=Min(s->linedefs[idx]->front->sector->base_ceil_height-4,ceil);
-    }
-    if(s->opening) {
-      s->target_end=ceil;
-      dir=Sign(s->target_end-s->target_start);
-      if(!s->waiting) 
-        s->ceil_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;      
-      if(OutsideOfRange(s->ceil_height,s->target_start,s->target_end)||s->waiting) {
-        s->ceil_height=ceil;
-//-1 for never close/open again
-        if(s->wait_time>=0.) {
-//close again
-	  if(!s->waiting) {
-	    s->waiting=TRUE;
-	    s->start_tS=tS;
-	  }
-	  if(s->wait_time+s->start_tS>time) return;
-	  s->waiting=FALSE;
-	  s->start_tS=tS;
-	  s->opening=FALSE;
-	  s->closing=TRUE;
-	  Spawn(&PlaySoundTask,"DORCLS",,0,Fs);
-	  s->wait_time=-1.;
-	  s->target_start=s->ceil_height;
-        }
-      }
-    } else if(s->closing) {
-      s->target_end=s->floor_height;
-      dir=Sign(s->target_end-s->target_start);
-      s->ceil_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;      
-      if(OutsideOfRange(s->ceil_height,s->target_start,s->target_end)||s->waiting) {
-        s->ceil_height=s->base_floor_height;
-//-1 for never close/open again
-        if(s->wait_time>=0.) {
-	  if(!s->waiting) {
-	    s->waiting=TRUE;
-	    s->start_tS=tS;
-	  }
-	  if(s->wait_time+s->start_tS>time) return;
-	  s->waiting=FALSE;
-//open again
-	  s->start_tS=tS;
-	  s->opening=TRUE;
-	  s->closing=FALSE;
-	  Spawn(&PlaySoundTask,"DOROPN","snd",0,Fs);
-	  s->wait_time=-1.;
-	  s->target_start=s->floor_height;
-        }
-      }
-    }
-    s->door_height_offset=s->ceil_height-s->base_floor_height;
-  } else if(ld->special_type->type=='Floor') {
+  } else if(action->type=='Floor') {
 floor_defacto:
-    dir=Sign(s->target_end-s->target_start);
-    if(!s->waiting) 
-      s->floor_height=dir*s->speed*TIME_SCALE*(tS-s->start_tS)+s->target_start;
-    if(s->going_up) {
-      if(s->floor_height>=s->target_end) {
-        s->floor_height=s->target_end;
-        s->going_up=FALSE;
+    dir=Sign(t->target_end-t->target_start);
+    if(!t->waiting) 
+      s->floor_height=dir*t->speed*TIME_SCALE*(Server_tS-t->start_tS)+t->target_start;
+    if(t->going_up) {
+      if(s->floor_height>=t->target_end) {
+        s->floor_height=t->target_end;
+        t->going_up=FALSE;
 floor_en:
-	  if(ld->special_type->type=='Lift'&&!s->reverting) {
-	    if(!s->waiting) {
-	      s->waiting=TRUE;
+	  if(action->type=='Lift'&&!t->reverting) {
+	    if(!t->waiting) {
+	      t->waiting=TRUE;
 	      Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
-	      s->start_tS=tS;
+	      t->start_tS=Server_tS;
 	    }
-	    if(s->wait_time+s->start_tS>time||s->wait_time<0.) {
+	    if(t->wait_time+t->start_tS>Server_tS||t->wait_time<0.) {
 	      return;
 	    }
-	    s->waiting=FALSE;
-	    s->start_tS=tS;
-	    s->reverting=TRUE;
-	    s->target_start=s->floor_height;
-	    s->target_end=s->base_floor_height;
+	    t->waiting=FALSE;
+	    t->start_tS=Server_tS;
+	    t->reverting=TRUE;
+	    t->target_start=s->floor_height;
+	    t->target_end=s->base_floor_height;
 	  } else {
-	    s->reverting=FALSE;
+	    t->reverting=FALSE;
 	    s->cur_action_linedef=NULL;
-	    s->going_up=FALSE,s->going_down=FALSE;
+	    QueRem(t);
+	    Free(t);
+	    t->going_up=FALSE,t->going_down=FALSE;
 	    Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
 	  }
       }
-    } else if(s->going_down) {
-      if(s->floor_height<=s->target_end) {
-        s->floor_height=s->target_end;
-        s->going_down=FALSE;
+    } else if(t->going_down) {
+      if(s->floor_height<=t->target_end) {
+        s->floor_height=t->target_end;
+        t->going_down=FALSE;
         goto floor_en;
       }
     }
+
   }
+}
+
+U0 AddLiftThinker(CDoomLevel *l,F64 st,F64 en,
+	CDoomSector *s,CDoomLinedef *ld,
+	CDoomLift *action,Bool up) {
+  if(s->cur_action_linedef) return;
+  s->cur_action_linedef=ld;
+  CLiftThinker *t=AddThinker(l,&LiftThinker,"CLiftThinker");
+  t->start_tS=Server_tS;
+  t->target_start=st;
+  t->target_end=en;
+  t->wait_time=action->delay;
+  t->speed=action->speed;
+  t->s=s;
+  t->ld=ld;
+  t->action=action;
+  if(up)
+   t->going_up=TRUE;
+  else
+   t->going_down=TRUE;
+}
+
+class CDoorThinker:CDoomThinkerBase {
+  F64 target_start,target_end;
+  F64 start_tS,speed;
+  F64 wait_time;
+  CDoomSector*s;
+  CDoomLinedef *ld;
+  CDoomDoor *action;
+  Bool opening,closing,waiting;
+  Bool reverting;
+};
+U0 DoorThinker(CDoomLevel *l,CDoorThinker *t) {
+  CDoomSector *s=t->s;
+  F64 ceil=I16_MAX,dir;
+  I64 idx;
+//A door is fully open when its ceiling height is 4 less than the lowest neighbor ceiling adjacent to it
+  for(idx=0;idx!=s->linedef_cnt;idx++) {
+    if(s->linedefs[idx]->back&&s->linedefs[idx]->back->sector!=s)
+      ceil=Min(s->linedefs[idx]->back->sector->base_ceil_height-4,ceil);
+    else if(s->linedefs[idx]->front&&s->linedefs[idx]->front->sector!=s)
+      ceil=Min(s->linedefs[idx]->front->sector->base_ceil_height-4,ceil);
+  }
+  if(t->opening) {
+    t->target_end=ceil;
+    dir=Sign(t->target_end-t->target_start);
+    if(!t->waiting) 
+      s->ceil_height=dir*t->speed*TIME_SCALE*(Server_tS-t->start_tS)+t->target_start;
+    if(OutsideOfRange(s->ceil_height,t->target_start,t->target_end)||t->waiting) {
+      s->ceil_height=ceil;
+//-1 for never close/open again
+      if(t->wait_time>=0.) {
+//close again
+        if(!t->waiting) {
+	  t->waiting=TRUE;
+	  t->start_tS=Server_tS;
+        }
+        if(t->wait_time+t->start_tS>Server_tS) return;
+        t->waiting=FALSE;
+        t->start_tS=Server_tS;
+        t->opening=FALSE;
+        t->closing=TRUE;
+        Spawn(&PlaySoundTask,"DORCLS",,0,Fs);
+        t->wait_time=-1.;
+        t->target_start=s->ceil_height;
+      } else {
+	s->cur_action_linedef=NULL;
+	QueRem(t);
+        Free(t);
+      }
+    }
+  } else if(t->closing) {
+    t->target_end=s->floor_height;
+    dir=Sign(t->target_end-t->target_start);
+    s->ceil_height=dir*t->speed*TIME_SCALE*(Server_tS-t->start_tS)+t->target_start;
+    if(OutsideOfRange(s->ceil_height,t->target_start,t->target_end)||t->waiting) {
+      s->ceil_height=s->base_floor_height;
+//-1 for never close/open again
+      if(t->wait_time>=0.) {
+        if(!t->waiting) {
+	  t->waiting=TRUE;
+	  t->start_tS=Server_tS;
+        }
+        if(t->wait_time+t->start_tS>Server_tS) return;
+        t->waiting=FALSE;
+//open again
+        t->start_tS=Server_tS;
+        t->opening=TRUE;
+        t->closing=FALSE;
+        Spawn(&PlaySoundTask,"DOROPN","snd",0,Fs);
+        t->wait_time=-1.;
+        t->target_start=s->floor_height;
+      } else {
+	s->cur_action_linedef=NULL;
+	QueRem(t);
+        Free(t);
+      }
+    }
+  }
+  s->door_height_offset=s->ceil_height-s->base_floor_height;  
+}
+U0 AddDoorThinker(CDoomLevel *l,F64 st,F64 en,
+	CDoomSector *s,CDoomLinedef *ld,
+	CDoomDoor *action,Bool up,F64 wait_time=-1.) {
+  if(s->cur_action_linedef) return;
+  s->cur_action_linedef=ld;
+  CDoorThinker *t=AddThinker(l,&DoorThinker,"CDoorThinker");
+  t->start_tS=Server_tS;
+  s->cur_action_linedef=ld;
+  t->target_start=st;
+  t->target_end=st;
+  t->speed=action->speed;
+  t->s=s;
+  t->ld=ld;
+  t->action=action;
+  t->wait_time=wait_time;
+  if(up)
+   t->opening=TRUE;
+  else
+   t->closing=TRUE;
 }
 
 F64 GetTargetFloorHeight(CDoomSector *floor,I64 type,Bool up) {
@@ -1725,51 +1874,6 @@ F64 GetTargetFloorHeight(CDoomSector *floor,I64 type,Bool up) {
   }
   return dst;
 }
-F64 GetTargetCeilHeight(CDoomSector *s,I64 target) {
-  I64 idx;
-  CDoomSector *other;
-  F64 to=s->ceil_height;
-  switch(target) {
-    case CEIL_DST_FLOOR:
-      return s->floor_height;
-    case CEIL_DST_HIGHEST_CEIL:
-      for(idx=0;idx!=s->linedef_cnt;idx++) {
-        if(s->linedefs[idx]->back&&s!=s->linedefs[idx]->back->sector) {
-	  other=s->linedefs[idx]->back->sector;
-        } else if(s->linedefs[idx]->front&&s!=s->linedefs[idx]->front->sector) {
-	  other=s->linedefs[idx]->front->sector;
-        }
-        if(other)
-	  to=Max(to,other->ceil_height);
-      }
-      return to;
-    case CEIL_DST_FLOOR8:
-      return s->floor_height+8;
-    case CEIL_DST_LOWEST_CEIL:
-      for(idx=0;idx!=s->linedef_cnt;idx++) {
-        if(s->linedefs[idx]->back&&s!=s->linedefs[idx]->back->sector) {
-	  other=s->linedefs[idx]->back->sector;
-        } else if(s->linedefs[idx]->front&&s!=s->linedefs[idx]->front->sector) {
-	  other=s->linedefs[idx]->front->sector;
-        }
-        if(other)
-	  to=Min(to,other->ceil_height);
-      }
-      return to;
-    case CEIL_DST_HIGHEST_FLOOR:
-      to=s->floor_height;
-      for(idx=0;idx!=s->linedef_cnt;idx++) {
-        if(s->linedefs[idx]->back&&s!=s->linedefs[idx]->back->sector) {
-	  other=s->linedefs[idx]->back->sector;
-        } else if(s->linedefs[idx]->front&&s!=s->linedefs[idx]->front->sector) {
-	  other=s->linedefs[idx]->front->sector;
-        }
-        if(other)
-	  to=Min(to,other->floor_height);
-      }
-      return to;
-  }
-}
 
 class CDonutThinker:CDoomThinkerBase {
   F64 start_tS;
@@ -1779,7 +1883,7 @@ class CDonutThinker:CDoomThinkerBase {
 U0 DonutThinker(CDoomLevel *l,CDonutThinker *t) {
   CDoomSector *s1,*s2,*s3;
   CDoomLinedef *ld;
-  F64 time=tS-t->start_tS;
+  F64 time=Server_tS-t->start_tS;
   I64 i;
   for(s1=l->sectors.next;s1!=&l->sectors;s1=s1->next) {
     if(s1->tag_number==t->ld->sector_tag) {
@@ -1826,7 +1930,7 @@ class CStairsThinker:CDoomThinkerBase {
   F64 speed;
 };
 U0 StairThinker(CDoomLevel *l,CStairsThinker *t) {
-  F64 tm=tS-t->start_tS;
+  F64 tm=Server_tS-t->start_tS;
   t->s->floor_height=t->start_h+tm*t->speed*30;
   if(t->s->floor_height>t->target_h) {
     t->s->floor_height=t->target_h;
@@ -1852,7 +1956,7 @@ loop:
       step+=st->step;
       think=AddThinker(l,&StairThinker,"CStairsThinker");
       think->start_h=s->floor_height;
-      think->start_tS=tS;
+      think->start_tS=Server_tS;
       think->target_h=step;
       think->speed=st->speed;
       think->s=s2;
@@ -1882,7 +1986,7 @@ U0 TeleportFogThinker(CDoomLevel *l,CTeleportThinker *t) {
   CDoomThing *fog=t->fog;
   I64 frame;
   fog->anim_no_repeat=TRUE;
-  frame=ToI64((tS-fog->anim_start_tS)*4);
+  frame=ToI64((Server_tS-fog->anim_start_tS)*4);
   if(frame>=StrLen(fog->template->animation)) {
     QueRem(fog);
     Free(fog);
@@ -1917,7 +2021,7 @@ U0 TeleportThing(CDoomLevel *l,CDoomTeleporter *tp,I64 sector_tag,CDoomThing *wh
 	   fog->template=teleport_fog;
 	   fog->x=cur->x;
 	   fog->y=cur->y;
-	   fog->anim_start_tS=tS;
+	   fog->anim_start_tS=Server_tS;
 	   fog->thinker=AddThinker(l,&TeleportFogThinker,"CTeleportThinker");
 	   fog->thinker(CTeleportThinker*)->fog=fog;
 	 }
@@ -2073,7 +2177,7 @@ donut_activate:
 	    s->cur_action_linedef=ld;
             dt=AddThinker(l,&DonutThinker,"CDonutThinker");
 	    dt->ld=ld;
-	    dt->start_tS=tS;
+	    dt->start_tS=Server_tS;
 	    break; case 'S1':
 	    if(!(flags&WACTIVATE_SWITCH)) return;
 	    goto donut_activate1;
@@ -2108,12 +2212,7 @@ cactivate:
 	    if(s->cur_action_linedef)
 	      return;
 	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
-	    dst=GetTargetLiftHeight(s,ceil->target);
-	    s->target_start=s->floor_height;
-	    s->target_end=dst;
-	    s->start_tS=tS;
-	    s->speed=ceil->speed;
-	    s->cur_action_linedef=ld;
+	    AddCeilThinker(l,s,ld,ceil);
 	    break; case 'S1':
 	    if(!(flags&WACTIVATE_SWITCH)) return;
 	    goto cactivate1;
@@ -2148,12 +2247,7 @@ lactivate:
 	    if(s->cur_action_linedef)
 	      return;
 	    dst=GetTargetLiftHeight(s,lift->target);
-	    s->target_start=s->floor_height;
-	    s->target_end=dst;
-	    s->start_tS=tS;
-	    s->speed=lift->speed;
-	    s->cur_action_linedef=ld;
-	    s->wait_time=lift->delay;
+            AddLiftThinker(l,s->floor_height,dst,s,ld,lift,dst>s->floor_height);
 	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
 	    break; case 'S1':
 	    if(!(flags&WACTIVATE_SWITCH)) return;
@@ -2187,18 +2281,10 @@ factivate1:
 	    if(s->activated) return;
 	    s->activated=TRUE;
 factivate:
+	    if(s->cur_action_linedef)
+	      return;
 	    dst=GetTargetFloorHeight(s,fl->target,fl->direction==FLOOR_DIR_UP);
-	    if(fl->direction==FLOOR_DIR_UP&&s->going_up) return;
-	    if(fl->direction==FLOOR_DIR_DOWN&&s->going_down) return;
-	    if(fl->direction==FLOOR_DIR_UP)
-	      s->going_up=TRUE;
-	    if(fl->direction==FLOOR_DIR_DOWN)
-	      s->going_down=TRUE;
-	    s->target_start=s->floor_height;
-	    s->target_end=dst;
-	    s->start_tS=tS;
-	    s->speed=fl->speed;
-	    s->cur_action_linedef=ld;
+            AddLiftThinker(l,s->floor_height,dst,s,ld,fl,dst>s->floor_height);
  	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
 //Account for texture/type change
 	    if(fl->texture_change||fl->type_change) {
@@ -2262,48 +2348,29 @@ activate1:
 	    if(s->activated) return;
 	    s->activated=TRUE;
 activate:
+	    if(s->cur_action_linedef)
+	      return;
 //Check for keys
 	    if(!l->has_red_key&&(door->key&DOOR_LOCK_RED)) return;
 	    if(!l->has_blue_key&&(door->key&DOOR_LOCK_BLUE)) return;
 	    if(!l->has_yellow_key&&(door->key&DOOR_LOCK_YELLOW)) return;
 //Do the door action
-	    s->target_start=s->ceil_height;
 	    switch(door->action) {
 	      case DOOR_ACTION_OPEN_WAIT_CLOSE:
-	        if(s->opening) return;
 		Spawn(&PlaySoundTask,"DOROPN","snd",0,Fs);
-	        s->cur_action_linedef=ld;
-	        s->opening=TRUE;
-	        s->start_tS=tS;
-	        s->speed=door->speed;
-	        s->wait_time=door->wait;
+	        AddDoorThinker(l,s->ceil_height,0.,s,ld,door,TRUE,door->wait);
 	        break;
 	      case DOOR_ACTION_CLOSE_WAIT_OPEN:
-	        if(s->closing) return;
 		Spawn(&PlaySoundTask,"DORCLS","snd",0,Fs);
-	        s->cur_action_linedef=ld;
-	        s->closing=TRUE;
-	        s->start_tS=tS;
-	        s->speed=door->speed;
-	        s->wait_time=door->wait;
+	        AddDoorThinker(l,s->ceil_height,0.,s,ld,door,FALSE,door->wait);
 	        break;
 	      case DOOR_ACTION_CLOSE:
-	        if(s->closing) return;
 		Spawn(&PlaySoundTask,"DORCLS","snd",0,Fs);
-	        s->cur_action_linedef=ld;
-	        s->closing=TRUE;
-	        s->start_tS=tS;
-	        s->speed=door->speed;
-	        s->wait_time=-1.;
+	        AddDoorThinker(l,s->ceil_height,0.,s,ld,door,FALSE,-1.);
 	        break;
 	      case DOOR_ACTION_OPEN:
-	        if(s->opening) return;
 		Spawn(&PlaySoundTask,"DOROPN","snd",0,Fs);
-	        s->cur_action_linedef=ld;
-	        s->opening=TRUE;
-	        s->start_tS=tS;
-	        s->speed=door->speed;
-	        s->wait_time=-1.;
+	        AddDoorThinker(l,s->ceil_height,0.,s,ld,door,TRUE,-1.);
 	        break;
 	    }
 	    break;
@@ -2340,7 +2407,7 @@ activate:
     }
   }
 }
-CDC *AltSwitchTexture(U8 *txt,Bool on=FALSE) {
+CDC *AltSwitchTexture(U8 *txt,Bool on=FALSE,Bool *res_txtr_is_on=NULL) {
   static U8 *switch_textures[40]={
   "SW1BLUE",
         "SW1BRCOM", 
@@ -2391,12 +2458,14 @@ CDC *AltSwitchTexture(U8 *txt,Bool on=FALSE) {
       goto skip;
     if(TextureName2DC(buf)==txt&&!on) {
       buf[2]='2';
+      if(res_txtr_is_on) *res_txtr_is_on=TRUE;
       return TextureName2DC(buf);
     }
     if(on) {
       buf[2]='2';       
       if(TextureName2DC(buf)==txt) {
         buf[2]='1';
+        if(res_txtr_is_on) *res_txtr_is_on=FALSE;
         return TextureName2DC(buf);
       }
     }
@@ -2408,7 +2477,7 @@ class CButtonThinker:CDoomThinkerBase {
   CDoomSector *s;
   F64 switch_tS;
   I64 which_part;
-  Bool repeat;  
+  Bool repeat;
 };
 
 U0 ButtonThinker(CDoomLevel *l,CButtonThinker *t) {
@@ -2424,7 +2493,7 @@ U0 ButtonThinker(CDoomLevel *l,CButtonThinker *t) {
     QueRem(t);
     goto set_and_ret;
   }
-  if(reset_time>tS) {
+  if(reset_time>Server_tS) {
     on_off_idx='2';
 set_and_ret:
     switch(which_texture) {
@@ -2450,11 +2519,11 @@ set_and_ret:
   Spawn(&PlaySoundTask,"SWTCHX","snd",0,Fs);
   goto set_and_ret;
 }
-U0 AddButtonThinker(CDoomLevel *l,CDoomSidedef *s,I64 which_part,Bool repeat=TRUE) {
+U0 AddButtonThinker(CDoomLevel *l,CDoomSidedef *s,I64 which_part,Bool repeat=TRUE,Bool on) {
   CButtonThinker *t=AddThinker(l,&ButtonThinker,"CButtonThinker");
   t->s=s;
   t->repeat=repeat;
-  t->switch_tS=tS+2.;
+  t->switch_tS=Server_tS+2.;
   t->which_part=which_part;
 }
 
@@ -2709,8 +2778,8 @@ rem:
 Bool PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0) {
   static F64 last_attack=0.;
   F64 cooldown=60./shots_per_minute;
-  if(tS<last_attack+cooldown) return FALSE;
-  last_attack=tS;
+  if(Server_tS<last_attack+cooldown) return FALSE;
+  last_attack=Server_tS;
   F64 angle=p->angle,r;
   F64 damage=Rand*(max_damage-min_damage)+min_damage;
   I64 idx;
@@ -2746,9 +2815,6 @@ U0 UpdateLevel(CDoomLevel *l) {
   Physics(l);
   UpdateThinkers(l);
   CheckPowerupPickup(l);
-  for(sector=head->next;sector!=head;sector=sector->next) {
-    UpdateSector(sector);
-  }
 }
 
 
@@ -2757,7 +2823,7 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
   CD2 dummy;
   F64 floor,floor2,ceil,ceil2;
   I64 which_texture=0;
-  Bool repeat=FALSE,passed=FALSE;
+  Bool repeat=FALSE,passed=FALSE,is_on;
   U64 trigger;
   CDoomLinedef *ld;
   CDoomSidedef *sd;
@@ -2796,7 +2862,7 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
     }    
     switch(which_texture) {
       case 2:
-        if(ld->special_type&&AltSwitchTexture(sd->upper_texture[0])) {
+        if(ld->special_type&&AltSwitchTexture(sd->upper_texture[0],,&is_on)) {
 pass:
 	  if(ld->special_type->type=='Door')
 	    trigger=ld->special_type(CDoomDoor*)->trigger;
@@ -2812,7 +2878,7 @@ pass:
 	    TriggerLinedef(l,ld,WACTIVATE_SWITCH,p);
 	  passed=TRUE;
 	  Spawn(&PlaySoundTask,"SWTCHN","snd",0,Fs);
-	  AddButtonThinker(l,sd,which_texture,trigger.u8[1]!='1');
+	  AddButtonThinker(l,sd,which_texture,trigger.u8[1]!='1',is_on);
         }
         break;
       case 1:
@@ -2914,9 +2980,10 @@ U0 PlayLevel() {
   SaveGame("T:/Poop");
   LoadGame("T:/Poop");
 //Return to parent instance  of PlayLevel(if recursivly called)
-//But be sure to initailize the level and player
+  //But be sure to initailize the level and player
   if(in_level) return;
   in_level=TRUE;
+  I64 a,b;
   U64 mr;
   if(Fs->animate_task)
     Kill(Fs->animate_task,FALSE);
@@ -3015,9 +3082,14 @@ U0 PlayLevel() {
 	  PressAWall(l,&p->x,p->angle,p->height);
         }
       }
-      if(Bt(kbd.down_bitmap,Char2ScanCode(CH_ESC)&0xff)) {
-        paused=TRUE;
-        FlushMsgs; //Flush Esc msg
+//This accounts for key-press delay
+      while((mr=ScanMsg(&a,&b))!=MSG_NULL) {
+        if(mr==MSG_KEY_DOWN&&a==CH_ESC) {
+	  paused=TRUE;
+	  Refresh;
+	  FlushMsgs; //Flush Esc msg
+	  break;
+        }
       }
     } else {
       mr=MainMenu;
@@ -3026,7 +3098,8 @@ U0 PlayLevel() {
       }
     }
 
-    UpdateLevel(l);
+    if(!paused)
+      UpdateLevel(l);
     Refresh;
   }
 ret:

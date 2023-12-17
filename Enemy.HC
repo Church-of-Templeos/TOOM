@@ -184,7 +184,7 @@ U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
     self->animation=template->_idle_frames;
   } else {
     dist=AnimationTime(template->_hit_frames);
-    if(tS-self->anim_start_tS>=dist) {
+    if(Server_tS-self->anim_start_tS>=dist) {
       QueRem(t);
       Free(t);
       QueRem(self);
@@ -198,7 +198,7 @@ U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
     DamageMob(l,hit,t->shooter,template->direct*(Rand&7+1));
 explode:
     t->hit=TRUE;
-    self->anim_start_tS=tS;
+    self->anim_start_tS=Server_tS;
     self->anim_no_repeat=TRUE;
     self->animation=template->_hit_frames;
     splash=template->splash;
@@ -289,12 +289,12 @@ Bool SetState(CDoomLevel *l,CMonsterThinker *m,U8 *st) {
 //PrintI(st,p==m->self);
   if(s->anim_frames) {
     if(m->self->animation!=s->anim_frames) {
-      m->self->anim_start_tS=tS;
+      m->self->anim_start_tS=Server_tS;
       m->self->animation=s->anim_frames;
     }
     m->self->anim_no_repeat=s->no_repeat;
   }
-  m->state_start_tS=tS;
+  m->state_start_tS=Server_tS;
   m->state_length=s->time;
   m->ran_state=FALSE;
 }
@@ -357,7 +357,7 @@ U0 BarrelThinker(CDoomLevel *l,CBarrelThinker *m) {
   F64 dist;
   if(self->health<=0.) {
     if(!m->explode_start_tS) {
-      m->explode_start_tS=tS;
+      m->explode_start_tS=Server_tS;
       self->flags&=~TF_OBSTACLE;
       self->animation=self->template(CDoomMonsterTemplate*)->_dying_frames;
       self->anim_no_repeat=TRUE;
@@ -369,7 +369,7 @@ U0 BarrelThinker(CDoomLevel *l,CBarrelThinker *m) {
         }
       }
     } else {
-      if(tS-m->explode_start_tS>=AnimationTime(self->animation)) {
+      if(Server_tS-m->explode_start_tS>=AnimationTime(self->animation)) {
         QueRem(m);
         Free(m);
         QueRem(self);
@@ -388,7 +388,7 @@ U0 MonsterThinker(CDoomLevel *l,CMonsterThinker *m) {
     if(s->action) (s->action)(l,m);
   }
 //Class 10 pooperism
-  if(m->state_start_tS+m->state_length<tS) {
+  if(m->state_start_tS+m->state_length<Server_tS) {
     SetState(l,m,m->state->next_state);
   }
 }
@@ -470,7 +470,7 @@ Bool CheckMissileRange(CDoomLevel *l,CMonsterThinker *t) {
   if(t->reaction_time) return FALSE;
   F64 dist;
   if(t->last_hit_time>0.)
-    if(tS<JUST_HIT_TIME+t->last_hit_time) {
+    if(Server_tS<JUST_HIT_TIME+t->last_hit_time) {
       t->last_hit_time=-1.;
       return TRUE;
     }
@@ -651,8 +651,8 @@ U0 PuffThinker(CDoomLevel *l,CPuffThinker *puff) {
 //  if(s->floor_height>=self->height)
 //    goto kill_puff;
 //I will goto the next puff frame
-  if(tS-puff->spawn_time>1./4./2.) {
-    puff->spawn_time=tS;
+  if(Server_tS-puff->spawn_time>1./4./2.) {
+    puff->spawn_time=Server_tS;
     for(i=0;i!=2;i++) {
       if(i==0)
         templates=blood_templates,i2=3;
@@ -692,7 +692,7 @@ U0 SpawnBloodPuff(CDoomLevel *l,CD2 *at,F64 h,F64 damage) {
     blood->template=blood_templates[2];
   }
   t=AddThinker(l,&PuffThinker,"CPuffThinker");
-  t->spawn_time=tS;
+  t->spawn_time=Server_tS;
   QueIns(blood,&l->things);
   t->self=blood;
   blood->animation=blood->template->_animation;
@@ -709,7 +709,7 @@ U0 SpawnSmokePuff(CDoomLevel *l,CD2 *at,F64 h,F64 attack_range) {
   } else
     smoke->template=smoke_templates[0];
   t=AddThinker(l,&PuffThinker,"CPuffThinker");
-  t->spawn_time=tS;
+  t->spawn_time=Server_tS;
   QueIns(smoke,&l->things);
   t->self=smoke;
   smoke->animation=smoke->template->_animation;

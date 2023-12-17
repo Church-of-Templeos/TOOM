@@ -47,7 +47,7 @@ U0 PhysicsOnThing(CDoomLevel *l,CDoomThing *thing) {
     }
   }
 //Check for crusher  action linedef
-  if(sec&&sec->cur_action_linedef) {
+/*  if(sec&&sec->cur_action_linedef) {
     if(special=sec->cur_action_linedef->special_type) {
       if(IsCrushed(sec,thing)) {
         if(special->type=='Door') {
@@ -82,7 +82,7 @@ U0 PhysicsOnThing(CDoomLevel *l,CDoomThing *thing) {
         }
       }
     }
-  }
+  }*/
 }
 U0 EchoSound(CDoomLevel *l,CDoomThing *thing,CDoomSector *s,F64 len) {
   I64 cnt=s->linedef_cnt,i;

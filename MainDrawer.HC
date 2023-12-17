@@ -929,11 +929,6 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
       sidedef=seg->linedef->back,opposite=seg->linedef->front;
     no_draw=FALSE;
     if(!sidedef) {
-//If our thing is 1 sided,alsays draw it in case we clip throuh a wall
-      if(sidedef^^opposite) {
-	sidedef=opposite;
-	opposite=NULL;
-      }else
         goto skip;
     }
     sector=sidedef->sector;

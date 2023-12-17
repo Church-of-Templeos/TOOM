@@ -202,14 +202,17 @@ U0 DoomPrint(CDC *dc,I64 x,I64 y,U8 *fmt,...) {
   for(idx=0;idx!=len;idx++) {
     c=ToUpper(fmt[idx]);
     if('!'<=c<='_') {
-      StrPrint(lump_name,"STCFN%3d",c-'!');
+      StrPrint(lump_name,"STCFN%3d",c);
       while(StrOcc(lump_name,' '))
         *StrFirstOcc(lump_name," ")='0';
       ch_dc=GetGrLump(lump_name);
-      GrBlot(dc,x,y,ch_dc);
-      x+=ch_dc->width;
+      if(ch_dc) {
+        GrBlot(dc,x,y,ch_dc);
+        x+=ch_dc->width;
+      } else
+	x+=4*2;
     } else 
-     x+=4;
+     x+=4*2;
   }
   Free(fmt);
 } 

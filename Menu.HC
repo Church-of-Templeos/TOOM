@@ -143,7 +143,7 @@ U64 NewGameMenu() {
   return MenuInteract(gr.dc,items,48,63);
 }
 
-
+extern I64 LoadSaveInteract(CDC *to,Bool save);
 U64 MainMenu() {
 againm:;
   static I64 state=0,ep,s;
@@ -163,9 +163,11 @@ againm:;
       if(r=='NGAME') {
         state=1;
       } else if(r=='LOADG') {
-	LoadGame("/Poop");
+	state=7;
+	active_menu_item=0;
       } else if(r=='SAVEG') {
-	SaveGame("/Poop");
+	state=6;
+	active_menu_item=0;
       } else if(r=='RDTHIS') {
         state=4;
       } else if(r=='QUITG') {
@@ -225,7 +227,125 @@ againm:;
 	}
         break;
     end:
-      ;
+      break;;
+      case 6:
+	r=LoadSaveInteract(gr.dc,TRUE);
+	if(r==-1)
+	  state=0;
+	return r;
+      case 7:
+	r=LoadSaveInteract(gr.dc,FALSE);
+	if(r==-1)
+	  state=0;
+	return r;
+  }
+  return INVALID_PTR;
+}
+
+U0 DrawSaveLoadBorder(CDC *to,I64 x,I64 y) {
+  CDC *dc=GetGrLump("M_LSLEFT");
+  I64 i;
+  GrBlot(to,x-8*2,y-7*2,dc);
+  dc=GetGrLump("M_LSCNTR");
+  for(i=0;i!=24;i++) {
+    GrBlot(to,x,y-7*2,dc);
+    x+=8*2;
+  }
+  dc=GetGrLump("M_LSRGHT");
+  GrBlot(to,x,y-7*2,dc);
+}
+
+I64 LoadSaveInteract(CDC *to,Bool save) {
+  I64 i,x=80*2,y=54*2;
+  I64 a,b;
+  U8 *fptr,buf[STR_LEN],*buf_ptr=buf;
+  static U8 titles[6][STR_LEN];
+  static Bool enter_name=FALSE;
+  static Bool poll_again=TRUE;
+  static U8 save_name[STR_LEN];
+  CDC *dc,*skull;
+  if(poll_again) {
+    if(!FileFind("/ToomSave")) DirMk("/ToomSave");
+    for(i=0;i!=6;i++) {
+      StrPrint(buf,"/ToomSave/SAVE%d.SAVE",i);
+      if(FileFind(buf)) {
+        fptr=FileRead(buf);
+        StrScan(fptr,"SAVE_NAME:%s\n",&buf_ptr);
+        StrCpy(titles[i],buf);
+        Free(fptr);
+      } else
+        StrCpy(titles[i],"");
+    }
+    poll_again=FALSE;
+  }
+  if(Blink)
+    skull=GetGrLump("M_SKULL1");
+  else
+    skull=GetGrLump("M_SKULL2");
+  if(save)
+    dc=GetGrLump("M_SAVEG");
+  else
+    dc=GetGrLump("M_LOADG");
+  GrBlot(to,72*2,28*2,dc);
+  if(!enter_name){
+    while(i=ScanMsg(&a,&b)) {
+      switch(i) {
+        case MSG_KEY_DOWN:
+	  if(b.u8[0]==SC_CURSOR_UP) {
+	    active_menu_item--;
+	  } else if(b.u8[0]==SC_CURSOR_DOWN) {
+	    active_menu_item++;
+	  } else if(a=='\n') {
+	    if(save) {
+	      enter_name=TRUE;
+	      StrCpy(save_name,"");
+	      return active_menu_item;
+	    } else {
+	      StrPrint(buf,"/ToomSave/SAVE%d.SAVE",active_menu_item);
+	      if(FileFind(buf)) {
+	        LoadGame(buf);
+	        return active_menu_item;
+	      }
+	    }
+	  } else if(a==CH_ESC)
+	    return -1;
+      }
+    }
+  } else {
+//save==TRUE if here
+    while(i=ScanMsg(&a,&b)) {
+      if(i==MSG_KEY_DOWN) {
+        if(a==CH_BACKSPACE&&StrLen(save_name)) {
+	  save_name[StrLen(save_name)-1]=0;
+        } else if(a=='\n') {
+	  enter_name=FALSE;
+	  StrPrint(buf,"/ToomSave/SAVE%d.SAVE",active_menu_item);
+	  poll_again=TRUE;
+	  SaveGame(buf,save_name);
+	  return active_menu_item;
+        } else if(a==CH_ESC) {
+	  enter_name=FALSE;
+	  poll_again=TRUE; //We modiefed the tiles[x] here
+	  return -1;
+        } else if(Bt(char_bmp_displayable,a)) {
+	  if(StrLen(save_name)<24)
+	    CatPrint(save_name,"%c",a);
+        }
+	StrCpy(titles[active_menu_item],save_name);
+      }
+    }    
+  }
+  active_menu_item=ClampI64(active_menu_item,0,5);
+  for(i=0;i!=6;i++) {
+    DrawSaveLoadBorder(to,x,y);
+    DoomPrint(to,x,y-2*2,"%s",titles[i]); //-2*2 was choosen by what looks good
+    if(active_menu_item==i) {
+      GrBlot(to,
+	    x-16-skull->width-skull->x*2,
+	    y-skull->height/2-skull->y*2,
+	    skull);
+    }
+    y+=20*2;
   }
   return INVALID_PTR;
 }

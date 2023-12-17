@@ -2968,7 +2968,7 @@ U0 FreeLevel(CDoomLevel *l) {
 }
 
 
-extern U0 SaveGame(U8 *filename);
+extern U0 SaveGame(U8 *filename,U8 *title="Quick");
 extern U0 LoadGame(U8 *filename);
 #include "Automap.HC";
 #include "Menu.HC";

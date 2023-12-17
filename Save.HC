@@ -79,7 +79,7 @@ U8 *GetUNStr(U8 *ptr) {
   }
   return NULL;
 }
-U0 SaveGame(U8 *filename) {
+U0 SaveGame(U8 *filename,U8 *title) {
   filename=ExtDft(filename,"prumnE"); //Greek word for that fuckin ass sauce
   CQue *head,*cur;
   CHashGeneric *g;
@@ -89,6 +89,8 @@ U0 SaveGame(U8 *filename) {
   U8 buf[STR_LEN],*buf_ptr=buf;
   head=&l->things;
   idx=0;
+  DocPrint(doc,"SAVE_NAME:%s\n",title);
+  DocPrint(doc,"TIME:%n\n",Server_tS);
   DocPrint(doc,"MAP:%s\n",l->map_name);
   DocPrint(doc,"THING_CNT:%d\n",QueCnt(head));
   for(cur=head->next;cur!=head;cur=cur->next) {
@@ -296,8 +298,12 @@ U0 LoadGame(U8 *filename) {
   ptr=FileRead(filename);
   StrUtil(ptr,SUF_REM_CTRL_CHARS);
   optr=ptr;
+  ptr=StrScan(ptr,"SAVE_NAME:%s\n",&buf_ptr);
+  ptr=StrScan(ptr,"TIME:%n\n",&f64); //TODO
   ptr=StrScan(ptr,"MAP:%s\n",&buf_ptr);
-  LoadWadLevel(wad,buf);
+  if(l) FreeLevel(l);
+  l=NULL;
+  l=LoadWadLevel(wad,buf);
   QueDel(&l->things);
   QueDel(&l->thinkers);
   QueInit(&l->thinkers);
@@ -473,7 +479,7 @@ U0 LoadGame(U8 *filename) {
 	    ptr=StrScan(ptr,"%d\n",&i64);
 	    thinker(CLiftThinker*)->s=GetNthSector(l,i64);
 	    ptr=StrScan(ptr,"%d\n",&i64);
-	    thinker(CLiftThinker*)->ld=GetNthSector(l,i64);
+	    thinker(CLiftThinker*)->ld=GetNthLinedef(l,i64);
 	    ptr=StrScan(ptr,"%s\n",&buf_ptr);
 	    thinker(CLiftThinker*)->action=FramePtr(buf);
 	    ptr=StrScan(ptr,"%d\n",&i64);
@@ -494,7 +500,7 @@ U0 LoadGame(U8 *filename) {
 	    ptr=StrScan(ptr,"%d\n",&i64);
 	    thinker(CDoorThinker*)->s=GetNthSector(l,i64);
 	    ptr=StrScan(ptr,"%d\n",&i64);
-	    thinker(CDoorThinker*)->s=GetNthLinedef(l,i64);
+	    thinker(CDoorThinker*)->ld=GetNthLinedef(l,i64);
 	    ptr=StrScan(ptr,"%s\n",&buf_ptr);
 	    thinker(CDoorThinker*)->action=FramePtr(buf);
 	    ptr=StrScan(ptr,"%d\n",&i64);

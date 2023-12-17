@@ -2058,7 +2058,7 @@ stairs_activate:
             BuildStairs(l,ld);
 	    break; case 'S1':    
 	    if(!(flags&WACTIVATE_SWITCH)) return;
-	   goto stairs_activate1;
+	    goto stairs_activate1;
 	    break; case 'W1':
 	    if(!(flags&WACTIVATE_WALK)) return;
 	    goto stairs_activate1;
@@ -2140,6 +2140,7 @@ exit_activate:
 	      return;
 	    s->cur_action_linedef=ld;
 	    Spawn(&PlaySoundTask,"SWTCHX","snd",0,Fs);
+	    l->ended_special=exit->secret;
 	    l->ended=TRUE;
 	    break; case 'S1':    
 	    if(!(flags&WACTIVATE_SWITCH)) return;
@@ -2952,7 +2953,6 @@ U0 InitLevel(CDoomLevel *l) {
   InitMonsters(l);
 }
 U0 FreeLevel(CDoomLevel *l) {
-  CDoomSector *s,*head;
   QueDel(&l->things);
   QueDel(&l->sidedefs);
   QueDel(&l->subsectors);
@@ -2972,8 +2972,79 @@ extern U0 SaveGame(U8 *filename,U8 *title="Quick");
 extern U0 LoadGame(U8 *filename);
 #include "Automap.HC";
 #include "Menu.HC";
+U8 *NextLevel(U8 *nm,Bool special=FALSE) {
+//Episode 1
+  if(!StrCmp(nm,"E1M1")) 
+    return "E1M2";
+  else if(!StrCmp(nm,"E1M2")) 
+    return "E1M3";
+  else if(!StrCmp(nm,"E1M3")) 
+    return "E1M4";
+  else if(!StrCmp(nm,"E1M4")) {
+    if(special) return "E1M9";
+    return "E1M5";
+  } else if(!StrCmp(nm,"E1M5")) 
+    return "E1M6";
+  else if(!StrCmp(nm,"E1M6")) 
+    return "E1M7";
+  else if(!StrCmp(nm,"E1M7")) 
+    return "E1M8";
+//Episode 2
+  if(!StrCmp(nm,"E2M1")) 
+    return "E2M2";
+  else if(!StrCmp(nm,"E2M2")) 
+    return "E2M3";
+  else if(!StrCmp(nm,"E2M3")) 
+    return "E2M4";
+  else if(!StrCmp(nm,"E2M4"))
+    return "E2M5";
+  else if(!StrCmp(nm,"E2M5"))  {
+    if(special) return "E2M9";
+    return "E2M6";
+  } else if(!StrCmp(nm,"E2M6")) 
+    return "E2M7";
+  else if(!StrCmp(nm,"E2M7")) 
+    return "E2M8";
+//Episode 3
+  if(!StrCmp(nm,"E3M1")) 
+    return "E3M2";
+  else if(!StrCmp(nm,"E3M2")) 
+    return "E3M3";
+  else if(!StrCmp(nm,"E3M3")) 
+    return "E3M4";
+  else if(!StrCmp(nm,"E3M4"))
+    return "E3M5";
+  else if(!StrCmp(nm,"E3M5"))
+    return "E3M6";
+  else if(!StrCmp(nm,"E3M6")) { 
+    if(special) return "E3M9";
+    return "E3M7";
+  } else if(!StrCmp(nm,"E3M7")) 
+    return "E3M8";
+//Episode 4
+  if(!StrCmp(nm,"E4M1")) 
+    return "E4M2";
+  else if(!StrCmp(nm,"E4M2")) {
+    if(special) return "E4M9";
+    return "E4M3";
+  } else if(!StrCmp(nm,"E4M3")) 
+    return "E4M4";
+  else if(!StrCmp(nm,"E4M4"))
+    return "E4M5";
+  else if(!StrCmp(nm,"E4M5"))
+    return "E4M6";
+  else if(!StrCmp(nm,"E4M6"))
+    return "E4M7";
+  else if(!StrCmp(nm,"E4M7")) 
+    return "E4M8";
+  //Intermission
+  return NULL;
+}
 U0 PlayLevel() { 
+ent:;
   static Bool in_level=FALSE;
+  I64 difficulty=3;
+  CDoomLevel *l2;
   p=PlayerNew(l);
   PlayerMove(l,p,0);
   InitLevel(l);
@@ -3105,16 +3176,18 @@ U0 PlayLevel() {
 ret:
   if(l->ended) Intermission(l,l->map_name[1]-'1',l->map_name[3]-'1');
   DCFill;
+  l2=LoadWadLevel(wad,NextLevel(l->map_name,l->ended_special));  
   FreeLevel(l);
   l=NULL;
+  l=l2;
   in_level=FALSE;
-  return;
+  goto ent;
 fin_level:
   in_level=FALSE;
   return;
 }
 #include "Save.HC";
-/*U64 r;
+U64 r;
 while(TRUE) {
   DCFill;
   r=MainMenu;
@@ -3123,9 +3196,7 @@ while(TRUE) {
     DCFill;
     break;
   }
-}*/
-l=LoadWadLevel(wad,"E1M1",3);
-PlayLevel;
+}
 #endif        ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      
 !   Éÿÿÿ0   ûÿÿÿ
 0   ûÿÿÿb   ðÿÿÿ

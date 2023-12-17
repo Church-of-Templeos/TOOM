@@ -276,7 +276,7 @@ class CDoomLevel {
   CDoomLinedef **action_linedefs;
   CLevelStats stats;
 //ended is TRUE if we exited the level by pressing a button etc
-  Bool has_red_key,has_blue_key,has_yellow_key,ended;
+  Bool has_red_key,has_blue_key,has_yellow_key,ended,ended_special;
   U8 map_name[5]; //EXMY
 };
 

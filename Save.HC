@@ -224,6 +224,7 @@ U0 SaveGame(U8 *filename,U8 *title) {
     else
       DocPrint(doc,"%d\n",0);
   }
+  DocPrint(doc,"KEYS:%d,%d,%d\n",l->has_red_key,l->has_blue_key,l->has_yellow_key);
   DocWrite(doc);  
   DocDel(doc);
   Free(filename);
@@ -293,7 +294,7 @@ U0 LoadGame(U8 *filename) {
   U8 *optr,*ptr;
   U8 buf[STR_LEN],*buf_ptr=buf,buf2[STR_LEN];
   GunAvail *avail;
-  I64 cnt,idx,i64,idx2;
+  I64 cnt,idx,i64,idx2,red,blue,yellow;
   F64 f64;
   ptr=FileRead(filename);
   StrUtil(ptr,SUF_REM_CTRL_CHARS);
@@ -543,6 +544,11 @@ U0 LoadGame(U8 *filename) {
         }
         state++;
         break;
+      case 5:
+        ptr=StrScan(ptr,"KEYS:%d,%d,%d\n",&red,&blue,&yellow);
+        l->has_red_key=red,l->has_blue_key=blue,l->has_yellow_key=yellow;
+	state++;
+	break;
       default:
         goto fin;
     }

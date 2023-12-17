@@ -398,18 +398,11 @@ fail_walk:
 	        }
 //W1/WR
 	        if(lds[0]->special_type) {
-		  if(lds[0]->special_type->type=='Door'
-		        ||lds[0]->special_type->type=='Floor'
-		        ||lds[0]->special_type->type=='Lift'
-		        ||lds[0]->special_type->type=='Ceil'
-		        ||lds[0]->special_type->type=='Teleport'
-			||lds[0]->special_type->type=='Exit') {
-		    if(walked_over_idx<64) {
-		      if(CrosesLine(lds[0],&move1,&move2))  {
-		        tmp=IntersectDist(lds[0],&move1,&move2);
-		        walked_over_dists[walked_over_idx]=tmp;
-		        walked_over[walked_over_idx++]=*lds;
-		      }
+		  if(walked_over_idx<64) {
+		    if(CrosesLine(lds[0],&move1,&move2))  {
+		      tmp=IntersectDist(lds[0],&move1,&move2);
+		      walked_over_dists[walked_over_idx]=tmp;
+		      walked_over[walked_over_idx++]=*lds;
 		    }
 		  }
 	        }
@@ -485,7 +478,7 @@ pass:
   if(flags&COLLISF_SLIDE) {
     if(dist>0.)
       odist=odist-dist;
-      //If we have asmall crack on the wall,walk along the main wall(blue vector)
+//If we have asmall crack on the wall,walk along the main wall(blue vector)
     $SP,"<2>",BI=2$;
 
 
@@ -504,11 +497,11 @@ pass:
       wall=walls[i];
 //+2 because to steped down by 1(+1 for extra wiggle room)
       if(CheckLineWithBox(walls[i],&cur_pos,radius+2)) {
-	tmp=DistFromLine(result,wall->start,wall->end);
-	if(tmp<cap) {
+        tmp=DistFromLine(result,wall->start,wall->end);
+        if(tmp<cap) {
 	  cap=tmp;
 	  wall2=wall;
-	}
+        }
       }
     }
     if(wall2) //???

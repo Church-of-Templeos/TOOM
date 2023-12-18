@@ -661,8 +661,6 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    wall_cmd->start=MinI64(wall_cmd->start,iy+ih2);
 	    wall_cmd->end=MaxI64(wall_cmd->end,iy+ih2);
 	    ty=tyf;
-	    if(opposite) //Why is this here????
-	      ty=ty%texture->height;
 	    if(repeat)
 	      ty=ty%texture->height;
 	    if(ty<0) ty=-ty;
@@ -929,7 +927,7 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
       sidedef=seg->linedef->back,opposite=seg->linedef->front;
     no_draw=FALSE;
     if(!sidedef) {
-        goto skip;
+      goto skip;
     }
     sector=sidedef->sector;
     highest_ceil=HighestCeil(seg->linedef,sector);
@@ -938,14 +936,14 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
         floor=Min(sector->floor_height,FloorRaise(seg->linedef,sector));
         ceil=Max(sector->floor_height,FloorRaise(seg->linedef,sector));
 draw_wall:
-        start_floor.x=seg->start->x;
-        start_floor.y=seg->start->y;
-        end_floor.x=seg->end->x;
-        end_floor.y=seg->end->y;
-        start_ceil.x=seg->start->x;
-        start_ceil.y=seg->start->y;
-        end_ceil.x=seg->end->x;
-        end_ceil.y=seg->end->y;
+	  start_floor.x=seg->start->x;
+	  start_floor.y=seg->start->y;
+	  end_floor.x=seg->end->x;
+	  end_floor.y=seg->end->y;
+	  start_ceil.x=seg->start->x;
+	  start_ceil.y=seg->start->y;
+	  end_ceil.x=seg->end->x;
+	  end_ceil.y=seg->end->y;
         fail_cnt=0;
         if(!ClipLineToScrenCoords(cam,&start_floor,&end_floor,floor))
 	  fail_cnt++;
@@ -964,7 +962,10 @@ draw_wall:
 	      InsertVisplane(cam,opposite->sector);
 	    }
 	    if(!no_draw) {
-	      QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef);
+	      if(seg->back_side)
+	        QueRayCastJob(to_dc,texture,seg->end,seg->start,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef);
+	      else
+	        QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef);
 	      if(wall==3&&opposite&&opposite->sector) {
 	        sector=opposite->sector;
 	        sidedef=opposite;

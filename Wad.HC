@@ -1235,7 +1235,7 @@ skip_thing:
     }
     dsect->base_light_level=wsect->light_level;
     dsect->cur_light_level=wsect->light_level;
-//    dsect->special_type=action_sector_types[wsect->special_type];
+    dsect->special_type=wsect->special_type;
     dsect->tag_number=wsect->tag_number;
     dsect_list[idx]=dsect;
     wsect++;

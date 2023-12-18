@@ -1,6 +1,6 @@
 #ifndef MENU
 #define MENU "poop"
-extern U0 PlayLevel();
+extern U0 PlayLevel(Bool init=TRUE);
 class CMenuItem {
   U64 value;
   CDC *gr;

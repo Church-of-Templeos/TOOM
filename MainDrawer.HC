@@ -66,7 +66,8 @@ class GunAvail{
 };
 
 class CDoomPlayer:CDoomThing { 
-  F64 armor;
+//rad_suit_time is the time remaining
+  F64 armor,rad_suit_time;
 //When you die,the player stares at the thing that killed the player
   CDoomThing *stare_at;
   GunAvail arsenal[8];
@@ -2044,6 +2045,7 @@ U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags,CDoom
   F64 dst;
   if(ld) {
     if((type=ld->special_type)) {
+PrintI(&type->type,1);
       if(type->type=='Stairs') {
 	tp=type;
 	switch(tp->trigger) {
@@ -2127,6 +2129,7 @@ teleport_activate:
 
       } else if(type->type=='Exit') {
 	exit=type;
+PrintI(&exit->trigger,1);
 	switch(exit->trigger) {
 	   break;case 'P1':
 exit_activate1:
@@ -2747,6 +2750,9 @@ rem:
 	    break;
 	  p->health=ClampI64(p->health+10,0,100);
 	  goto rem;
+	case 2025: //Radiuation suit
+	  p->rad_suit_time=60;
+	  goto rem;
 //Keys
         case 5: //BLue keycard
 	  l->has_blue_key=TRUE;
@@ -2813,6 +2819,8 @@ U0 UpdateLevel(CDoomLevel *l) {
   Physics(l);
   UpdateThinkers(l);
   CheckPowerupPickup(l);
+  if(p&&p->rad_suit_time)
+    p->rad_suit_time=Clamp(p->rad_suit_time-1,0.,60.);
 }
 
 
@@ -2828,7 +2836,7 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
   Vector *ldv;
    dummy.x=where->x;
   dummy.y=where->y;
-  ld=MoveInLevel(l,&dummy,angle,64.,16.,height,0);
+  ld=MoveInLevel(l,&dummy,angle,64.,1.,height,0);
   if(ld) {
     if(ld->front^^ld->back) {
       which_texture=1;

@@ -14,7 +14,7 @@ U0 PhysicsOnThing(CDoomLevel *l,CDoomThing *thing) {
   CDoomSector *sec;
   CDoomActionSector *special;
   CDoomThing *target=NULL;
-  F64 angle=FArg(thing->momx,thing->momy);
+  F64 angle=FArg(thing->momx,thing->momy),damage;
   F64 mom_t=Sqrt(Sqr(thing->momx)+Sqr(thing->momy));
   if(mom_t>=1.)
     if(ld=MoveInLevel(l,&thing->x,angle,mom_t,thing->template->radius,thing->height,COLLISF_SLIDE|COLLISF_NO_HIT_THING|COLLISF_ADJUST_FOR_RADIUS,,thing,&target)) {
@@ -42,8 +42,37 @@ U0 PhysicsOnThing(CDoomLevel *l,CDoomThing *thing) {
         thing->momz=-GRAVITY;
       }
       thing->height=Clamp(thing->height,sec->floor_height,sec->ceil_height);
-      if(thing->height==sec->floor_height)
+      if(thing->height==sec->floor_height) {
+	if(thing==p&&!p(CDoomPlayer*)->rad_suit_time) {
+	  //Damaging fllor
+	  damage=0;
+	  switch(sec->special_type) {
+	    case 7:
+		damage=5;
+	    break;
+	    case 5:
+		damage=10;
+		break;
+	    case 16:
+		damage=20;
+		break;
+	    case 4:
+		damage=20;
+		break;
+	    case 11:
+		damage=20;
+		break;
+	  }
+	  if(!(ToI64(tS*32)&0x1f)&&damage) {
+	    DamageMob(l,p,NULL,damage);
+//E1M8 hell exit
+	    if(sec->special_type==11&&p->health<11) {
+	      l->ended=TRUE;
+	    }
+	  } 
+	}
         thing->momz=0;
+      }
     }
   }
 //Check for crusher  action linedef

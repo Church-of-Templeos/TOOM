@@ -925,6 +925,7 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name,I64 skill=1) {
   QueInit(&level->linedefs);
   QueInit(&level->bsp_nodes);
   QueInit(&level->subsectors);
+  level->skill=skill;
   name[8]=0;
   wad_dir=wad->body+wad->directory_ptr;
   for(idx=0;idx!=wad->lump_cnt;idx++) {
@@ -1095,7 +1096,7 @@ skip_thing:
     dlinedef->flags=wlinedef->flags;
     dlinedef->special_type=action_sector_types[wlinedef->special_type];
     if(wlinedef->special_type&&!dlinedef->special_type) {
-      DbgPrint("Unimp special linedef(%d) at ld %d",wlinedef->special_type,idx);
+      DbgPrint("Unimp special linedef(%d) at ld %d\n",wlinedef->special_type,idx);
     }
     dlinedef_list[idx]=dlinedef;
     QueIns(dlinedef,level->linedefs.last);

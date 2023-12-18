@@ -20,6 +20,7 @@ CTask *doom_task=Fs;
 F64 ray_cast_table_cos[GR_WIDTH/2];
 F64 ray_cast_table_sin[GR_WIDTH/2];
 Bool paused = FALSE,gameExit=FALSE;
+F64 time_offset=0;
 F64 Server_tS() {
   static Bool last;
   static F64 pause_tS=tS,unpause_tS=tS;
@@ -34,8 +35,8 @@ F64 Server_tS() {
     paused2=FALSE;
   }
   if(paused)
-    return pause_tS;
-  return tS-total_pause_time;
+    return pause_tS+time_offset;
+  return tS-total_pause_time+time_offset;
 }
 class CJobRunnerData {
   U0 (*fptr)(U8*);
@@ -3036,16 +3037,15 @@ U8 *NextLevel(U8 *nm,Bool special=FALSE) {
   //Intermission
   return NULL;
 }
-U0 PlayLevel() { 
+Bool in_level=FALSE;
+U0 PlayLevel(Bool init=TRUE) { 
 ent:;
-  static Bool in_level=FALSE;
-  I64 difficulty=3;
   CDoomLevel *l2;
-  p=PlayerNew(l);
-  PlayerMove(l,p,0);
-  InitLevel(l);
-  SaveGame("T:/Poop");
-  LoadGame("T:/Poop");
+  if(init) {
+    p=PlayerNew(l);
+    PlayerMove(l,p,0);
+    InitLevel(l);
+  }
 //Return to parent instance  of PlayLevel(if recursivly called)
   //But be sure to initailize the level and player
   if(in_level) return;
@@ -3172,11 +3172,12 @@ ent:;
 ret:
   if(l->ended) Intermission(l,l->map_name[1]-'1',l->map_name[3]-'1');
   DCFill;
-  l2=LoadWadLevel(wad,NextLevel(l->map_name,l->ended_special));  
+  l2=LoadWadLevel(wad,NextLevel(l->map_name,l->ended_special),l->skill);  
   FreeLevel(l);
   l=NULL;
   l=l2;
   in_level=FALSE;
+  init=TRUE;
   goto ent;
 fin_level:
   in_level=FALSE;

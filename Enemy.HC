@@ -281,7 +281,7 @@ Bool SetState(CDoomLevel *l,CMonsterThinker *m,U8 *st) {
   if(st) s=FramePtr(st);
   m->state=s;
   if(!s) {
-    if(st) DbgPrint("Unimplemented state ASK NROOT(%s)",st);
+    if(st) DbgPrint("Unimplemented state ASK NROOT(%s)\n",st);
 //You done silly
     RemoveMonsterFromMem(m);
     return FALSE;
@@ -1124,7 +1124,7 @@ U0 LoadMonsterInfo() {
   AddState(t->death_state="IMP.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
   AddState(t->gib_state="IMP.S_POSS_GIB",STATE_NO_REPEAT,t->_gib_frames,&XFall,"ST_NULL");
 //Plasma shot
-  plasma_ball=CAlloc(sizeof CDoomProjectileTemplate);
+  UH("plasma",plasma_ball=CAlloc(sizeof CDoomProjectileTemplate));
   p=plasma_ball;
   p->flags=TF_FLOATING;
   p->radius=13.;
@@ -1137,7 +1137,7 @@ U0 LoadMonsterInfo() {
   StrCpy(p->spr_base_name,"PLSE"); //Eploding sprite
   UH("plasmahit",p->_hit_frames=GenerateCacheFrames(p,"ABCDE"));
 //Fireball and I aint talkin alchohol
-  imp_fireball=CAlloc(sizeof CDoomProjectileTemplate);
+  UH("impfire",imp_fireball=CAlloc(sizeof CDoomProjectileTemplate));
   p=imp_fireball;
   p->flags=TF_FLOATING;
   p->direct=9;
@@ -1172,7 +1172,7 @@ U0 LoadMonsterInfo() {
   AddState(t->death_state="BARON.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"BARON.S_POSS_DIE2");
   AddState(t->death_state="BARON.S_POSS_DIE2",0,t->_dying_frames,&BossDeath,"ST_NULL");
 //Booger ball
-  baron_fireball=CAlloc(sizeof CDoomProjectileTemplate);
+  UH("baronfb",baron_fireball=CAlloc(sizeof CDoomProjectileTemplate));
   p=baron_fireball;
   p->flags=TF_FLOATING;
   p->speed=525/30.;
@@ -1205,7 +1205,7 @@ U0 LoadMonsterInfo() {
   AddState(t->pain_state="CACO.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"CACO.S_POSS_RUN");
   AddState(t->death_state="CACO.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
 //Cacodemon ball
-  cacodemon_fireball=CAlloc(sizeof CDoomProjectileTemplate);
+  UH("kakoballw",cacodemon_fireball=CAlloc(sizeof CDoomProjectileTemplate));
   p=cacodemon_fireball;
   p->flags=TF_FLOATING;
   p->speed=350/35.;;
@@ -1230,7 +1230,7 @@ U0 LoadMonsterInfo() {
   UH("cyberhurt",t->_hurt_frames=GenerateCacheFrames(t,"G"));
   UH("cyberdie",t->_dying_frames=GenerateCacheFrames(t,"HIJKLMNOPP"));
 //Rocket
-  rocket=CAlloc(sizeof CDoomProjectileTemplate);
+  UH("rocket",rocket=CAlloc(sizeof CDoomProjectileTemplate));
   p=rocket;
   p->flags=TF_FLOATING;
   p->direct=20.;
@@ -1331,7 +1331,7 @@ U0 LoadMonsterInfo() {
   AddState("TRANS.S_POSS_ATK2",10,t->_idle_frames,&SargAttack,"TRANS.S_POSS_RUN");
   AddState(t->pain_state="TRANS.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"TRANS.S_POSS_RUN");
   AddState(t->death_state="TRANS.S_POSS_DIE",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Fall,"TRANS.S_POSS_DIE2");
-  AddState(t->death_state="TRANS.S_POSS_DIE2",STATE_NO_REPEAT,t->_dying_frames,NULL,"ST_NULL");
+  AddState("TRANS.S_POSS_DIE2",STATE_NO_REPEAT,t->_dying_frames,NULL,"ST_NULL");
 //Scrotum spider
   t=doom_thing_types[0x7];
   t->reaction_time=1/35.*8;

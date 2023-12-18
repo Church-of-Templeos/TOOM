@@ -299,13 +299,13 @@ I64 LoadSaveInteract(CDC *to,Bool save) {
 	    if(save) {
 	      enter_name=TRUE;
 	      StrCpy(save_name,"");
-	      return active_menu_item;
+	      goto lenter_name;
 	    } else {
 	      StrPrint(buf,"/ToomSave/SAVE%d.SAVE",active_menu_item);
 	      if(FileFind(buf)) {
 	        LoadGame(buf);
-	        return active_menu_item;
 	      }
+	      return active_menu_item;
 	    }
 	  } else if(a==CH_ESC)
 	    return -1;
@@ -313,6 +313,7 @@ I64 LoadSaveInteract(CDC *to,Bool save) {
     }
   } else {
 //save==TRUE if here
+lenter_name:;
     while(i=ScanMsg(&a,&b)) {
       if(i==MSG_KEY_DOWN) {
         if(a==CH_BACKSPACE&&StrLen(save_name)) {

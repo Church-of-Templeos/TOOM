@@ -92,6 +92,7 @@ U0 SaveGame(U8 *filename,U8 *title) {
   DocPrint(doc,"SAVE_NAME:%s\n",title);
   DocPrint(doc,"TIME:%n\n",Server_tS);
   DocPrint(doc,"MAP:%s\n",l->map_name);
+  DocPrint(doc,"SKILL:%d\n",l->skill);
   DocPrint(doc,"THING_CNT:%d\n",QueCnt(head));
   for(cur=head->next;cur!=head;cur=cur->next) {
     if(cur==p)
@@ -213,9 +214,16 @@ U0 SaveGame(U8 *filename,U8 *title) {
       DocPrint(doc,"%d\n",cur(CDoorThinker*)->closing);
       DocPrint(doc,"%d\n",cur(CDoorThinker*)->waiting);
       DocPrint(doc,"%d\n",cur(CDoorThinker*)->reverting);
+    } else if(!StrCmp("CPuffThinker",cur(CDoomThinker*)->cls_name)) {
+      DocPrint(doc,"%d\n",GetThingIndex(l,cur(CPuffThinker*)->self));
+      DocPrint(doc,"%n\n",cur(CPuffThinker*)->spawn_time);
+    } else {
+//Do Nothing
+   
     }
   }
   DocPrint(doc,"ARSENAL:\n");
+  DocPrint(doc,"EQUIP:%d\n",weaponIndex);
   for(idx=0;idx!=8;idx++) {
     avail=&p->arsenal[idx];
     DocPrint(doc,"%d\n",avail->available);
@@ -237,6 +245,8 @@ union COmniThinker {
   CMissileThinker missile;
   CMonsterThinker monster;
   CBarrelThinker barrel;
+  CDoorThinker door;
+  CLiftThinker lift;
 };
 CDoomThinker *GetNthThinker(CDoomLevel *l,I64 n) {
   CQue *head=&l->thinkers,*cur;
@@ -290,7 +300,7 @@ U0 LoadGame(U8 *filename) {
   I64 state=0;
   CQue *head;
   CDoomThing *thing;
-  COmniThinker *thinker;
+  COmniThinker *thinker,*next;
   U8 *optr,*ptr;
   U8 buf[STR_LEN],*buf_ptr=buf,buf2[STR_LEN];
   GunAvail *avail;
@@ -300,16 +310,19 @@ U0 LoadGame(U8 *filename) {
   StrUtil(ptr,SUF_REM_CTRL_CHARS);
   optr=ptr;
   ptr=StrScan(ptr,"SAVE_NAME:%s\n",&buf_ptr);
-  ptr=StrScan(ptr,"TIME:%n\n",&f64); //TODO
+  ptr=StrScan(ptr,"TIME:%n\n",&f64);
+  time_offset=f64-tS;
   ptr=StrScan(ptr,"MAP:%s\n",&buf_ptr);
+  ptr=StrScan(ptr,"SKILL:%d\n",&i64);
   if(l) FreeLevel(l);
   l=NULL;
-  l=LoadWadLevel(wad,buf);
+  l=LoadWadLevel(wad,buf,i64);
   QueDel(&l->things);
   QueDel(&l->thinkers);
   QueInit(&l->thinkers);
   QueInit(&l->things);
   while(*ptr) {
+    PrintI("t",state);
     switch(state) {
       case 0: //Thing cnt
         ptr=StrScan(ptr,"THING_CNT:%d\n",&cnt);
@@ -512,13 +525,27 @@ U0 LoadGame(U8 *filename) {
 	    thinker(CDoorThinker*)->waiting=i64;
 	    ptr=StrScan(ptr,"%d\n",&i64);
 	    thinker(CDoorThinker*)->reverting=i64;
+	  } else if(!StrCmp("CPuffThinker",thinker(CDoomThinker*)->cls_name)) {
+	    thinker->doom.fun_ptr=&PuffThinker;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CPuffThinker*)->self=GetNthThing(l,i64);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CPuffThinker*)->spawn_time);
+	  }else {
+	    next=thinker->doom.next;
+	    QueRem(thinker);
+	    Free(thinker);
+	    thinker=next;
+	    goto skip_thinker;
 	  }
 	  thinker=thinker->doom.next;
+skip_thinker:;
         }
         state++;
         break;
       case 4: //Arsenal
         ptr=StrScan(ptr,"ARSENAL:\n");
+        ptr=StrScan(ptr,"EQUIP:%d\n",&i64);
+        SwapWeapon(p,i64);
         for(idx=0;idx!=8;idx++) {
 	  avail=&p->arsenal[idx];
 	  switch(idx) {
@@ -547,8 +574,8 @@ U0 LoadGame(U8 *filename) {
       case 5:
         ptr=StrScan(ptr,"KEYS:%d,%d,%d\n",&red,&blue,&yellow);
         l->has_red_key=red,l->has_blue_key=blue,l->has_yellow_key=yellow;
-	state++;
-	break;
+        state++;
+        break;
       default:
         goto fin;
     }
@@ -557,6 +584,15 @@ fin:
   head=&l->things;
   for(thing=head->next;head!=thing;thing=thing->next)
     thing->thinker=GetNthThinker(l,thing->thinker);
+  for(thing=head->next;head!=thing;thing=next) {
+    next=thing->next;
+    if(!thing->template){
+      QueRem(thing);
+      Free(thing);
+    }
+  }
   Free(optr);
   Free(filename);
+  if(!in_level)
+    PlayLevel(FALSE);
 }

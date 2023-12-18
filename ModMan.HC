@@ -9,4 +9,4 @@ else
 }
 
 if(FileFind("TOOM.wad"))
- LoadWad("TOOM.wad");
+ LoadWad("TOOM.wad");   

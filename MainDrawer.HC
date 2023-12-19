@@ -1411,7 +1411,7 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type,Bool going_up=TRUE) {
         return floor->base_floor_height+24;
       return floor->base_floor_height;
     case LIFT_RAISE_NEXT_FLOOR:
-      diff=0.;
+      diff=I16_MAX;
       for(idx=0;idx!=floor->linedef_cnt;idx++) {
         for(idx2=0;idx2!=2;idx2++) {
 	  if(idx2)
@@ -1420,13 +1420,12 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type,Bool going_up=TRUE) {
 	    sd=floor->linedefs[idx]->back;
 	  if(sd&&sd!=floor)
 	    if(sd->sector->floor_height>floor->floor_height)
-	      diff=Max(diff,sd->sector->floor_height-floor->floor_height);
+	      diff=Min(diff,sd->sector->floor_height-floor->floor_height);
         }
-        if(diff==0.)
-	  return floor->base_floor_height;
-        return diff+floor->floor_height;
       }
-      return lowest;     
+      if(diff==ToF64(I16_MAX))
+        return floor->base_floor_height;
+      return diff+floor->floor_height;
     case LIFT_LOW_HIGH_REPEAT:
       if(going_up) {
         for(idx=0;idx!=floor->linedef_cnt;idx++) {
@@ -1771,6 +1770,7 @@ F64 GetTargetFloorHeight(CDoomSector *floor,I64 type,Bool up) {
   F64 diff;
   CDoomSidedef *sd;
   I64 idx;
+PrintI("type",type);
   switch(type) {
       break; case FLOOR_DST_LOWEST:
       dst=I16_MAX;
@@ -1863,7 +1863,7 @@ F64 GetTargetFloorHeight(CDoomSector *floor,I64 type,Bool up) {
 	  if(sd&&sd->sector!=floor) {
 	    if(sd->sector->floor_height<dst) {
 	      diff=sd->sector->floor_height-floor->floor_height;
-	      if(diff<dst-floor->floor_height)
+	      if(.5<diff<dst-floor->floor_height)
 	        dst=sd->sector->floor_height;
 	    }
 	  }
@@ -2040,6 +2040,40 @@ U0 TeleportThing(CDoomLevel *l,CDoomTeleporter *tp,I64 sector_tag,CDoomThing *wh
 	 }
 	 return;
        }
+    }
+  }
+}
+U0 ChangeByModel(CDoomLinedef *ld,CDoomSector *s,I64 model,Bool texture_change,Bool type_change) {
+  CDoomLinedef *ld2;
+  I64 idx;
+//Account for texture/type change
+  if(texture_change||type_change) {
+    if(model==FLOOR_MODEL_NUMBERED) {
+//See EV_DoFloor in doom3do source code
+      for(idx=0;idx!=s->linedef_cnt;idx++) {
+        ld2=s->linedefs[idx];
+        if(ld2->front&&ld2->back) {
+	  if(ld2->front->sector!=s) {
+	    if(texture_change)
+	      MemCpy(s->floor_dc,ld2->front->sector->floor_dc,8*4);
+	    if(type_change)
+	      s->special_type=ld2->front->sector->special_type;
+	    break;
+	  }
+	  if(ld2->back->sector!=s) {
+	    if(texture_change)
+	      MemCpy(s->floor_dc,ld2->back->sector->floor_dc,8*4);
+	    if(type_change)
+	      s->special_type=ld2->back->sector->special_type;
+	    break;
+	  }
+        }
+      }
+    } else if(model==FLOOR_MODEL_TRIGGER) {
+      if(texture_change)
+        MemCpy(s->floor_dc,ld->front->sector->floor_dc,8*4);
+      if(type_change)
+        s->special_type=ld->front->sector->special_type;
     }
   }
 }
@@ -2265,6 +2299,7 @@ lactivate:
 	    dst=GetTargetLiftHeight(s,lift->target);
             AddLiftThinker(l,s->floor_height,dst,s,ld,lift,dst>s->floor_height);
 	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
+            ChangeByModel(ld,s,lift->model,lift->texture_change,lift->type_change);
 	    break; case 'S1':
 	    if(!(flags&WACTIVATE_SWITCH)) return;
 	    goto lactivate1;
@@ -2302,36 +2337,7 @@ factivate:
 	    dst=GetTargetFloorHeight(s,fl->target,fl->direction==FLOOR_DIR_UP);
             AddLiftThinker(l,s->floor_height,dst,s,ld,fl,dst>s->floor_height);
  	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
-//Account for texture/type change
-	    if(fl->texture_change||fl->type_change) {
-	      if(fl->model==FLOOR_MODEL_NUMBERED) {
-//See EV_DoFloor in doom3do source code
-	        for(idx=0;idx!=s->linedef_cnt;idx++) {
-		  ld2=s->linedefs[idx];
-		  if(ld2->front&&ld2->back) {
-		    if(ld2->front->sector!=s) {
-		      if(fl->texture_change)
-		        MemCpy(s->floor_dc,ld2->front->sector->floor_dc,8*4);
-		      if(fl->type_change)
-		        s->special_type=ld2->front->sector->special_type;
-		      break;
-		    }
-		    if(ld2->back->sector!=s) {
-		      if(fl->texture_change)
-		        MemCpy(s->floor_dc,ld2->back->sector->floor_dc,8*4);
-		      if(fl->type_change)
-		        s->special_type=ld2->back->sector->special_type;
-		      break;
-		    }
-		  }
-	        }
-	      } else if(fl->model==FLOOR_MODEL_TRIGGER) {
-	        if(fl->texture_change)
-		  MemCpy(s->floor_dc,ld->front->sector->floor_dc,8*4);
-	        if(fl->type_change)
-		  s->special_type=ld->front->sector->special_type;
-	      }
-	    }
+            ChangeByModel(ld,s,fl->model,fl->texture_change,fl->type_change);
 	    break; case 'S1':
 	    if(!(flags&WACTIVATE_SWITCH)) return;
 	    goto factivate1;
@@ -2577,8 +2583,6 @@ U0 CheckPowerupPickup(CDoomLevel *l) {
     next=t->next;
     if(SqrI64(2*t->template->radius)>=SqrI64(p->x-t->x)+SqrI64(p->y-t->y)) {
       switch(t->template->type) {
-        start:
-	  p->pickup_amt+=6;
 	  case 2006: //BFG
 	    new_gun=!p->arsenal[7].available;
 	    p->arsenal[7].available=TRUE;
@@ -2593,6 +2597,7 @@ cell:
 	    load->ammo=ClampI64(load->ammo,0,maxCells);
 	    if(load->ammo!=orig) {
 rem:
+	      p->pickup_amt+=6;
 	      if(t->template->flags&TF_ARTIFACT)
 	        l->stats.have_items++;
 	      QueRem(t);
@@ -2789,7 +2794,6 @@ rem:
 	  case 6: //Yellow keycard
 	    l->has_yellow_key=TRUE;
 	    goto rem;
-        end:;
       }
     }
   }
@@ -2954,23 +2958,22 @@ WinMax;
 U0 InitLevel(CDoomLevel *l) {
   CDoomThing *t,*head=&l->things,*next;
   CDoomSector *s;
-  for(t=head->next;t!=head;t=next) { {
-      next=t->next;
-      if(p!=t)
-        switch(t->template->type) {
+  for(t=head->next;t!=head;t=next) {
+    next=t->next;
+    if(p!=t)
+      switch(t->template->type) {
 //Players
-	  case 1:
-	  case 2:
-	  case 3:
-	  case 4:
-	    QueRem(t);
-	    Free(t);
-	    break;
-	  default:
-	    if(s=GetSectorForCoord(l,t->x,t->y))
-	      t->height=s->floor_height;
-        }
-    }
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+	  QueRem(t);
+	  Free(t);
+	  break;
+        default:
+      }
+    if(s=GetSectorForCoord(l,t->x,t->y))
+      t->height=s->floor_height;
   }
   InitMonsters(l);
 }
@@ -3072,6 +3075,9 @@ U8 *NextLevel(U8 *nm,Bool special=FALSE) {
 }
 Bool in_level=FALSE;
 U0 PlayLevel(Bool init=TRUE) { 
+  WinBorder;
+  WinMax;
+  DocClear;
   Bool transition=FALSE;
   CDoomThing *t,*head;
 ent:;

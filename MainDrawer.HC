@@ -2954,7 +2954,6 @@ WinMax;
 U0 InitLevel(CDoomLevel *l) {
   CDoomThing *t,*head=&l->things,*next;
   CDoomSector *s;
-  p=PlayerNew(l);
   for(t=head->next;t!=head;t=next) { {
       next=t->next;
       if(p!=t)
@@ -3073,11 +3072,28 @@ U8 *NextLevel(U8 *nm,Bool special=FALSE) {
 }
 Bool in_level=FALSE;
 U0 PlayLevel(Bool init=TRUE) { 
+  Bool transition=FALSE;
+  CDoomThing *t,*head;
 ent:;
   CDoomLevel *l2;
   if(init) {
-    p=PlayerNew(l);
-    PlayerMove(l,p,0);
+    if(!transition) {
+      p=PlayerNew(l);
+    } else  {
+      transition=FALSE;
+      head=&l->things;
+      for(t=head->next;t!=head;t=t->next) {
+//https://doomwiki.org/wiki/Thing_types#Other
+        if(t->thing_type==1) {
+	  p->x=t->x;
+	  p->y=t->y;
+	  p->angle=t->angle;
+	  QueIns(p,&l->things);
+	  break;
+        }
+      }
+    }
+    PlayerMove(l,p,0);   
     InitLevel(l);
   }
 //Return to parent instance  of PlayLevel(if recursivly called)
@@ -3206,6 +3222,10 @@ ent:;
 ret:
   if(l->ended) Intermission(l,l->map_name[1]-'1',l->map_name[3]-'1');
   DCFill;
+//Dont free the player,we will transfer him across the levels mofo
+  transition=TRUE;
+  QueRem(p);
+//
   l2=LoadWadLevel(wad,NextLevel(l->map_name,l->ended_special),l->skill);  
   FreeLevel(l);
   l=NULL;

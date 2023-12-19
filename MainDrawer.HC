@@ -21,10 +21,10 @@ F64 ray_cast_table_cos[GR_WIDTH/2];
 F64 ray_cast_table_sin[GR_WIDTH/2];
 Bool paused = FALSE,gameExit=FALSE;
 F64 time_offset=0;
+F64 total_pause_time=0;
 F64 Server_tS() {
   static Bool last;
   static F64 pause_tS=tS,unpause_tS=tS;
-  static F64 total_pause_time=0;
   static Bool paused2=FALSE;
   if(paused&&!paused2) {
     pause_tS=tS;
@@ -66,8 +66,10 @@ class GunAvail{
 };
 
 class CDoomPlayer:CDoomThing { 
-//rad_suit_time is the time remaining
-  F64 armor,rad_suit_time;
+//rad_suit_time is the time remaining(same for bezerk_time)
+  F64 armor,rad_suit_time,bezerk_time;
+//These are used for screen palete effects
+  F64 hurt_amt,pickup_amt;
 //When you die,the player stares at the thing that killed the player
   CDoomThing *stare_at;
   GunAvail arsenal[8];
@@ -816,6 +818,7 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   if(!thing->animation) thing->animation=thing->template->_animation;
   if(!thing->animation) return; //???
   I64 anim_frame=(Server_tS-thing->anim_start_tS)*4,frame_cnt,face;
+  if(anim_frame<0) anim_frame=0;
   F64 angle,gap;
   CDC *sprite;
   CD2 p;
@@ -2562,216 +2565,219 @@ U0 CheckPowerupPickup(CDoomLevel *l) {
     next=t->next;
     if(SqrI64(2*t->template->radius)>=SqrI64(p->x-t->x)+SqrI64(p->y-t->y)) {
       switch(t->template->type) {
-        case 2006: //BFG
-	  new_gun=!p->arsenal[7].available;
-	  p->arsenal[7].available=TRUE;
-	  picked_up_gun=7;
+        start:
+	  p->pickup_amt+=6;
+	  case 2006: //BFG
+	    new_gun=!p->arsenal[7].available;
+	    p->arsenal[7].available=TRUE;
+	    picked_up_gun=7;
 cell:
-	  load=p->arsenal[6].load;
-	  orig=load->ammo;
-	  if(l->skill==0||l->skill==5)
-	    load->ammo+=40;
-	  else
-	    load->ammo+=20;
-	  load->ammo=ClampI64(load->ammo,0,maxCells);
-	  if(load->ammo!=orig) {
+	    load=p->arsenal[6].load;
+	    orig=load->ammo;
+	    if(l->skill==0||l->skill==5)
+	      load->ammo+=40;
+	    else
+	      load->ammo+=20;
+	    load->ammo=ClampI64(load->ammo,0,maxCells);
+	    if(load->ammo!=orig) {
 rem:
-	    if(t->template->flags&TF_ARTIFACT)
-	      l->stats.have_items++;
-	    QueRem(t);
-	    Free(t);
-	  }
-	  break;
-        case 2002: //Chaingun
-	  new_gun=!p->arsenal[3].available;
-	  load=p->arsenal[3].load;
-	  p->arsenal[3].available=TRUE;
-	  picked_up_gun=3;
-	  orig=load->ammo;
-	  if(l->skill==0||l->skill==5)
-	    load->ammo+=40;
-	  else
-	    load->ammo+=20;
-	  load->ammo=ClampI64(load->ammo,0,maxBullets);
-	  if(load->ammo!=orig) 
-	    goto rem;
-	  break;
-        case 2005: //Chainsaw
-	  new_gun=!p->arsenal[5].available;
-	  picked_up_gun=5;
-	  p->arsenal[5].available=TRUE;
-	  break;
-        case 2004: //Plasma gun
-	  new_gun=!p->arsenal[6].available;
-	  picked_up_gun=6;
-	  load=p->arsenal[6].load;
-	  p->arsenal[6].available=TRUE;
-	  goto cell;
-        case 2003: //Rocket luancher
-	  picked_up_gun=4;
-	  new_gun=!p->arsenal[4].available;
-	  load=p->arsenal[4].load;
-	  p->arsenal[4].available=TRUE;
-	  orig=load->ammo;
-	  if(l->skill==0||l->skill==5)
-	    load->ammo+=2;
-	  else
-	    load->ammo+=1;
-	  load->ammo=ClampI64(load->ammo,0,maxRockets);
-	  if(load->ammo!=orig) 
-	    goto rem;
-	  break;
-	  break;
-        case 2001: //Shutgun
-	  picked_up_gun=2;
-	  new_gun=!p->arsenal[2].available;
-	  load=p->arsenal[2].load;
-	  p->arsenal[2].available=TRUE;
-	  orig=load->ammo;
-	  if(l->skill==0||l->skill==5)
-	    load->ammo+=8;
-	  else
+	      if(t->template->flags&TF_ARTIFACT)
+	        l->stats.have_items++;
+	      QueRem(t);
+	      Free(t);
+	    }
+	    break;
+	  case 2002: //Chaingun
+	    new_gun=!p->arsenal[3].available;
+	    load=p->arsenal[3].load;
+	    p->arsenal[3].available=TRUE;
+	    picked_up_gun=3;
+	    orig=load->ammo;
+	    if(l->skill==0||l->skill==5)
+	      load->ammo+=40;
+	    else
+	      load->ammo+=20;
+	    load->ammo=ClampI64(load->ammo,0,maxBullets);
+	    if(load->ammo!=orig) 
+	      goto rem;
+	    break;
+	  case 2005: //Chainsaw
+	    new_gun=!p->arsenal[5].available;
+	    picked_up_gun=5;
+	    p->arsenal[5].available=TRUE;
+	    break;
+	  case 2004: //Plasma gun
+	    new_gun=!p->arsenal[6].available;
+	    picked_up_gun=6;
+	    load=p->arsenal[6].load;
+	    p->arsenal[6].available=TRUE;
+	    goto cell;
+	  case 2003: //Rocket luancher
+	    picked_up_gun=4;
+	    new_gun=!p->arsenal[4].available;
+	    load=p->arsenal[4].load;
+	    p->arsenal[4].available=TRUE;
+	    orig=load->ammo;
+	    if(l->skill==0||l->skill==5)
+	      load->ammo+=2;
+	    else
+	      load->ammo+=1;
+	    load->ammo=ClampI64(load->ammo,0,maxRockets);
+	    if(load->ammo!=orig) 
+	      goto rem;
+	    break;
+	    break;
+	  case 2001: //Shutgun
+	    picked_up_gun=2;
+	    new_gun=!p->arsenal[2].available;
+	    load=p->arsenal[2].load;
+	    p->arsenal[2].available=TRUE;
+	    orig=load->ammo;
+	    if(l->skill==0||l->skill==5)
+	      load->ammo+=8;
+	    else
+	      load->ammo+=4;
+	    load->ammo=ClampI64(load->ammo,0,maxBullets);
+	    if(load->ammo!=orig) 
+	      goto rem;
+	    break;
+	  case 2008: //4 shells
+	    load=p->arsenal[2].load;
+	    orig=load->ammo;
 	    load->ammo+=4;
-	  load->ammo=ClampI64(load->ammo,0,maxBullets);
-	  if(load->ammo!=orig) 
-	    goto rem;
-	  break;
-        case 2008: //4 shells
-	  load=p->arsenal[2].load;
-	  orig=load->ammo;
-	  load->ammo+=4;
-	  load->ammo=ClampI64(load->ammo,0,maxShells);
-	  if(load->ammo!=orig) 
-	    goto rem;
-	  break;
-        case 2048: //Box of bullets
-	  load=p->arsenal[1].load;
-	  orig=load->ammo;
-	  if(l->skill==0||l->skill==5)
-	    load->ammo+=100;
-	  else
-	    load->ammo+=50;
-	  load->ammo=ClampI64(load->ammo,0,maxBullets);
-	  if(load->ammo!=orig) 
-	    goto rem;
-	  break;
-        case 2046: //Box of rockets
-	  load=p->arsenal[4].load;
-	  orig=load->ammo;
-	  if(l->skill==0||l->skill==5)
-	    load->ammo+=10;
-	  else
-	    load->ammo+=5;
-	  load->ammo=ClampI64(load->ammo,0,maxRockets);
-	  if(load->ammo!=orig) 
-	    goto rem;
-	  break;
-        case 2049: //Box of shotfgu
-	  load=p->arsenal[2].load;
-	  orig=load->ammo;
-	  if(l->skill==0||l->skill==5)
-	    load->ammo+=40;
-	  else
+	    load->ammo=ClampI64(load->ammo,0,maxShells);
+	    if(load->ammo!=orig) 
+	      goto rem;
+	    break;
+	  case 2048: //Box of bullets
+	    load=p->arsenal[1].load;
+	    orig=load->ammo;
+	    if(l->skill==0||l->skill==5)
+	      load->ammo+=100;
+	    else
+	      load->ammo+=50;
+	    load->ammo=ClampI64(load->ammo,0,maxBullets);
+	    if(load->ammo!=orig) 
+	      goto rem;
+	    break;
+	  case 2046: //Box of rockets
+	    load=p->arsenal[4].load;
+	    orig=load->ammo;
+	    if(l->skill==0||l->skill==5)
+	      load->ammo+=10;
+	    else
+	      load->ammo+=5;
+	    load->ammo=ClampI64(load->ammo,0,maxRockets);
+	    if(load->ammo!=orig) 
+	      goto rem;
+	    break;
+	  case 2049: //Box of shotfgu
+	    load=p->arsenal[2].load;
+	    orig=load->ammo;
+	    if(l->skill==0||l->skill==5)
+	      load->ammo+=40;
+	    else
+	      load->ammo+=20;
+	    load->ammo=ClampI64(load->ammo,0,maxRockets);
+	    if(load->ammo!=orig) 
+	      goto rem;
+	    break;
+	  case 2007: //clip
+	    load=p->arsenal[1].load;
+	    orig=load->ammo;
+	    if(l->skill==0||l->skill==5)
+	      load->ammo+=20;
+	    else
+	      load->ammo+=10;
+	    load->ammo=ClampI64(load->ammo,0,maxBullets);
+	    if(load->ammo!=orig) 
+	      goto rem;
+	    break;
+	  case 2047: //Energy cell
+	    goto cell;
+	  case 17: //Energy cell pack
+	    load=p->arsenal[6].load;
+	    orig=load->ammo;
 	    load->ammo+=20;
-	  load->ammo=ClampI64(load->ammo,0,maxRockets);
-	  if(load->ammo!=orig) 
-	    goto rem;
-	  break;
-        case 2007: //clip
-	  load=p->arsenal[1].load;
-	  orig=load->ammo;
-	  if(l->skill==0||l->skill==5)
-	    load->ammo+=20;
-	  else
-	    load->ammo+=10;
-	  load->ammo=ClampI64(load->ammo,0,maxBullets);
-	  if(load->ammo!=orig) 
-	    goto rem;
-	  break;
-        case 2047: //Energy cell
-	  goto cell;
-        case 17: //Energy cell pack
-	  load=p->arsenal[6].load;
-	  orig=load->ammo;
-	  load->ammo+=20;
-	  load->ammo=ClampI64(load->ammo,0,maxCells);
-	  if(load->ammo!=orig)
-	    goto rem;
-	  break;
-        case 2010: //Rocket
-	  load=p->arsenal[4].load;
-	  orig=load->ammo;
-	  load->ammo+=1;
-	  load->ammo=ClampI64(load->ammo,0,maxRockets);
-	  if(load->ammo!=orig)
-	    goto rem;
-	  break;
+	    load->ammo=ClampI64(load->ammo,0,maxCells);
+	    if(load->ammo!=orig)
+	      goto rem;
+	    break;
+	  case 2010: //Rocket
+	    load=p->arsenal[4].load;
+	    orig=load->ammo;
+	    load->ammo+=1;
+	    load->ammo=ClampI64(load->ammo,0,maxRockets);
+	    if(load->ammo!=orig)
+	      goto rem;
+	    break;
 
-	  //Yeah homie,we bout to get some power ups
-        case 2015:
-	  orig=p->armor;
-	  p->armor=ClampI64(p->armor+1,0,200);
-	  if(orig!=p->armor)
+	    //Yeah homie,we bout to get some power ups
+	  case 2015:
+	    orig=p->armor;
+	    p->armor=ClampI64(p->armor+1,0,200);
+	    if(orig!=p->armor)
+	      goto rem;
+	    break;
+	  case 2014:
+	    orig=p->health;
+	    p->health=ClampI64(p->health+1,0,200);
+	    if(orig!=p->health)
+	      goto rem;
+	    break;
+	  case 83: //Megasphere
+	    p->health=200;
+	    p->armor=200;
 	    goto rem;
-	  break;
-        case 2014:
-	  orig=p->health;
-	  p->health=ClampI64(p->health+1,0,200);
-	  if(orig!=p->health)
+	  case 2013: //Supercharge
+	    orig=p->health;
+	    p->health=ClampI64(p->health+20,0,200);
+	    if(orig!=p->health)
+	      goto rem;
+	    break;
+	  case 2018: //de-facto Armor
+	    if(p->armor>=100)
+	      break;
+	    p->armor=100.;
 	    goto rem;
-	  break;
-        case 83: //Megasphere
-	  p->health=200;
-	  p->armor=200;
-	  goto rem;
-        case 2013: //Supercharge
-	  orig=p->health;
-	  p->health=ClampI64(p->health+20,0,200);
-	  if(orig!=p->health)
+	  case 2019: //megarmor
+	    if(p->armor>=200)
+	      break;
+	    p->armor=200.;
 	    goto rem;
-	  break;
-        case 2018: //de-facto Armor
-	  if(p->armor>=100)
-	    break;
-	  p->armor=100.;
-	  goto rem;
-        case 2019: //megarmor
-	  if(p->armor>=200)
-	    break;
-	  p->armor=200.;
-	  goto rem;
-        case 2012:
-	  if(p->health>=100)
-	    break;
-	  p->health=ClampI64(p->health+25,0,100);
-	  goto rem;
-        case 2011:
-	  if(p->health>=100)
-	    break;
-	  p->health=ClampI64(p->health+10,0,100);
-	  goto rem;
-	case 2025: //Radiuation suit
-	  p->rad_suit_time=60;
-	  goto rem;
+	  case 2012:
+	    if(p->health>=100)
+	      break;
+	    p->health=ClampI64(p->health+25,0,100);
+	    goto rem;
+	  case 2011:
+	    if(p->health>=100)
+	      break;
+	    p->health=ClampI64(p->health+10,0,100);
+	    goto rem;
+	  case 2025: //Radiuation suit
+	    p->rad_suit_time=60;
+	    goto rem;
 //Keys
-        case 5: //BLue keycard
-	  l->has_blue_key=TRUE;
-	  goto rem;
-        case 40: //BLue skull key
-	  l->has_blue_key=TRUE;
-	  goto rem;
-        case 38: //Red skull key
-	  l->has_red_key=TRUE;
-	  goto rem;
-        case 13: //Red keycard
-	  l->has_red_key=TRUE;
-	  goto rem;
-        case 39: //Yellow skull key
-	  l->has_yellow_key=TRUE;
-	  goto rem;
-        case 6: //Yellow keycard
-	  l->has_yellow_key=TRUE;
-	  goto rem;
+	  case 5: //BLue keycard
+	    l->has_blue_key=TRUE;
+	    goto rem;
+	  case 40: //BLue skull key
+	    l->has_blue_key=TRUE;
+	    goto rem;
+	  case 38: //Red skull key
+	    l->has_red_key=TRUE;
+	    goto rem;
+	  case 13: //Red keycard
+	    l->has_red_key=TRUE;
+	    goto rem;
+	  case 39: //Yellow skull key
+	    l->has_yellow_key=TRUE;
+	    goto rem;
+	  case 6: //Yellow keycard
+	    l->has_yellow_key=TRUE;
+	    goto rem;
+        end:;
       }
     }
   }

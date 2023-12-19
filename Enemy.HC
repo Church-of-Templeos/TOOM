@@ -325,6 +325,7 @@ U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
     } else {
       damage-=damage*1/3.;
     }
+    p->hurt_amt+=damage;
     p->armor=Max(p->armor-damage,0.);
   }
   target->health-=damage;

@@ -1230,15 +1230,6 @@ U0 ST_Key(U16 val)
 
 }
 
-U0 ST_Start(CDoomPlayer *p)
-{
-    st_statusbaron=TRUE;
-    ST_ReadOnce();
-    ST_refresh(p);
-    //ST_createWidgets();
-    //ST_refresh();
-
-}
 
 U0 ST_Exit()
 {
@@ -1246,4 +1237,85 @@ U0 ST_Exit()
   Free(weapons.p);
 }
 
-//ST_Start;
+CBGR48 defacto_pal[COLORS_NUM];
+GrPaletteGet(defacto_pal);
+U0 ST_DoPaletteStuff(CDoomPlayer *p,I64 pal) {
+  static I64 old_pal=0;
+  if(old_pal==pal) return;
+  old_pal=pal;
+//https://doomwiki.org/wiki/PLAYPAL
+  F64 r,g,b;
+  F64 percent;
+  CBGR48 pal2[COLORS_NUM];
+  I64 c;
+  MemCpy(pal2,defacto_pal,sizeof(CBGR48)*COLORS_NUM);
+  GrPaletteSet(pal2);
+  if(!pal) return;
+  switch(pal) {
+    case 2...8:
+      percent=1/9.*(pal-2+1);
+      r=255,g=0,b=0;
+      break;
+    start:
+      r=215,g=186,b=69;
+      case 10:
+        break;
+        percent=.25;
+      case 11:
+        percent=.375;
+        break;
+      case 12:
+        percent=.50;
+        break;
+    end:
+      break;
+    case 13:
+      r=0,g=255,b=0;
+      percent=.125;
+      break;
+  } 
+  r*=0xffff/255.;
+  g*=0xffff/255.;
+  b*=0xffff/255.;
+  for(c=0;c!=COLORS_NUM;++c) {
+    pal2[c].r=(r*percent+pal2[c].r*(1.-percent));
+    pal2[c].g=(g*percent+pal2[c].g*(1.-percent));
+    pal2[c].b=(b*percent+pal2[c].b*(1.-percent));
+  }
+  GrPaletteSet(pal2);
+}
+
+U0 ST_Start(CDoomPlayer *p)
+{
+  I64 pal=0;
+  st_statusbaron=TRUE;
+  ST_ReadOnce();
+  ST_refresh(p);
+//ST_createWidgets();
+  //ST_refresh();
+  if(p->bezerk_time) {
+    if(p->bezerk_time>20-8) {
+      pal=8; 
+    } else if(p->bezerk_time>7) {
+      pal=5; 
+    } else if(p->bezerk_time) {
+      pal=3;
+    }
+    p->bezerk_time=Max(p->bezerk_time-1/30.,0.);
+  }
+  if(p->hurt_amt) {
+    pal=ClampI64(MaxI64(pal,ToI64(p->hurt_amt-- +7)>>3+2),2,8);
+    if(p->hurt_amt<0.) p->hurt_amt=0.;
+  } 
+  if(!pal&&p->pickup_amt) {
+    pal=ClampI64(ToI64(p->pickup_amt-- +7)>>3+10,10,12);
+    if(p->pickup_amt<0.) p->pickup_amt=0.;
+  }
+  if(pal&&p->rad_suit_time) {
+    pal=13;
+    if(p->rad_suit_time<5&&Blink)
+      pal=0;
+    p->rad_suit_time=Max(p->rad_suit_time-1/30.,0.);
+  }
+  ST_DoPaletteStuff(p,pal);
+}

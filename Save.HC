@@ -304,7 +304,7 @@ U0 LoadGame(U8 *filename) {
   U8 *optr,*ptr;
   U8 buf[STR_LEN],*buf_ptr=buf,buf2[STR_LEN];
   GunAvail *avail;
-  I64 cnt,idx,i64,idx2,red,blue,yellow;
+  I64 cnt,idx,i64,idx2,red,blue,yellow,weapon;
   F64 f64;
   ptr=FileRead(filename);
   StrUtil(ptr,SUF_REM_CTRL_CHARS);
@@ -312,6 +312,7 @@ U0 LoadGame(U8 *filename) {
   ptr=StrScan(ptr,"SAVE_NAME:%s\n",&buf_ptr);
   ptr=StrScan(ptr,"TIME:%n\n",&f64);
   time_offset=f64-tS;
+  total_pause_time=0;
   ptr=StrScan(ptr,"MAP:%s\n",&buf_ptr);
   ptr=StrScan(ptr,"SKILL:%d\n",&i64);
   if(l) FreeLevel(l);
@@ -544,8 +545,7 @@ skip_thinker:;
         break;
       case 4: //Arsenal
         ptr=StrScan(ptr,"ARSENAL:\n");
-        ptr=StrScan(ptr,"EQUIP:%d\n",&i64);
-        SwapWeapon(p,i64);
+        ptr=StrScan(ptr,"EQUIP:%d\n",&weapon);
         for(idx=0;idx!=8;idx++) {
 	  avail=&p->arsenal[idx];
 	  switch(idx) {
@@ -569,6 +569,7 @@ skip_thinker:;
 	  ptr=StrScan(ptr,"%d\n",&i64);
 	  avail->load->ammo=i64;
         }
+        SwapWeapon(p,weapon);
         state++;
         break;
       case 5:

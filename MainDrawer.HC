@@ -763,12 +763,12 @@ U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 le
   j->fptr=&RayCastJob;
   RayCastJob(j);
 }
-U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,Bool reflect=FALSE) {
+U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,Bool reflect=FALSE,Bool transparent=FALSE) {
   if(!sprite) return;
   CD2 copy,copy2;
   F64 new_height,new_width,angle;
   I64 x,y,tox,fromx,toy,fromy,ix,iy,dist;
-  U16 *from,*dst;
+  U16 *from,*dst,black=BLACK|BLACK<<8,trans_pixel=TRANSPARENT|TRANSPARENT<<8;
   I32 *db_z;
   copy.x=p->x,copy.y=p->y;
   copy2.x=p->x,copy2.y=p->y;
@@ -797,10 +797,20 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p
 	  ix=Lerp((x-fromx)/new_width,sprite->width-1,0);
         iy=Lerp((y-fromy)/new_height,0,sprite->height-1);
         from=&sprite->body[(ix&~1)+(iy&~1)*sprite->width_internal];
+	if(transparent) {
+	  if(RandU16<ToI64(0x10000*.75)) {
+	    if(*from!=trans_pixel)
+	      from=&black;
+	    else
+	      from=&trans_pixel;
+          } else
+	    from=&trans_pixel;
+        }
         dst=&to_dc->body[GR_WIDTH-2-x+y*to_dc->width_internal];
         if(from->u8[0]!=TRANSPARENT)
 	  *dst=*from,*db_z=dist,db_z[1]=dist;
-        from(U8*)+=sprite->width_internal;
+	if(!transparent)
+          from(U8*)+=sprite->width_internal;
         dst(U8*)+=to_dc->width_internal;
         db_z+=to_dc->width_internal;
         if(from->u8[0]!=TRANSPARENT)
@@ -847,7 +857,9 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   reflect=thing->animation[anim_frame].reflect[face-1];
   sprite=thing->animation[anim_frame].faces[face-1];
   p.x=thing->x,p.y=thing->y;
-  if(sprite)
+  if(thing->template==doom_thing_types[58]) { //Spectre
+    PlotSpriteIn3DSpace(to_dc,thing->template->height,sprite,cam,&p,thing->height,reflect,TRUE); //TRUEfor transparent
+  } else if(sprite)
     PlotSpriteIn3DSpace(to_dc,thing->template->height,sprite,cam,&p,thing->height,reflect);
 }
 
@@ -3000,6 +3012,8 @@ U8 *NextLevel(U8 *nm,Bool special=FALSE) {
     return "E1M7";
   else if(!StrCmp(nm,"E1M7")) 
     return "E1M8";
+  else if(!StrCmp(nm,"E1M9")) 
+    return "E1M5";
 //Episode 2
   if(!StrCmp(nm,"E2M1")) 
     return "E2M2";
@@ -3016,6 +3030,8 @@ U8 *NextLevel(U8 *nm,Bool special=FALSE) {
     return "E2M7";
   else if(!StrCmp(nm,"E2M7")) 
     return "E2M8";
+  else if(!StrCmp(nm,"E2M9")) 
+    return "E2M6";
 //Episode 3
   if(!StrCmp(nm,"E3M1")) 
     return "E3M2";
@@ -3032,6 +3048,8 @@ U8 *NextLevel(U8 *nm,Bool special=FALSE) {
     return "E3M7";
   } else if(!StrCmp(nm,"E3M7")) 
     return "E3M8";
+  else if(!StrCmp(nm,"E3M9")) 
+    return "E3M7";
 //Episode 4
   if(!StrCmp(nm,"E4M1")) 
     return "E4M2";
@@ -3048,6 +3066,8 @@ U8 *NextLevel(U8 *nm,Bool special=FALSE) {
     return "E4M7";
   else if(!StrCmp(nm,"E4M7")) 
     return "E4M8";
+  else if(!StrCmp(nm,"E4M9")) 
+    return "E4M3";
   //Intermission
   return NULL;
 }

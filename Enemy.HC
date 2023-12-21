@@ -4,8 +4,6 @@ CDoomThingTemplate *baron_fireball;
 CDoomThingTemplate *cacodemon_fireball;
 CDoomThingTemplate *rocket;
 CDoomThingTemplate *plasma_ball;
-extern U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage);
-
 #define TICK_FPS_SCALE (1/3.) //Ticks_per_sec/fps
 #define TICK_TIME (1/10.)
 
@@ -445,7 +443,7 @@ Bool CanSeeTarget(CDoomLevel *l,CMonsterThinker *t) {
   F64 angle=FArg(tar->x-self->x,tar->y-self->y);
 //Returns -1 if we Pushin P didnt hit a wall
 //TRUEfor monster(ignores linedefs that monsters cant pass mofo)
-  if(ValidateLineOfSightShot(l,&self->x,angle,dist,self->height+16,tar->height+16)<0.,TRUE) {
+  if(ValidateLineOfSightShot(l,&self->x,angle,dist,self->height+16,tar->height+16,TRUE)<0.) {
     return TRUE;
   }
   return FALSE;

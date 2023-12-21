@@ -247,6 +247,10 @@ class CDoomSector:CQue {
   Bool drawn,activated;
   Bool paused; //Pause the action on the sector
   Bool sound_check;
+//TRUE if the texture/type has changed
+  Bool tx_changed;
+  Bool ty_changed;
+  CDoomSector *changed_from_sector;  //This is the sector we changed from
 };
 
 class CLevelStats {

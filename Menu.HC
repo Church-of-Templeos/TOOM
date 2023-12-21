@@ -298,14 +298,14 @@ I64 LoadSaveInteract(CDC *to,Bool save) {
 	  } else if(a=='\n') {
 	    if(save) {
 	      enter_name=TRUE;
-	      StrCpy(save_name,"");
+	      StrCpy(save_name,titles[active_menu_item]);
 	      goto lenter_name;
 	    } else {
 	      StrPrint(buf,"/ToomSave/SAVE%d.SAVE",active_menu_item);
 	      if(FileFind(buf)) {
 	        LoadGame(buf);
 	      }
-	      return active_menu_item;
+	      return -1;
 	    }
 	  } else if(a==CH_ESC)
 	    return -1;
@@ -323,7 +323,7 @@ lenter_name:;
 	  StrPrint(buf,"/ToomSave/SAVE%d.SAVE",active_menu_item);
 	  poll_again=TRUE;
 	  SaveGame(buf,save_name);
-	  return active_menu_item;
+	  return -1;
         } else if(a==CH_ESC) {
 	  enter_name=FALSE;
 	  poll_again=TRUE; //We modiefed the tiles[x] here

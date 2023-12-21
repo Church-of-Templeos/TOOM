@@ -114,8 +114,11 @@ U0 SaveGame(U8 *filename,U8 *title) {
     DocPrint(doc,"%d\n",cur(CDoomThing*)->solid);
     DocPrint(doc,"%d\n",cur(CDoomThing*)->anim_no_repeat);
     DocPrint(doc,"%d\n",GetThinkerIndex(l,cur(CDoomThing*)->thinker));
-    if(cur==p)
+    if(cur==p) {
       DocPrint(doc,"%n\n",cur(CDoomPlayer*)->armor);
+      DocPrint(doc,"%n\n",cur(CDoomPlayer*)->rad_suit_time);
+      DocPrint(doc,"%n\n",cur(CDoomPlayer*)->bezerk_time);
+    }
     idx++;
   }
 
@@ -217,6 +220,10 @@ U0 SaveGame(U8 *filename,U8 *title) {
     } else if(!StrCmp("CPuffThinker",cur(CDoomThinker*)->cls_name)) {
       DocPrint(doc,"%d\n",GetThingIndex(l,cur(CPuffThinker*)->self));
       DocPrint(doc,"%n\n",cur(CPuffThinker*)->spawn_time);
+    } else if(!StrCmp("CCrushThinker",cur(CDoomThinker*)->cls_name)) {
+      DocPrint(doc,"%d\n",GetSectorIndex(l,cur(CCrushThinker*)->s));
+      DocPrint(doc,"%n\n",cur(CCrushThinker*)->base_speed);
+      DocPrint(doc,"%d\n",cur(CCrushThinker*)->going_up);
     } else {
 //Do Nothing
    
@@ -233,6 +240,17 @@ U0 SaveGame(U8 *filename,U8 *title) {
       DocPrint(doc,"%d\n",0);
   }
   DocPrint(doc,"KEYS:%d,%d,%d\n",l->has_red_key,l->has_blue_key,l->has_yellow_key);
+  head=&l->sectors;
+  for(cur=head->next;head!=cur;cur=cur->next) {
+    DocPrint(doc,"%n,%n\n",
+	cur(CDoomSector*)->floor_height,
+	cur(CDoomSector*)->ceil_height
+    );
+    DocPrint(doc,"%d,%d,%d\n",
+	cur(CDoomSector*)->tx_changed,
+	cur(CDoomSector*)->special_type,
+	GetSectorIndex(l,cur(CDoomSector*)->changed_from_sector));
+  }
   DocWrite(doc);  
   DocDel(doc);
   Free(filename);
@@ -300,11 +318,13 @@ U0 LoadGame(U8 *filename) {
   I64 state=0;
   CQue *head;
   CDoomThing *thing;
+  CDoomSector *sector;
   COmniThinker *thinker,*next;
   U8 *optr,*ptr;
   U8 buf[STR_LEN],*buf_ptr=buf,buf2[STR_LEN];
   GunAvail *avail;
   I64 cnt,idx,i64,idx2,red,blue,yellow,weapon;
+  I64 texture_changed,texture_src;
   F64 f64;
   ptr=FileRead(filename);
   StrUtil(ptr,SUF_REM_CTRL_CHARS);
@@ -373,7 +393,9 @@ U0 LoadGame(U8 *filename) {
 	  if(!StrCmp(buf2,"player")) {
 	    p=thing;
 	    ptr=StrScan(ptr,"%n\n",&f64);
-	    thing(CDoomPlayer*)->armor=f64;   
+	    thing(CDoomPlayer*)->armor=f64;
+	    ptr=StrScan(ptr,"%n\n",&thing(CDoomPlayer*)->rad_suit_time);
+	    ptr=StrScan(ptr,"%n\n",&thing(CDoomPlayer*)->bezerk_time);	    
 	  }
 	  thing=thing->next;
         }
@@ -531,6 +553,12 @@ U0 LoadGame(U8 *filename) {
 	    ptr=StrScan(ptr,"%d\n",&i64);
 	    thinker(CPuffThinker*)->self=GetNthThing(l,i64);
 	    ptr=StrScan(ptr,"%n\n",&thinker(CPuffThinker*)->spawn_time);
+	  } else if(!StrCmp("CCrushThinker",thinker(CDoomThinker*)->cls_name)) {
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CCrushThinker*)->s=GetNthSector(l,i64);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CCrushThinker*)->base_speed);
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CCrushThinker*)->going_up=i64;
 	  }else {
 	    next=thinker->doom.next;
 	    QueRem(thinker);
@@ -577,6 +605,22 @@ skip_thinker:;
         l->has_red_key=red,l->has_blue_key=blue,l->has_yellow_key=yellow;
         state++;
         break;
+      case 6:
+        head=&l->sectors;
+        for(sector=head->next;head!=sector;sector=sector->next) {
+	  ptr=StrScan(ptr,"%n,%n\n",
+	        &sector->floor_height,
+	        &sector->ceil_height);
+	  ptr=StrScan(ptr,"%d,%d,%d\n",
+	        &texture_changed,
+	        &sector->special_type,
+	        &texture_src);
+	  if(texture_src!=-1&&texture_changed) {
+	    MemCpy(sector->floor_dc,GetNthSector(l,texture_src)->floor_dc,8*4);
+	  }
+        }
+	state++;
+	break;
       default:
         goto fin;
     }

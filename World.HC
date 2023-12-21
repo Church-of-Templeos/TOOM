@@ -709,6 +709,64 @@ U0 LoadScrollers1() {
 
 }
 
+class CDoomCrusher {
+  U64 type;
+  U64 trigger;
+  F64 speed;
+  Bool monster;
+  Bool silent;
+ Bool turn_on;
+};
+
+U0 LoadCrushers() {
+  CDoomCrusher *new;
+  I64 num;
+  U8 cls[STR_LEN],*cls_ptr=cls;
+  U8 trig[STR_LEN],*trig_ptr=trig;
+  U8 speed[STR_LEN],*speed_ptr=speed;
+  U8 mon[STR_LEN],*mon_ptr=mon;
+  U8 silent[STR_LEN],*silent_ptr=silent;
+  U8 action[STR_LEN],*action_ptr=action;
+  U8 *fptr=FileRead("Crushers.TXT"),*optr=fptr,*ln;
+  StrUtil(fptr,SUF_REM_CTRL_CHARS);
+  while(ln=ReadALine(&fptr)) {
+    if(!*ln||*ln=='#')
+      goto skip;
+    StrScan(ln,"%d\t%s\t%s\t%s\t%s\t%s\t%s\n",&num,&cls_ptr,&trig_ptr,&speed_ptr,&mon_ptr,&silent_ptr,&action_ptr);
+    new=CAlloc(sizeof CDoomCrusher);
+    action_sector_types[num]=new;
+    new->type='Crush';
+
+    new->trigger=trig[0](U16);
+
+    if(!StrCmp(speed,"Slow"))
+      new->speed=DOOR_SPEED_SLOW;
+    else if(!StrCmp(speed,"Fast"))
+      new->speed=DOOR_SPEED_FAST;
+    else if(speed[0]!='-')
+      throw('Doom');
+   
+    if(!StrCmp(silent,"Yes"))
+      new->silent=TRUE;
+    else if(!StrCmp(silent,"No"))
+      new->silent=FALSE;
+    else if(speed[0]!='-')
+      throw('Doom');
+
+    if(!StrCmp(action,"Start"))
+      new->turn_on=TRUE;
+    else if(!StrCmp(action,"Stop"))
+      new->turn_on=FALSE;
+    else if(speed[0]!='-')
+      throw('Doom');
+
+   
+skip:
+    Free(ln);
+  }
+  Free(optr);
+}
+
 LoadExits;
 LoadDoors;
 LoadFloors;
@@ -718,6 +776,7 @@ LoadDonuts;
 LoadTeleporters;
 LoadStairs;
 LoadScrollers1;
+LoadCrushers;
 I64 idx;
 U8 buf[STR_LEN];
 for(idx=0;idx!=0x10000;idx++)

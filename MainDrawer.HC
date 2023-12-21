@@ -16,6 +16,9 @@ U0 DbgPrint(U8*,...) {}
 CTask *doom_task=Fs;
 #include "Thinker.HC";
 #include "Music.HC";
+
+extern U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage);
+
 #define mp_cnt 1 //Reduces flickering
 F64 ray_cast_table_cos[GR_WIDTH/2];
 F64 ray_cast_table_sin[GR_WIDTH/2];
@@ -66,8 +69,8 @@ class GunAvail{
 };
 
 class CDoomPlayer:CDoomThing { 
-//rad_suit_time is the time remaining(same for bezerk_time)
-  F64 armor,rad_suit_time,bezerk_time;
+//rad_suit_time is the time remaining(same for bezerk_time) in ticks
+  F64 armor,rad_suit_time,bezerk_time,last_attack;
 //These are used for screen palete effects
   F64 hurt_amt,pickup_amt;
 //When you die,the player stares at the thing that killed the player
@@ -1770,7 +1773,6 @@ F64 GetTargetFloorHeight(CDoomSector *floor,I64 type,Bool up) {
   F64 diff;
   CDoomSidedef *sd;
   I64 idx;
-PrintI("type",type);
   switch(type) {
       break; case FLOOR_DST_LOWEST:
       dst=I16_MAX;
@@ -2054,6 +2056,7 @@ U0 ChangeByModel(CDoomLinedef *ld,CDoomSector *s,I64 model,Bool texture_change,B
         ld2=s->linedefs[idx];
         if(ld2->front&&ld2->back) {
 	  if(ld2->front->sector!=s) {
+	    s->changed_from_sector=ld2->front;
 	    if(texture_change)
 	      MemCpy(s->floor_dc,ld2->front->sector->floor_dc,8*4);
 	    if(type_change)
@@ -2061,6 +2064,7 @@ U0 ChangeByModel(CDoomLinedef *ld,CDoomSector *s,I64 model,Bool texture_change,B
 	    break;
 	  }
 	  if(ld2->back->sector!=s) {
+	    s->changed_from_sector=ld2->back;
 	    if(texture_change)
 	      MemCpy(s->floor_dc,ld2->back->sector->floor_dc,8*4);
 	    if(type_change)
@@ -2070,6 +2074,7 @@ U0 ChangeByModel(CDoomLinedef *ld,CDoomSector *s,I64 model,Bool texture_change,B
         }
       }
     } else if(model==FLOOR_MODEL_TRIGGER) {
+      s->changed_from_sector=ld->front;
       if(texture_change)
         MemCpy(s->floor_dc,ld->front->sector->floor_dc,8*4);
       if(type_change)
@@ -2077,6 +2082,35 @@ U0 ChangeByModel(CDoomLinedef *ld,CDoomSector *s,I64 model,Bool texture_change,B
     }
   }
 }
+
+class CCrushThinker:CDoomThinkerBase {
+  CDoomSector *s;
+  F64 base_speed;
+  Bool going_up;
+};
+//NULL terminated
+CDoomThing **GetCrushedThingsInSector(CDoomLevel *l,CDoomSector *s) {
+  I64 cnt=0;
+  F64 gap=s->ceil_height-s->floor_height;
+  CDoomThing *cur,*head=&l->things,**ret=NULL;;
+again:;
+  for(cur=head->next;cur!=head;cur=cur->next) {
+    if(GetSectorForCoord(l,cur->x,cur->y)==s) {
+      if(cur->height-cur->template->height-s->floor_height>gap) {
+	if(!ret)
+          cnt++;
+	else
+	  ret[cnt++]=cur;
+       }
+    }
+  }
+  if(ret) return ret;
+  if(!cnt) return CAlloc(8);
+  ret=CAlloc(cnt*8);
+  cnt=0;
+  goto again;
+}
+extern U0 AddCrushThinker(CDoomLevel *l,CDoomSector *s,CDoomCrusher *c);
 U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags,CDoomThing *who) {
   CDoomActionSector *type;
   CDoomFloor *fl;
@@ -2086,6 +2120,7 @@ U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags,CDoom
   CDoomDonut *donut;
   CDoomExit *exit;
   CDoomTeleporter *tp;
+  CDoomCrusher *crush;
   I64 idx;
   CDoomLinedef *ld2;
   CDonutThinker *dt;
@@ -2094,16 +2129,51 @@ U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags,CDoom
   F64 dst;
   if(ld) {
     if((type=ld->special_type)) {
-PrintI(&type->type,1);
-      if(type->type=='Stairs') {
-	tp=type;
-	switch(tp->trigger) {
-	   break;case 'P1':
+      if(type->type=='Crush') {
+        crush=type;
+        switch(tp->trigger) {
+	    break;case 'P1':
+crush_activate1:
+	    if(s->activated) return;
+	    s->activated=TRUE;
+crush_activate:
+	    if(crush->turn_on) {
+	      s->cur_action_linedef=ld;
+	      AddCrushThinker(l,s,crush);
+	    } else  //The thinker checks for this
+	      s->cur_action_linedef=NULL;
+	    break; case 'S1':    
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto crush_activate1;
+	    break; case 'W1':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto crush_activate1;
+	    break; case 'G1':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto crush_activate1;
+	    break; case 'PR':
+	    if(!(flags&WACTIVATE_PUSH)) return;
+	    goto crush_activate;
+	    break; case 'SR':
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto crush_activate;
+	    break; case 'GR':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto crush_activate;
+	    break; case 'WR':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto crush_activate;
+        }
+
+      } else if(type->type=='Stairs') {
+        tp=type;
+        switch(tp->trigger) {
+	    break;case 'P1':
 stairs_activate1:
 	    if(s->activated) return;
 	    s->activated=TRUE;
 stairs_activate:
-            BuildStairs(l,ld);
+	    BuildStairs(l,ld);
 	    break; case 'S1':    
 	    if(!(flags&WACTIVATE_SWITCH)) return;
 	    goto stairs_activate1;
@@ -2125,37 +2195,37 @@ stairs_activate:
 	    break; case 'WR':
 	    if(!(flags&WACTIVATE_WALK)) return;
 	    goto stairs_activate;
-	}
+        }
       } else if(type->type=='Teleport') {
-	tp=type;
-	switch(tp->trigger) {
-	   break;case 'P1':
+        tp=type;
+        switch(tp->trigger) {
+	    break;case 'P1':
 teleport_activate1:
 	    if(s->activated) return;
 	    s->activated=TRUE;
 teleport_activate:
 	    if(tp->dest==TP_DEST_TP_THING) {
-	       if(flags&WACTIVATE_MONSTER&&!tp->monster)
-		 return;
-	       if(!(flags&WACTIVATE_MONSTER)&&!tp->player)
-		 return;
+	      if(flags&WACTIVATE_MONSTER&&!tp->monster)
+	        return;
+	      if(!(flags&WACTIVATE_MONSTER)&&!tp->player)
+	        return;
 //You must be have passed the first sidedef to trigger a tele[P]orter(meaning you are on the backside)
-		cross=CreateVector(2);
-		cross->data[0]=ld->end->x-ld->start->x;
-		cross->data[1]=ld->end->y-ld->start->y;
-		point.x=who->x-ld->start->x;
-		point.y=who->y-ld->start->y;
-	        if(flags&WACTIVATE_WALK&&IsFrontSideOfVector2D(cross,&point)) {
-		  DestroyVector(cross);
-		  return;
-		}
-		DestroyVector(cross);
-	        TeleportThing(l,tp,ld->sector_tag,who);
+	      cross=CreateVector(2);
+	      cross->data[0]=ld->end->x-ld->start->x;
+	      cross->data[1]=ld->end->y-ld->start->y;
+	      point.x=who->x-ld->start->x;
+	      point.y=who->y-ld->start->y;
+	      if(flags&WACTIVATE_WALK&&IsFrontSideOfVector2D(cross,&point)) {
+	        DestroyVector(cross);
+	        return;
+	      }
+	      DestroyVector(cross);
+	      TeleportThing(l,tp,ld->sector_tag,who);
 	    } else
 	      PrintI("UNIMP_DEST",tp->dest); 
 	    break; case 'S1':    
 	    if(!(flags&WACTIVATE_SWITCH)) return;
-	   goto teleport_activate1;
+	    goto teleport_activate1;
 	    break; case 'W1':
 	    if(!(flags&WACTIVATE_WALK)) return;
 	    goto teleport_activate1;
@@ -2174,13 +2244,12 @@ teleport_activate:
 	    break; case 'WR':
 	    if(!(flags&WACTIVATE_WALK)) return;
 	    goto teleport_activate;
-	}
+        }
 
       } else if(type->type=='Exit') {
-	exit=type;
-PrintI(&exit->trigger,1);
-	switch(exit->trigger) {
-	   break;case 'P1':
+        exit=type;
+        switch(exit->trigger) {
+	    break;case 'P1':
 exit_activate1:
 	    if(s->activated) return;
 	    s->activated=TRUE;
@@ -2193,7 +2262,7 @@ exit_activate:
 	    l->ended=TRUE;
 	    break; case 'S1':    
 	    if(!(flags&WACTIVATE_SWITCH)) return;
-	   goto exit_activate1;
+	    goto exit_activate1;
 	    break; case 'W1':
 	    if(!(flags&WACTIVATE_WALK)) return;
 	    goto exit_activate1;
@@ -2212,9 +2281,9 @@ exit_activate:
 	    break; case 'WR':
 	    if(!(flags&WACTIVATE_WALK)) return;
 	    goto exit_activate;
-	}
+        }
       } else if(type->type=='Donut') {
-	donut=type;
+        donut=type;
         switch(donut->trigger) {
 	    break; case 'P1':
 	    if(!(flags&WACTIVATE_PUSH)) return;
@@ -2225,7 +2294,7 @@ donut_activate:
 	    if(s->cur_action_linedef)
 	      return;
 	    s->cur_action_linedef=ld;
-            dt=AddThinker(l,&DonutThinker,"CDonutThinker");
+	    dt=AddThinker(l,&DonutThinker,"CDonutThinker");
 	    dt->ld=ld;
 	    dt->start_tS=Server_tS;
 	    break; case 'S1':
@@ -2297,9 +2366,9 @@ lactivate:
 	    if(s->cur_action_linedef)
 	      return;
 	    dst=GetTargetLiftHeight(s,lift->target);
-            AddLiftThinker(l,s->floor_height,dst,s,ld,lift,dst>s->floor_height);
+	    AddLiftThinker(l,s->floor_height,dst,s,ld,lift,dst>s->floor_height);
 	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
-            ChangeByModel(ld,s,lift->model,lift->texture_change,lift->type_change);
+	    ChangeByModel(ld,s,lift->model,lift->texture_change,lift->type_change);
 	    break; case 'S1':
 	    if(!(flags&WACTIVATE_SWITCH)) return;
 	    goto lactivate1;
@@ -2335,9 +2404,9 @@ factivate:
 	    if(s->cur_action_linedef)
 	      return;
 	    dst=GetTargetFloorHeight(s,fl->target,fl->direction==FLOOR_DIR_UP);
-            AddLiftThinker(l,s->floor_height,dst,s,ld,fl,dst>s->floor_height);
- 	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
-            ChangeByModel(ld,s,fl->model,fl->texture_change,fl->type_change);
+	    AddLiftThinker(l,s->floor_height,dst,s,ld,fl,dst>s->floor_height);
+	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
+	    ChangeByModel(ld,s,fl->model,fl->texture_change,fl->type_change);
 	    break; case 'S1':
 	    if(!(flags&WACTIVATE_SWITCH)) return;
 	    goto factivate1;
@@ -2379,19 +2448,19 @@ activate:
 //Do the door action
 	    switch(door->action) {
 	      case DOOR_ACTION_OPEN_WAIT_CLOSE:
-		Spawn(&PlaySoundTask,"DOROPN","snd",0,Fs);
+	        Spawn(&PlaySoundTask,"DOROPN","snd",0,Fs);
 	        AddDoorThinker(l,s->ceil_height,0.,s,ld,door,TRUE,door->wait);
 	        break;
 	      case DOOR_ACTION_CLOSE_WAIT_OPEN:
-		Spawn(&PlaySoundTask,"DORCLS","snd",0,Fs);
+	        Spawn(&PlaySoundTask,"DORCLS","snd",0,Fs);
 	        AddDoorThinker(l,s->ceil_height,0.,s,ld,door,FALSE,door->wait);
 	        break;
 	      case DOOR_ACTION_CLOSE:
-		Spawn(&PlaySoundTask,"DORCLS","snd",0,Fs);
+	        Spawn(&PlaySoundTask,"DORCLS","snd",0,Fs);
 	        AddDoorThinker(l,s->ceil_height,0.,s,ld,door,FALSE,-1.);
 	        break;
 	      case DOOR_ACTION_OPEN:
-		Spawn(&PlaySoundTask,"DOROPN","snd",0,Fs);
+	        Spawn(&PlaySoundTask,"DOROPN","snd",0,Fs);
 	        AddDoorThinker(l,s->ceil_height,0.,s,ld,door,TRUE,-1.);
 	        break;
 	    }
@@ -2773,7 +2842,7 @@ rem:
 	    p->health=ClampI64(p->health+10,0,100);
 	    goto rem;
 	  case 2025: //Radiuation suit
-	    p->rad_suit_time=60;
+	    p->rad_suit_time=60*30; //assumes 30 ticks a motherfuckin second
 	    goto rem;
 //Keys
 	  case 5: //BLue keycard
@@ -2802,10 +2871,9 @@ rem:
 }
 
 Bool PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0) {
-  static F64 last_attack=0.;
   F64 cooldown=60./shots_per_minute;
-  if(Server_tS<last_attack+cooldown) return FALSE;
-  last_attack=Server_tS;
+  if(Server_tS<p->last_attack+cooldown) return FALSE;
+  p->last_attack=Server_tS;
   F64 angle=p->angle,r;
   F64 damage=Rand*(max_damage-min_damage)+min_damage;
   I64 idx;
@@ -3243,6 +3311,53 @@ fin_level:
   in_level=FALSE;
   return;
 }
+U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
+  F64 tar_dst;
+  CDoomSector *s=t->s;
+  CDoomThing **crushed=GetCrushedThingsInSector(l,s),*T;
+  I64 idx;
+//Maybe it was stopped
+  if(s->cur_action_linedef) {
+    QueRem(t);
+    Free(t);
+    return;
+  }
+  if(t->going_up) {
+    tar_dst=s->base_ceil_height;
+    s->ceil_height+=t->base_speed;
+    if(s->ceil_height>=tar_dst) {
+      s->ceil_height=tar_dst;
+      t->going_up=FALSE;
+    }
+  } else {
+    tar_dst=s->base_floor_height+8;
+//Slow crushers will slow down by /8
+    if(*crushed&&t->base_speed<=DOOR_SPEED_SLOW) {
+      s->ceil_height-=t->base_speed/8;
+    } else
+      s->ceil_height-=t->base_speed;
+    if(s->ceil_height<=tar_dst) {
+      s->ceil_height=tar_dst;
+      t->going_up=TRUE;
+    }
+  }
+//About 4 times damages a second
+  if(ToI64(tS*32)&0x7==0) {
+    for(idx=0;T=crushed[idx];idx++) {
+      DamageMob(l,T,NULL,5);
+      SpawnBloodPuff(l,&T->x,T->height,5);
+    }
+  }
+  Free(crushed);
+}
+U0 AddCrushThinker(CDoomLevel *l,CDoomSector *s,CDoomCrusher *c) {
+  CCrushThinker *t=AddThinker(l,&CrushThinker,"CCrushThinker");
+  t->base_speed=c->speed;
+  t->s=s;
+  t->going_up=FALSE;
+}
+
+
 #include "Save.HC";
 U64 r;
 while(TRUE) {

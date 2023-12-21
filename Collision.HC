@@ -10,11 +10,6 @@
 extern Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=0,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL,CDoomThing **hit=NULL);
 //https://stackoverflow.com/questions/14176776/find-out-if-2-lines-intersect
 Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
-  CD2 st,en;
-  st.x=ld->start->x;
-  st.y=ld->start->y;
-  en.x=ld->end->x;
-  en.y=ld->end->y;
   return PlaneIntersect(NULL,a,b,ld->start,ld->end);
 }
 
@@ -244,7 +239,6 @@ F64 ValidateLineOfSightShot(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 source_
 	    ceil_height=Min(lds[0]->back->sector->ceil_height,
 		  lds[0]->front->sector->ceil_height);
 	  }
-//Check if monsters cant go through linedef
 	  if(!(floor_height<=source_h<=ceil_height)||(monster&&(*lds)->flags&WAD_LINEDEFF_WALL_MONSTER))
 	    while(CrosesLine(*lds,at,&dummy)&&dist2>0.) {
 	      hit_wall=TRUE;
@@ -253,7 +247,7 @@ F64 ValidateLineOfSightShot(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 source_
 	      dummy.y=at->y+dist2*sin;
 	      dist2-=1.;;
 
-	    }
+	    } 
 	  if(hit_wall) {
 	    return Min(dist2,dist);
 	  }

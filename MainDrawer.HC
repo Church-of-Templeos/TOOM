@@ -23,23 +23,14 @@ extern CDoomThing **GetCrushedThingsInSector(CDoomLevel *l,CDoomSector *s);
 F64 ray_cast_table_cos[GR_WIDTH/2];
 F64 ray_cast_table_sin[GR_WIDTH/2];
 Bool paused = FALSE,gameExit=FALSE;
-F64 time_offset=0;
-F64 total_pause_time=0;
+F64 time_offset=0,base_tS=tS;
 F64 Server_tS() {
-  static Bool last;
-  static F64 pause_tS=tS,unpause_tS=tS;
-  static Bool paused2=FALSE;
-  if(paused&&!paused2) {
-    pause_tS=tS;
-    paused2=TRUE;
-  } else if(!paused&&paused2) {
-    unpause_tS=tS;
-    total_pause_time+=unpause_tS-pause_tS;
-    paused2=FALSE;
+  static F64 pause_tS=tS;
+  if(paused) {
+    return pause_tS-base_tS+time_offset;
   }
-  if(paused)
-    return pause_tS+time_offset;
-  return tS-total_pause_time+time_offset;
+  pause_tS=tS;
+  return tS-base_tS+time_offset;
 }
 class CJobRunnerData {
   U0 (*fptr)(U8*);
@@ -1692,6 +1683,7 @@ U0 DoorThinker(CDoomLevel *l,CDoorThinker *t) {
   }
   if(t->opening) {
     t->target_end=ceil;
+    s->bumped_into=FALSE;
     dir=Sign(t->target_end-t->target_start);
     if(!t->waiting) 
       s->ceil_height=dir*t->speed*TIME_SCALE*(Server_tS-t->start_tS)+t->target_start;
@@ -1745,12 +1737,17 @@ open_again:
         QueRem(t);
         Free(t);
       }
+    } else if(s->bumped_into) {
+      s->bumped_into=FALSE;
+      t->target_start=s->ceil_height;
+      t->wait_time=t->action->wait;
+      goto open_again;
     } else {
       things=GetCrushedThingsInSector(l,s); //NULL terminated
       for(idx=0;things[idx];idx++) {
         if(things[idx]>0.) {
 	  Free(things);
-          t->target_start=s->ceil_height;
+	  t->target_start=s->ceil_height;
 	  t->wait_time=t->action->wait;
 	  goto open_again;
         }
@@ -2058,18 +2055,20 @@ U0 TeleportThing(CDoomLevel *l,CDoomTeleporter *tp,I64 sector_tag,CDoomThing *wh
     }
   }
 }
-U0 ChangeByModel(CDoomLinedef *ld,CDoomSector *s,I64 model,Bool texture_change,Bool type_change) {
+U0 ChangeByModel(CDoomLinedef *ld,CDoomSector *s,I64 model,Bool texture_change,Bool type_change,Bool zero) {
   CDoomLinedef *ld2;
   I64 idx;
 //Account for texture/type change
   if(texture_change||type_change) {
+    if(texture_change) s->tx_changed=TRUE;
+    if(zero) s->special_type=0;
     if(model==FLOOR_MODEL_NUMBERED) {
 //See EV_DoFloor in doom3do source code
       for(idx=0;idx!=s->linedef_cnt;idx++) {
         ld2=s->linedefs[idx];
         if(ld2->front&&ld2->back) {
 	  if(ld2->front->sector!=s) {
-	    s->changed_from_sector=ld2->front;
+	    s->changed_from_sector=ld2->front->sector;
 	    if(texture_change)
 	      MemCpy(s->floor_dc,ld2->front->sector->floor_dc,8*4);
 	    if(type_change)
@@ -2077,7 +2076,7 @@ U0 ChangeByModel(CDoomLinedef *ld,CDoomSector *s,I64 model,Bool texture_change,B
 	    break;
 	  }
 	  if(ld2->back->sector!=s) {
-	    s->changed_from_sector=ld2->back;
+	    s->changed_from_sector=ld2->back->sector;
 	    if(texture_change)
 	      MemCpy(s->floor_dc,ld2->back->sector->floor_dc,8*4);
 	    if(type_change)
@@ -2087,9 +2086,10 @@ U0 ChangeByModel(CDoomLinedef *ld,CDoomSector *s,I64 model,Bool texture_change,B
         }
       }
     } else if(model==FLOOR_MODEL_TRIGGER) {
-      s->changed_from_sector=ld->front;
-      if(texture_change)
+      s->changed_from_sector=ld->front->sector;
+      if(texture_change){
         MemCpy(s->floor_dc,ld->front->sector->floor_dc,8*4);
+      }
       if(type_change)
         s->special_type=ld->front->sector->special_type;
     }
@@ -2381,7 +2381,7 @@ lactivate:
 	    dst=GetTargetLiftHeight(s,lift->target);
 	    AddLiftThinker(l,s->floor_height,dst,s,ld,lift,dst>s->floor_height);
 	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
-	    ChangeByModel(ld,s,lift->model,lift->texture_change,lift->type_change);
+	    ChangeByModel(ld,s,lift->model,lift->texture_change,lift->type_change,lift->zero_type);
 	    break; case 'S1':
 	    if(!(flags&WACTIVATE_SWITCH)) return;
 	    goto lactivate1;
@@ -2419,7 +2419,7 @@ factivate:
 	    dst=GetTargetFloorHeight(s,fl->target,fl->direction==FLOOR_DIR_UP);
 	    AddLiftThinker(l,s->floor_height,dst,s,ld,fl,dst>s->floor_height);
 	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
-	    ChangeByModel(ld,s,fl->model,fl->texture_change,fl->type_change);
+	    ChangeByModel(ld,s,fl->model,fl->texture_change,fl->type_change,fl->zero_type);
 	    break; case 'S1':
 	    if(!(flags&WACTIVATE_SWITCH)) return;
 	    goto factivate1;
@@ -2636,6 +2636,7 @@ U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags,CDoomThing *who) {
   if(!ld->special_type) return;
 //Push operators on the linedef that called it
   if(ld->special_type(CDoomDoor*)->trigger.u8[0]=='P') {
+    ld->back->sector->bumped_into=TRUE;
     _TriggerLinedef(l,ld->back->sector,ld,flags,who);
   } else
     for(sector=head->next;sector!=head;sector=sector->next) {
@@ -3160,6 +3161,9 @@ U0 PlayLevel(Bool init=TRUE) {
   WinMax;
   DocClear;
   Bool transition=FALSE;
+  static F64 at_pause;
+//Re-assign in case we got here from loading the game 
+  at_pause=time_offset;
   CDoomThing *t,*head;
 ent:;
   CDoomLevel *l2;
@@ -3290,6 +3294,7 @@ ent:;
       while((mr=ScanMsg(&a,&b))!=MSG_NULL) {
         if(mr==MSG_KEY_DOWN&&a==CH_ESC) {
 	  paused=TRUE;
+          at_pause=time_offset;
 	  Refresh;
 	  FlushMsgs; //Flush Esc msg
 	  break;
@@ -3298,6 +3303,7 @@ ent:;
     } else {
       mr=MainMenu;
       if(!mr) {
+        time_offset=at_pause;
         paused=FALSE;
       }
     }

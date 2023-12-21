@@ -246,6 +246,7 @@ class CDoomSector:CQue {
   I64 visplane_idx;
   Bool drawn,activated;
   Bool paused; //Pause the action on the sector
+  Bool bumped_into; //used for re-opening doors
   Bool sound_check;
 //TRUE if the texture/type has changed
   Bool tx_changed;

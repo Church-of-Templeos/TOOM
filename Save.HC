@@ -331,8 +331,7 @@ U0 LoadGame(U8 *filename) {
   optr=ptr;
   ptr=StrScan(ptr,"SAVE_NAME:%s\n",&buf_ptr);
   ptr=StrScan(ptr,"TIME:%n\n",&f64);
-  time_offset=f64-tS;
-  total_pause_time=0;
+  time_offset=f64;
   ptr=StrScan(ptr,"MAP:%s\n",&buf_ptr);
   ptr=StrScan(ptr,"SKILL:%d\n",&i64);
   if(l) FreeLevel(l);
@@ -616,7 +615,8 @@ skip_thinker:;
 	        &sector->special_type,
 	        &texture_src);
 	  if(texture_src!=-1&&texture_changed) {
-	    MemCpy(sector->floor_dc,GetNthSector(l,texture_src)->floor_dc,8*4);
+PrintI("d",texture_src);
+	    MemCpy(&sector->floor_dc,&(GetNthSector(l,texture_src)->floor_dc),8*4);
 	  }
         }
 	state++;
@@ -638,6 +638,7 @@ fin:
   }
   Free(optr);
   Free(filename);
+  base_tS=tS;
   if(!in_level)
     PlayLevel(FALSE);
 }

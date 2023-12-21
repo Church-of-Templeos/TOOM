@@ -479,6 +479,7 @@ Bool CheckMissileRange(CDoomLevel *l,CMonsterThinker *t) {
       t->last_hit_time=-1.;
       return TRUE;
     }
+  if(!CanSeeTarget(l,t)) return FALSE;
   dist=Sqrt(Sqr(target->x-thing->x)+Sqr(target->y-thing->y));
   if(!thing->template(CDoomMonsterTemplate*)->melee_state)
     dist-=128.;

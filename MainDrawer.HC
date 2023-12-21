@@ -18,7 +18,7 @@ CTask *doom_task=Fs;
 #include "Music.HC";
 
 extern U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage);
-
+extern CDoomThing **GetCrushedThingsInSector(CDoomLevel *l,CDoomSector *s);
 #define mp_cnt 1 //Reduces flickering
 F64 ray_cast_table_cos[GR_WIDTH/2];
 F64 ray_cast_table_sin[GR_WIDTH/2];
@@ -1680,6 +1680,7 @@ class CDoorThinker:CDoomThinkerBase {
 };
 U0 DoorThinker(CDoomLevel *l,CDoorThinker *t) {
   CDoomSector *s=t->s;
+  CDoomThing **things;
   F64 ceil=I16_MAX,dir;
   I64 idx;
 //A door is fully open when its ceiling height is 4 less than the lowest neighbor ceiling adjacent to it
@@ -1712,8 +1713,8 @@ U0 DoorThinker(CDoomLevel *l,CDoorThinker *t) {
         t->wait_time=-1.;
         t->target_start=s->ceil_height;
       } else {
-	s->cur_action_linedef=NULL;
-	QueRem(t);
+        s->cur_action_linedef=NULL;
+        QueRem(t);
         Free(t);
       }
     }
@@ -1730,19 +1731,31 @@ U0 DoorThinker(CDoomLevel *l,CDoorThinker *t) {
 	  t->start_tS=Server_tS;
         }
         if(t->wait_time+t->start_tS>Server_tS) return;
+        t->wait_time=-1.;
+        t->target_start=s->floor_height;
+open_again:
         t->waiting=FALSE;
 //open again
         t->start_tS=Server_tS;
         t->opening=TRUE;
         t->closing=FALSE;
         Spawn(&PlaySoundTask,"DOROPN","snd",0,Fs);
-        t->wait_time=-1.;
-        t->target_start=s->floor_height;
       } else {
-	s->cur_action_linedef=NULL;
-	QueRem(t);
+        s->cur_action_linedef=NULL;
+        QueRem(t);
         Free(t);
       }
+    } else {
+      things=GetCrushedThingsInSector(l,s); //NULL terminated
+      for(idx=0;things[idx];idx++) {
+        if(things[idx]>0.) {
+	  Free(things);
+          t->target_start=s->ceil_height;
+	  t->wait_time=t->action->wait;
+	  goto open_again;
+        }
+      }
+      Free(things);
     }
   }
   s->door_height_offset=s->ceil_height-s->base_floor_height;  
@@ -2096,7 +2109,7 @@ CDoomThing **GetCrushedThingsInSector(CDoomLevel *l,CDoomSector *s) {
 again:;
   for(cur=head->next;cur!=head;cur=cur->next) {
     if(GetSectorForCoord(l,cur->x,cur->y)==s) {
-      if(cur->height-cur->template->height-s->floor_height>gap) {
+      if((cur->height-s->floor_height)+cur->template->height>gap) {
 	if(!ret)
           cnt++;
 	else

@@ -68,6 +68,7 @@ class CMonsterThinker:CDoomThinkerBase {
 U0 Sound(CMonsterThinker *t,U64 type) {
   if(type=='See')
     switch(t->self->template->type) {
+      case 9: //Shotgunna
       case 3004: //Zombie
         switch(Rand*2.99) {
 	  case 0:
@@ -90,10 +91,10 @@ U0 Sound(CMonsterThinker *t,U64 type) {
 	    break;
         }
 	return;
-
     }
   if(type=='Pain') {
     switch(t->self->template->type) {
+      case 9: //Shotgunna
       case 3004: //Zombie
       case 3001: //Imp
         Spawn(&PlaySoundTask,"POPAIN","snd",0,Fs);
@@ -102,6 +103,7 @@ U0 Sound(CMonsterThinker *t,U64 type) {
   }
   if(type=='Die') {
     switch(t->self->template->type) {
+      case 9: //Shotgunna
       case 3004: //Zombie
         switch(Rand*2.99) {
 	  case 0:
@@ -136,6 +138,9 @@ U0 Sound(CMonsterThinker *t,U64 type) {
   }
   if(type=='Attack') {
     switch(t->self->template->type) {
+      case 9: //Fuckin Shotgun asshole
+        Spawn(&PlaySoundTask,"SHOTGN","snd",0,Fs);
+        break;
       case 3001:  //Imp
         Spawn(&PlaySoundTask,"FIRSHT","snd",0,Fs);
 	break;

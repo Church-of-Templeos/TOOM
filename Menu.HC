@@ -290,12 +290,18 @@ I64 LoadSaveInteract(CDC *to,Bool save) {
   if(!enter_name){
     while(i=ScanMsg(&a,&b)) {
       switch(i) {
+	case MSG_MS_L_DOWN:
+	  goto press;
+	case MSG_MS_MOVE:
+	  active_menu_item=ClampI64((ms.pos.y-y)/(20*2),0,5);
+	  break;
         case MSG_KEY_DOWN:
 	  if(b.u8[0]==SC_CURSOR_UP) {
-	    active_menu_item--;
+	    active_menu_item=ClampI64(active_menu_item-1,0,5);
 	  } else if(b.u8[0]==SC_CURSOR_DOWN) {
-	    active_menu_item++;
+	    active_menu_item=ClampI64(active_menu_item+1,0,5);
 	  } else if(a=='\n') {
+press:
 	    if(save) {
 	      enter_name=TRUE;
 	      StrCpy(save_name,titles[active_menu_item]);

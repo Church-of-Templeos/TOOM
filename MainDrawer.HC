@@ -757,13 +757,65 @@ U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 le
   j->fptr=&RayCastJob;
   RayCastJob(j);
 }
-U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,Bool reflect=FALSE,Bool transparent=FALSE) {
+U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,Bool reflect=FALSE,Bool transparent=FALSE,I64 light=255) {
   if(!sprite) return;
   CD2 copy,copy2;
   F64 new_height,new_width,angle;
-  I64 x,y,tox,fromx,toy,fromy,ix,iy,dist;
+  I64 x,y,tox,fromx,toy,fromy,ix,iy,dist,best_color;
   U16 *from,*dst,black=BLACK|BLACK<<8,trans_pixel=TRANSPARENT|TRANSPARENT<<8;
   I32 *db_z;
+//Nroot here,I dont know how lighting works in DOOM,but I will do this
+  //light>128 is full_bright
+  //light>=35 is 1/2 brighat
+  //light<35 is 1/3 bright
+  if(light>128)
+    light=2;
+  else if(light>=35)
+    light=1;
+  else
+    light=0;
+  static U32 light_mat[0x1000][3];
+  static Bool init=FALSE;
+  if(!init) {
+    CBGR48 pal[16],dimmed,raw_color;
+    F64 best_dist,cur_dist;
+    GrPaletteGet(pal);
+    init=TRUE;
+    for(y=0;y!=3;y++) {
+      for(x=0;x!=16;x++) {
+        for(ix=0;ix!=16;ix++) {
+	  if(!y) {
+//just copy the pixels over
+	    light_mat[ix<<8|x][2].u16[0]=x|ix<<8;
+	    light_mat[ix<<8|x][2].u16[1]=x|ix<<8;
+	  } else {
+	    best_dist=I16_MAX;
+	    best_color=0;
+	    dimmed.r=ToF64(pal[x].r+pal[ix].r)/2./(1+y);
+	    dimmed.g=ToF64(pal[x].g+pal[ix].g)/2./(1+y);
+	    dimmed.b=ToF64(pal[x].b+pal[ix].b)/2./(1+y);
+	    for(iy=0;iy!=0x100;iy++) {
+	      raw_color.r=ToF64(pal[iy&0xf].r+pal[iy>>4].r)/2.;
+	      raw_color.g=ToF64(pal[iy&0xf].g+pal[iy>>4].g)/2.;
+	      raw_color.b=ToF64(pal[iy&0xf].b+pal[iy>>4].b)/2.;
+	      cur_dist=Sqrt(Sqr(dimmed.r-raw_color.r)+
+		    Sqr(dimmed.g-raw_color.g)+
+		    Sqr(dimmed.b-raw_color.b));
+	      if(cur_dist<best_dist) {
+	        best_dist=cur_dist;
+	        best_color=iy;
+	      }
+	    }
+//Swap the pixels as .u16[1] is the 2nd "dither" pixel
+	    light_mat[ix<<8|x][2-y].u8[0]=best_color&0xf;
+	    light_mat[ix<<8|x][2-y].u8[1]=best_color>>4;
+	    light_mat[ix<<8|x][2-y].u8[2]=best_color>>4;
+	    light_mat[ix<<8|x][2-y].u8[3]=best_color&0xf;
+	  }
+        }
+      }
+    }
+  }
   copy.x=p->x,copy.y=p->y;
   copy2.x=p->x,copy2.y=p->y;
   if(!ClipLineToScrenCoords(cam,&copy,&copy2,level))
@@ -791,24 +843,24 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p
 	  ix=Lerp((x-fromx)/new_width,sprite->width-1,0);
         iy=Lerp((y-fromy)/new_height,0,sprite->height-1);
         from=&sprite->body[(ix&~1)+(iy&~1)*sprite->width_internal];
-	if(transparent) {
+        if(transparent) {
 	  if(RandU16<ToI64(0x10000*.75)) {
 	    if(*from!=trans_pixel)
 	      from=&black;
 	    else
 	      from=&trans_pixel;
-          } else
+	  } else
 	    from=&trans_pixel;
         }
         dst=&to_dc->body[GR_WIDTH-2-x+y*to_dc->width_internal];
         if(from->u8[0]!=TRANSPARENT)
-	  *dst=*from,*db_z=dist,db_z[1]=dist;
-	if(!transparent)
-          from(U8*)+=sprite->width_internal;
+	  *dst=light_mat[*from][light].u16[0],*db_z=dist,db_z[1]=dist;
+        if(!transparent)
+	  from(U8*)+=sprite->width_internal;
         dst(U8*)+=to_dc->width_internal;
         db_z+=to_dc->width_internal;
         if(from->u8[0]!=TRANSPARENT)
-	  *dst=*from,*db_z=dist,db_z[1]=dist;
+	  *dst=light_mat[*from][light].u16[1],*db_z=dist,db_z[1]=dist;
       }
 nextx:;
     }

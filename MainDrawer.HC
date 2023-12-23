@@ -266,7 +266,8 @@ U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *secto
   I64 plane=sector->visplane_idx;
   I64 floorx,floory;
   I32 *db_z;
-  U16 *dst,color,color2;
+  U16 *dst;
+  U32 color;
   I64 maxx,maxy;
   I64 minx,miny,idist,dir,from,to,skip,hit_cnt;
   I64 consec_y,idx;
@@ -396,11 +397,10 @@ already_has:;
         floory=(wy<<1)&127;
         floorx&=~1;
         floory&=~1;
-        color=texture->body[floorx+floory*128](U16);
-        color2=texture->body[floorx+(1+floory)*128](U16);
-        *dst=color;
+        color=LookupLighting(texture->body[floorx+floory*128](U16),sector->cur_light_level);
+        *dst=color&0xffff;
         dst(U8*)+=to_dc->width_internal;
-        *dst=color2;
+        *dst=color>>16;
         dst(U8*)-=to_dc->width_internal;
 next:;
       }
@@ -427,6 +427,11 @@ PopulateTables;
 //floor is 2 for ceil
 //floor is 3 if visplane only
 U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd) {
+  I64 light=sd->sector->cur_light_level;
+  if(ld->front==sd&&ld->back)
+    light=MaxI64(light,ld->back->sector->cur_light_level);
+  if(ld->back==sd&&ld->front)
+    light=MaxI64(light,ld->front->sector->cur_light_level);
   CD2 clone_st,clone_en,zero;
   clone_st.x=st->x,clone_st.y=st->y;
   clone_en.x=en->x,clone_en.y=en->y;
@@ -442,6 +447,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex,dir,skip;
   CVisplane *vp;
   I32 *db_z,idist;
+  U32 dither_px;
   CWallCommand *wall_cmd;
   F64 dist,ratio;
   Bool repeat=FALSE,onesided=ld->front^^ld->back;
@@ -666,6 +672,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    ty=ClampI64(ty,0,texture->height-2);
 	    ty&=~1;
 	    color=texture->body[tx+ty*texture->width_internal](U16);
+	    dither_px=LookupLighting(color,light);
 	    to=&to_dc->body[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
 	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
 	    if(*db_z>idist) {
@@ -675,10 +682,9 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	        db_z+=to_dc->width_internal;
 	        db_z[0]=idist;
 	        db_z[1]=idist;
-	        *to=color;
+	        *to=dither_px&0xffff;
 	        to(U8*)+=to_dc->width_internal;
-	        color=texture->body[tx+(ty+1)*texture->width_internal](U16);
-	        *to=color;
+	        *to=dither_px>>16;
 	      }
 	    }
 skip_p:;
@@ -764,59 +770,8 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p
   F64 new_height,new_width,angle;
   I64 x,y,tox,fromx,toy,fromy,ix,iy,dist,best_color;
   U16 *from,*dst,black=BLACK|BLACK<<8,trans_pixel=TRANSPARENT|TRANSPARENT<<8;
+  U32 dither_px;
   I32 *db_z;
-//Nroot here,I dont know how lighting works in DOOM,but I will do this
-  //light>128 is full_bright
-  //light>=35 is 1/2 brighat
-  //light<35 is 1/3 bright
-  if(light>128)
-    light=2;
-  else if(light>=35)
-    light=1;
-  else
-    light=0;
-  static U32 light_mat[0x1000][3];
-  static Bool init=FALSE;
-  if(!init) {
-    CBGR48 pal[16],dimmed,raw_color;
-    F64 best_dist,cur_dist;
-    GrPaletteGet(pal);
-    init=TRUE;
-    for(y=0;y!=3;y++) {
-      for(x=0;x!=16;x++) {
-        for(ix=0;ix!=16;ix++) {
-	  if(!y) {
-//just copy the pixels over
-	    light_mat[ix<<8|x][2].u16[0]=x|ix<<8;
-	    light_mat[ix<<8|x][2].u16[1]=x|ix<<8;
-	  } else {
-	    best_dist=I16_MAX;
-	    best_color=0;
-	    dimmed.r=ToF64(pal[x].r+pal[ix].r)/2./(1+y);
-	    dimmed.g=ToF64(pal[x].g+pal[ix].g)/2./(1+y);
-	    dimmed.b=ToF64(pal[x].b+pal[ix].b)/2./(1+y);
-	    for(iy=0;iy!=0x100;iy++) {
-	      raw_color.r=ToF64(pal[iy&0xf].r+pal[iy>>4].r)/2.;
-	      raw_color.g=ToF64(pal[iy&0xf].g+pal[iy>>4].g)/2.;
-	      raw_color.b=ToF64(pal[iy&0xf].b+pal[iy>>4].b)/2.;
-	      cur_dist=Sqrt(Sqr(dimmed.r-raw_color.r)+
-		    Sqr(dimmed.g-raw_color.g)+
-		    Sqr(dimmed.b-raw_color.b));
-	      if(cur_dist<best_dist) {
-	        best_dist=cur_dist;
-	        best_color=iy;
-	      }
-	    }
-//Swap the pixels as .u16[1] is the 2nd "dither" pixel
-	    light_mat[ix<<8|x][2-y].u8[0]=best_color&0xf;
-	    light_mat[ix<<8|x][2-y].u8[1]=best_color>>4;
-	    light_mat[ix<<8|x][2-y].u8[2]=best_color>>4;
-	    light_mat[ix<<8|x][2-y].u8[3]=best_color&0xf;
-	  }
-        }
-      }
-    }
-  }
   copy.x=p->x,copy.y=p->y;
   copy2.x=p->x,copy2.y=p->y;
   if(!ClipLineToScrenCoords(cam,&copy,&copy2,level))
@@ -854,14 +809,13 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p
 	    from=&trans_pixel;
         }
         dst=&to_dc->body[GR_WIDTH-2-x+y*to_dc->width_internal];
+	dither_px=LookupLighting(*from,light);
         if(from->u8[0]!=TRANSPARENT)
-	  *dst=light_mat[*from][light].u16[0],*db_z=dist,db_z[1]=dist;
-        if(!transparent)
-	  from(U8*)+=sprite->width_internal;
+	  *dst=dither_px&0xffff,*db_z=dist,db_z[1]=dist;
         dst(U8*)+=to_dc->width_internal;
         db_z+=to_dc->width_internal;
         if(from->u8[0]!=TRANSPARENT)
-	  *dst=light_mat[*from][light].u16[1],*db_z=dist,db_z[1]=dist;
+	  *dst=dither_px>>16,*db_z=dist,db_z[1]=dist;
       }
 nextx:;
     }
@@ -2888,7 +2842,7 @@ rem:
 	    goto rem;
 	  case 2013: //Supercharge
 	    orig=p->health;
-	    p->health=ClampI64(p->health+20,0,200);
+	    p->health=ClampI64(p->health+100,0,200);
 	    if(orig!=p->health)
 	      goto rem;
 	    break;

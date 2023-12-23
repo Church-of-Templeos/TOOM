@@ -335,13 +335,12 @@ U0 LoadGame(U8 *filename) {
   GunAvail *avail;
   I64 cnt,idx,i64,idx2,red,blue,yellow,weapon;
   I64 texture_changed,texture_src;
-  F64 f64;
+  F64 f64,level_time;
   ptr=FileRead(filename);
   StrUtil(ptr,SUF_REM_CTRL_CHARS);
   optr=ptr;
   ptr=StrScan(ptr,"SAVE_NAME:%s\n",&buf_ptr);
-  ptr=StrScan(ptr,"TIME:%n\n",&f64);
-  time_offset=f64;
+  ptr=StrScan(ptr,"TIME:%n\n",&level_time);
   ptr=StrScan(ptr,"MAP:%s\n",&buf_ptr);
   ptr=StrScan(ptr,"SKILL:%d\n",&i64);
   if(l) FreeLevel(l);
@@ -428,6 +427,7 @@ U0 LoadGame(U8 *filename) {
 	  }
 	  ptr=StrScan(ptr,"[Thinker:%s]:\n",&buf_ptr);
 	  StrCpy(thinker->doom.cls_name,buf);
+PrintI(buf,thinker);
 	  if(!StrCmp(buf,"CBarrelThinker")) {
 	    thinker->doom.fun_ptr=&BarrelThinker;
 	    ptr=StrScan(ptr,"%d\n",&i64);
@@ -587,7 +587,7 @@ U0 LoadGame(U8 *filename) {
 	    thinker(CLightFire*)->s=GetNthSector(l,i64);
 	    ptr=StrScan(ptr,"%n\n",&thinker(CLightFire*)->end_tS);
 	  } else {
-            "%s\n",thinker(CDoomThinker*)->cls_name;
+            PrintI("fuk",thinker);
 	    next=thinker->doom.next;
 	    QueRem(thinker);
 	    Free(thinker);
@@ -667,6 +667,8 @@ fin:
   Free(optr);
   Free(filename);
   base_tS=tS;
+  time_offset=level_time;
+  paused=FALSE;
   if(!in_level)
     PlayLevel(FALSE);
 }

@@ -9,12 +9,12 @@ I64 LowestSurrondingLight(CDoomSector *s) {
     if(ld->back) {
       s2=ld->back->sector;
       if(s2&&s2!=s)
-        min=MinI64(s2->cur_light_level,min);
+        min=MinI64(s2->base_light_level,min);
     }
     if(ld->front) {
       s2=ld->front->sector;
       if(s2&&s2!=s)
-        min=MinI64(s2->cur_light_level,min);
+        min=MinI64(s2->base_light_level,min);
     }
   }
   return min;
@@ -29,17 +29,15 @@ U0 Light1Thinker(CDoomLevel *l,CLight1 *t) {
   CDoomSector *s=t->s;
   I64 min=LowestSurrondingLight(s);
   if(Server_tS>t->end_tS) {
+    s->cur_light_level=s->base_light_level; //in case no change
     if(s->cur_light_level>min) {
-      if(tick&0x7==0) {
+      if(tick&0xf==0) {
         if(r>.75) {
-	  t->end_tS=Server_tS+.15;
+	  t->end_tS=Server_tS+.75*Rand;
 	  s->cur_light_level=min;
-PrintF("1",min); 
         }
       }
     }
-  } else {
-    s->cur_light_level=s->base_light_level;
   }
 }
 class CLightStrobe:CDoomThinkerBase {
@@ -55,19 +53,17 @@ U0 LightStrobeThinker(CDoomLevel *l,CLightStrobe *t) {
   CDoomSector *s=t->s;
   I64 min=LowestSurrondingLight(s);
   if(Server_tS>t->end_tS) {
+    s->cur_light_level=s->base_light_level;  //in case no change
     if(s->cur_light_level>min) {
 change:
       if(tick&t->mask==0) {
-        t->end_tS=Server_tS+.15;
+        t->end_tS=Server_tS+.2;
         s->cur_light_level=min;
-PrintF("strobe",s->base_light_level);
       }
     } else {
       min=0;
       goto change;
     }
-  } else {
-    s->cur_light_level=s->base_light_level;
   }
 }
 
@@ -86,7 +82,6 @@ U0 LightFireThinker(CDoomLevel *l,CLight1 *t) {
       if(tick&0x3==0) {
         if(r>.5) {
 	  t->end_tS=Server_tS+.09;
-PrintF("fire",min);
 	  s->cur_light_level=min;
         }
       }

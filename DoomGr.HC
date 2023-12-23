@@ -141,3 +141,53 @@ CRGB *LoadPLAYPALFromLump(U8 *lump) {
   doom_palette_dithered=DitherPalette(ret);
   return ret;
 }
+U32 light_mat[0x100][8];
+U32 LookupLighting(U16 dith,I64 light) {
+//Make 0x0102 into 0x12
+  dith=(dith&0xf)|(dith>>(8-4)); 
+  if(light>=144)
+    return light_mat[dith][7]; //Assume fullbright due to TempleOS palette
+  return light_mat[dith][light>>5]; //>>5 is divide by 32 (256/32==8)
+}
+U0 InitLightTable() {
+  CBGR48 pal[16],dimmed,raw_color;
+  F64 best_dist,cur_dist;
+  GrPaletteGet(pal);
+  I64 y,x,ix,iy,best_color;
+  for(y=0;y!=8;y++) {
+    for(x=0;x!=16;x++) {
+      for(ix=0;ix!=16;ix++) {
+        if(!y) {
+//just copy the pixels over
+	  light_mat[ix<<4|x][7].u16[0]=x|ix<<8;
+	  light_mat[ix<<4|x][7].u16[1]=ix<<8|x;
+        } else {
+	  best_dist=I16_MAX;
+	  best_color=0;
+//y goes up to 7,10 so not totally dark
+	  dimmed.r=ToF64(pal[x].r+pal[ix].r)/2.*(10.-y)/10;
+	  dimmed.g=ToF64(pal[x].g+pal[ix].g)/2.*(10.-y)/10;
+	  dimmed.b=ToF64(pal[x].b+pal[ix].b)/2.*(10.-y)/10;
+	  for(iy=0;iy!=0x100;iy++) {
+	    raw_color.r=ToF64(pal[iy&0xf].r+pal[iy>>4].r)/2.;
+	    raw_color.g=ToF64(pal[iy&0xf].g+pal[iy>>4].g)/2.;
+	    raw_color.b=ToF64(pal[iy&0xf].b+pal[iy>>4].b)/2.;
+	    cur_dist=Sqrt(Sqr(dimmed.r-raw_color.r)+
+		  Sqr(dimmed.g-raw_color.g)+
+		  Sqr(dimmed.b-raw_color.b));
+	    if(cur_dist<best_dist) {
+	      best_dist=cur_dist;
+	      best_color=iy;
+	    }
+	  }
+//Swap the pixels as .u16[1] is the 2nd "dither" pixel
+	  light_mat[ix<<4|x][8-y].u8[0]=best_color&0xf;
+	  light_mat[ix<<4|x][8-y].u8[1]=best_color>>4;
+	  light_mat[ix<<4|x][8-y].u8[2]=best_color>>4;
+	  light_mat[ix<<4|x][8-y].u8[3]=best_color&0xf;
+        }
+      }
+    }
+  }
+}
+InitLightTable;

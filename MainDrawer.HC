@@ -32,6 +32,7 @@ F64 Server_tS() {
   pause_tS=tS;
   return tS-base_tS+time_offset;
 }
+#include "Lighting.HC";
 class CJobRunnerData {
   U0 (*fptr)(U8*);
 };
@@ -876,6 +877,7 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   I64 anim_frame=(Server_tS-thing->anim_start_tS)*4,frame_cnt,face;
   if(anim_frame<0) anim_frame=0;
   F64 angle,gap;
+  CDoomSector *sec;
   CDC *sprite;
   CD2 p;
   Bool reflect;
@@ -902,11 +904,14 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
     face=8;
   reflect=thing->animation[anim_frame].reflect[face-1];
   sprite=thing->animation[anim_frame].faces[face-1];
+  sec=GetSectorForCoord(l,thing->x,thing->y);
   p.x=thing->x,p.y=thing->y;
-  if(thing->template==doom_thing_types[58]) { //Spectre
-    PlotSpriteIn3DSpace(to_dc,thing->template->height,sprite,cam,&p,thing->height,reflect,TRUE); //TRUEfor transparent
-  } else if(sprite)
-    PlotSpriteIn3DSpace(to_dc,thing->template->height,sprite,cam,&p,thing->height,reflect);
+  if(sec) {
+    if(thing->template==doom_thing_types[58]) { //Spectre
+      PlotSpriteIn3DSpace(to_dc,thing->template->height,sprite,cam,&p,thing->height,reflect,TRUE,sec->cur_light_level); //TRUEfor transparent
+    } else if(sprite)
+      PlotSpriteIn3DSpace(to_dc,thing->template->height,sprite,cam,&p,thing->height,reflect,,sec->cur_light_level);
+  }
 }
 
 F64 FloorRaise(CDoomLinedef *l,CDoomSector *sector) {

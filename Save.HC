@@ -224,9 +224,19 @@ U0 SaveGame(U8 *filename,U8 *title) {
       DocPrint(doc,"%d\n",GetSectorIndex(l,cur(CCrushThinker*)->s));
       DocPrint(doc,"%n\n",cur(CCrushThinker*)->base_speed);
       DocPrint(doc,"%d\n",cur(CCrushThinker*)->going_up);
+    } else if(!StrCmp("CLight1",cur(CDoomThinker*)->cls_name)) {
+      DocPrint(doc,"%d\n",GetSectorIndex(l,cur(CLight1*)->s));
+      DocPrint(doc,"%n\n",cur(CLight1*)->end_tS);
+    } else if(!StrCmp("CLightStrobe",cur(CDoomThinker*)->cls_name)) {
+      DocPrint(doc,"%d\n",GetSectorIndex(l,cur(CLightStrobe*)->s));
+      DocPrint(doc,"%n\n",cur(CLightStrobe*)->end_tS);
+      DocPrint(doc,"%n\n",cur(CLightStrobe*)->rand_offset);
+      DocPrint(doc,"%d\n",cur(CLightStrobe*)->mask);
+    } else if(!StrCmp("CLightFire",cur(CDoomThinker*)->cls_name)) {
+      DocPrint(doc,"%d\n",GetSectorIndex(l,cur(CLightFire*)->s));
+      DocPrint(doc,"%n\n",cur(CLightFire*)->end_tS);
     } else {
 //Do Nothing
-   
     }
   }
   DocPrint(doc,"ARSENAL:\n");
@@ -553,12 +563,31 @@ U0 LoadGame(U8 *filename) {
 	    thinker(CPuffThinker*)->self=GetNthThing(l,i64);
 	    ptr=StrScan(ptr,"%n\n",&thinker(CPuffThinker*)->spawn_time);
 	  } else if(!StrCmp("CCrushThinker",thinker(CDoomThinker*)->cls_name)) {
+	    thinker->doom.fun_ptr=&CrushThinker;
 	    ptr=StrScan(ptr,"%d\n",&i64);
 	    thinker(CCrushThinker*)->s=GetNthSector(l,i64);
 	    ptr=StrScan(ptr,"%n\n",&thinker(CCrushThinker*)->base_speed);
 	    ptr=StrScan(ptr,"%d\n",&i64);
 	    thinker(CCrushThinker*)->going_up=i64;
-	  }else {
+	  } else if(!StrCmp("CLight1",thinker(CDoomThinker*)->cls_name)) {
+	    thinker->doom.fun_ptr=&Light1Thinker;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CLight1*)->s=GetNthSector(l,i64);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CLight1*)->end_tS);
+	  } else if(!StrCmp("CLightStrobe",thinker(CDoomThinker*)->cls_name)) {
+	    thinker->doom.fun_ptr=&LightStrobeThinker;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CLightStrobe*)->s=GetNthSector(l,i64);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CLightStrobe*)->end_tS);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CLightStrobe*)->rand_offset);
+	    ptr=StrScan(ptr,"%d\n",&thinker(CLightStrobe*)->mask);
+	  } else if(!StrCmp("CLightFire",thinker(CDoomThinker*)->cls_name)) {
+	    thinker->doom.fun_ptr=&LightFireThinker;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CLightFire*)->s=GetNthSector(l,i64);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CLightFire*)->end_tS);
+	  } else {
+            "%s\n",thinker(CDoomThinker*)->cls_name;
 	    next=thinker->doom.next;
 	    QueRem(thinker);
 	    Free(thinker);
@@ -615,12 +644,11 @@ skip_thinker:;
 	        &sector->special_type,
 	        &texture_src);
 	  if(texture_src!=-1&&texture_changed) {
-PrintI("d",texture_src);
 	    MemCpy(&sector->floor_dc,&(GetNthSector(l,texture_src)->floor_dc),8*4);
 	  }
         }
-	state++;
-	break;
+        state++;
+        break;
       default:
         goto fin;
     }

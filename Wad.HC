@@ -81,7 +81,7 @@ class CWadSector {
   I16 ceil_height;
   U8 floor_texture_name[8];
   U8 ceil_texture_name[8];
-  I16 light_level;
+  I16 	light_level;
 #define WAD_SECTOR_NORMAL 0
 #define WAD_SECTOR_BLINK_RAND 1
 #define WAD_SECTOR_BLINK05 2
@@ -900,6 +900,7 @@ CDC *GetFlatDC(U8 *name) {
   Upper8(tmp_name);
   return FramePtr(tmp_name);
 }
+extern U0 LoadLightingThinkers(CDoomLevel *l);
 CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name,I64 skill=1) {
   I64 idx,cnt,x,y,min,max;
   U16 *offs;
@@ -1311,6 +1312,7 @@ skip_thing:
   Free(dnode_list);
   Free(dlinedef_list);
   StrCpy(level->map_name,level_name);
+  LoadLightingThinkers(level);
   return level;
 }
 

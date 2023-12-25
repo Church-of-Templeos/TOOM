@@ -200,7 +200,7 @@ class CDoomLinedef:CQue {
   I16 pad[2];
 //private
   CD2 clip_start,clip_end;
-  Bool in_view,seen;
+  Bool in_view,seen,activated;
 };
 
 
@@ -244,7 +244,7 @@ class CDoomSector:CQue {
   CDoomThing *noise_thing; //Last thing that made a noise
   F64 door_height_offset;
   I64 visplane_idx;
-  Bool drawn,activated;
+  Bool drawn;
   Bool paused; //Pause the action on the sector
   Bool bumped_into; //used for re-opening doors
   Bool sound_check;

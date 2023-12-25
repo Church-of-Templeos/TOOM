@@ -665,6 +665,10 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    }
 	    wall_cmd->start=MinI64(wall_cmd->start,iy+ih2);
 	    wall_cmd->end=MaxI64(wall_cmd->end,iy+ih2);
+	    if(floor==0)
+	     wall_cmd->end=GR_HEIGHT/2; //All the way down(we dont need to drawn benith the floor)
+	    if(floor==2)
+	     wall_cmd->start=0; //All the way up(We dont need to draw past the ceiling)
 	    ty=tyf;
 	    if(repeat)
 	      ty=ty%texture->height;
@@ -2161,7 +2165,7 @@ U0 LightBlinkThinker(CDoomLevel *l,CLightBlinkThinker *t) {
   }
 }
 extern U0 AddCrushThinker(CDoomLevel *l,CDoomSector *s,CDoomCrusher *c);
-U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags,CDoomThing *who) {
+Bool _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags,CDoomThing *who) {
   CDoomActionSector *type;
   CDoomFloor *fl;
   CDoomDoor *door;
@@ -2186,9 +2190,8 @@ U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags,CDoom
         switch(light->trigger) {
 	    break;case 'P1':
 light_activate1:
-	    if(s->activated) return;
+	    if(ld->activated) return FALSE;
 light_activate:
-	    s->activated=TRUE;
 	    if(light->target==LIGHT_255) {
 	      s->cur_light_level=255;
 	    } else if(light->target==LIGHT_35) {
@@ -2198,31 +2201,32 @@ light_activate:
 	    else if(light->target==LIGHT_MAX_NIEGHBOR)
 	      s->cur_light_level=HighestSurrondingLight(s);
             else if(light->target==LIGHT_BLINK) {
-	      if(s->activated) return; //No need to add another thikner
+	      if(ld->activated) return FALSE; //No need to add another thikner
 	      blink=AddThinker(l,&LightBlinkThinker,"CLightBlinkThinker");
 	      blink->on=FALSE;
 	      blink->begin_at_tS=Server_tS+1/30.*9;
 	    }
+	    return TRUE;
 	    break; case 'S1':    
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto light_activate1;
 	    break; case 'W1':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto light_activate1;
 	    break; case 'G1':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto light_activate1;
 	    break; case 'PR':
-	    if(!(flags&WACTIVATE_PUSH)) return;
+	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
 	    goto light_activate;
 	    break; case 'SR':
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto light_activate;
 	    break; case 'GR':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto light_activate;
 	    break; case 'WR':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto light_activate;
         }
       } else if(type->type=='Crush') {
@@ -2230,34 +2234,34 @@ light_activate:
         switch(crush->trigger) {
 	    break;case 'P1':
 crush_activate1:
-	    if(s->activated) return;
-	    s->activated=TRUE;
+	    if(ld->activated) return FALSE;
 crush_activate:
 	    if(crush->turn_on) {
 	      s->cur_action_linedef=ld;
 	      AddCrushThinker(l,s,crush);
 	    } else  //The thinker checks for this
 	      s->cur_action_linedef=NULL;
+	    return TRUE;
 	    break; case 'S1':    
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto crush_activate1;
 	    break; case 'W1':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto crush_activate1;
 	    break; case 'G1':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto crush_activate1;
 	    break; case 'PR':
-	    if(!(flags&WACTIVATE_PUSH)) return;
+	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
 	    goto crush_activate;
 	    break; case 'SR':
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto crush_activate;
 	    break; case 'GR':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto crush_activate;
 	    break; case 'WR':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto crush_activate;
         }
       } else if(type->type=='Stairs') {
@@ -2265,30 +2269,30 @@ crush_activate:
         switch(tp->trigger) {
 	    break;case 'P1':
 stairs_activate1:
-	    if(s->activated) return;
-	    s->activated=TRUE;
+	    if(ld->activated) return FALSE;
 stairs_activate:
 	    BuildStairs(l,ld);
+	    return TRUE;
 	    break; case 'S1':    
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto stairs_activate1;
 	    break; case 'W1':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto stairs_activate1;
 	    break; case 'G1':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto stairs_activate1;
 	    break; case 'PR':
-	    if(!(flags&WACTIVATE_PUSH)) return;
+	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
 	    goto stairs_activate;
 	    break; case 'SR':
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto stairs_activate;
 	    break; case 'GR':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto stairs_activate;
 	    break; case 'WR':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto stairs_activate;
         }
       } else if(type->type=='Teleport') {
@@ -2296,14 +2300,13 @@ stairs_activate:
         switch(tp->trigger) {
 	    break;case 'P1':
 teleport_activate1:
-	    if(s->activated) return;
-	    s->activated=TRUE;
+	    if(ld->activated) return FALSE;
 teleport_activate:
 	    if(tp->dest==TP_DEST_TP_THING) {
 	      if(flags&WACTIVATE_MONSTER&&!tp->monster)
-	        return;
+	        return FALSE;
 	      if(!(flags&WACTIVATE_MONSTER)&&!tp->player)
-	        return;
+	        return FALSE;
 //You must be have passed the first sidedef to trigger a tele[P]orter(meaning you are on the backside)
 	      cross=CreateVector(2);
 	      cross->data[0]=ld->end->x-ld->start->x;
@@ -2312,32 +2315,33 @@ teleport_activate:
 	      point.y=who->y-ld->start->y;
 	      if(flags&WACTIVATE_WALK&&IsFrontSideOfVector2D(cross,&point)) {
 	        DestroyVector(cross);
-	        return;
+	        return FALSE;
 	      }
 	      DestroyVector(cross);
 	      TeleportThing(l,tp,ld->sector_tag,who);
 	    } else
 	      PrintI("UNIMP_DEST",tp->dest); 
+	    return TRUE;
 	    break; case 'S1':    
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto teleport_activate1;
 	    break; case 'W1':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto teleport_activate1;
 	    break; case 'G1':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto teleport_activate1;
 	    break; case 'PR':
-	    if(!(flags&WACTIVATE_PUSH)) return;
+	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
 	    goto teleport_activate;
 	    break; case 'SR':
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto teleport_activate;
 	    break; case 'GR':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto teleport_activate;
 	    break; case 'WR':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto teleport_activate;
         }
 
@@ -2346,182 +2350,181 @@ teleport_activate:
         switch(exit->trigger) {
 	    break;case 'P1':
 exit_activate1:
-	    if(s->activated) return;
-	    s->activated=TRUE;
+	    if(ld->activated) return FALSE;
 exit_activate:
 	    if(s->cur_action_linedef)
-	      return;
+	      return FALSE;
 	    s->cur_action_linedef=ld;
 	    Spawn(&PlaySoundTask,"SWTCHX","snd",0,Fs);
 	    l->ended_special=exit->secret;
 	    l->ended=TRUE;
+	    return TRUE;
 	    break; case 'S1':    
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto exit_activate1;
 	    break; case 'W1':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto exit_activate1;
 	    break; case 'G1':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto exit_activate1;
 	    break; case 'PR':
-	    if(!(flags&WACTIVATE_PUSH)) return;
+	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
 	    goto exit_activate;
 	    break; case 'SR':
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto exit_activate;
 	    break; case 'GR':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto exit_activate;
 	    break; case 'WR':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto exit_activate;
         }
       } else if(type->type=='Donut') {
         donut=type;
         switch(donut->trigger) {
 	    break; case 'P1':
-	    if(!(flags&WACTIVATE_PUSH)) return;
+	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
 donut_activate1:          
-	    if(s->activated) return;
-	    $BK,0$s->activated=TRUE;
+	    if(ld->activated) return FALSE;
 donut_activate:
 	    if(s->cur_action_linedef)
-	      return;
+	      return FALSE;
 	    s->cur_action_linedef=ld;
 	    dt=AddThinker(l,&DonutThinker,"CDonutThinker");
 	    dt->ld=ld;
 	    dt->start_tS=Server_tS;
+	    return TRUE;
 	    break; case 'S1':
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto donut_activate1;
 	    break; case 'W1':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto donut_activate1;
 	    break; case 'G1':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto donut_activate1;
 	    break; case 'PR':
-	    if(!(flags&WACTIVATE_PUSH)) return;
+	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
 	    goto donut_activate;
 	    break; case 'SR':
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto donut_activate;
 	    break; case 'GR':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto donut_activate;
 	    break; case 'WR':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto donut_activate;
         }
       } else if(type->type=='Ceil') {
         ceil=type;
         switch(ceil->trigger) {
 	    break; case 'P1':
-	    if(!(flags&WACTIVATE_PUSH)) return;
+	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
 cactivate1:          
-	    if(s->activated) return;
-	    $BK,0$s->activated=TRUE;
+	    if(ld->activated) return FALSE;
 cactivate:
 	    if(s->cur_action_linedef)
-	      return;
+	      return FALSE;
 	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
 	    AddCeilThinker(l,s,ld,ceil);
+	    return TRUE;
 	    break; case 'S1':
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto cactivate1;
 	    break; case 'W1':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto cactivate1;
 	    break; case 'G1':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto cactivate1;
 	    break; case 'PR':
-	    if(!(flags&WACTIVATE_PUSH)) return;
+	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
 	    goto cactivate;
 	    break; case 'SR':
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto cactivate;
 	    break; case 'GR':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto cactivate;
 	    break; case 'WR':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto cactivate;
         }
       } else if(type->type=='Lift') {
         lift=type;
         switch(lift->trigger) {
 	    break; case 'P1':
-	    if(!(flags&WACTIVATE_PUSH)) return;
-lactivate1:          
-	    if(s->activated) return;
-	    s->activated=TRUE;
+	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
+lactivate1:
+	    if(ld->activated) return FALSE;
 lactivate:
 	    if(s->cur_action_linedef)
-	      return;
+	      return FALSE;
 	    dst=GetTargetLiftHeight(s,lift->target);
 	    AddLiftThinker(l,s->floor_height,dst,s,ld,lift,dst>s->floor_height);
 	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
 	    ChangeByModel(ld,s,lift->model,lift->texture_change,lift->type_change,lift->zero_type);
+	    return TRUE;
 	    break; case 'S1':
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto lactivate1;
 	    break; case 'W1':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto lactivate1;
 	    break; case 'G1':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto lactivate1;
 	    break; case 'PR':
-	    if(!(flags&WACTIVATE_PUSH)) return;
+	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
 	    goto lactivate;
 	    break; case 'SR':
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto lactivate;
 	    break; case 'GR':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto lactivate;
 	    break; case 'WR':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto lactivate;
         }
       } else if(type->type=='Floor') {
         fl=type;
         switch(fl->trigger) {
 	    break; case 'P1':
-	    if(!(flags&WACTIVATE_PUSH)) return;
+	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
 factivate1:
-
-	    if(s->activated) return;
-	    s->activated=TRUE;
+	    if(ld->activated) return FALSE;
 factivate:
 	    if(s->cur_action_linedef)
-	      return;
+	      return FALSE;
 	    dst=GetTargetFloorHeight(s,fl->target,fl->direction==FLOOR_DIR_UP);
 	    AddLiftThinker(l,s->floor_height,dst,s,ld,fl,dst>s->floor_height);
 	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
 	    ChangeByModel(ld,s,fl->model,fl->texture_change,fl->type_change,fl->zero_type);
+	    return TRUE;
 	    break; case 'S1':
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto factivate1;
 	    break; case 'G1':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto factivate1;
 	    break; case 'W1':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto factivate1;
 	    break; case 'PR':
-	    if(!(flags&WACTIVATE_PUSH)) return;
+	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
 	    goto factivate;
 	    break; case 'SR':
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto factivate;
 	    break; case 'GR':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto factivate;
 	    break; case 'WR':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto factivate;
         }
       } else if(type->type=='Door') {
@@ -2529,17 +2532,16 @@ factivate:
         switch(door->trigger) {
 	  case 'P1':
 	    s=ld->back->sector;
-	    if(!(flags&WACTIVATE_PUSH)) return;
+	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
 activate1:
-	    if(s->activated) return;
-	    s->activated=TRUE;
+	    if(ld->activated) return 0;
 activate:
 	    if(s->cur_action_linedef)
-	      return;
+	      return FALSE;
 //Check for keys
-	    if(!l->has_red_key&&(door->key&DOOR_LOCK_RED)) return;
-	    if(!l->has_blue_key&&(door->key&DOOR_LOCK_BLUE)) return;
-	    if(!l->has_yellow_key&&(door->key&DOOR_LOCK_YELLOW)) return;
+	    if(!l->has_red_key&&(door->key&DOOR_LOCK_RED)) return 0;
+	    if(!l->has_blue_key&&(door->key&DOOR_LOCK_BLUE)) return 0;
+	    if(!l->has_yellow_key&&(door->key&DOOR_LOCK_YELLOW)) return 0;
 //Do the door action
 	    switch(door->action) {
 	      case DOOR_ACTION_OPEN_WAIT_CLOSE:
@@ -2559,39 +2561,38 @@ activate:
 	        AddDoorThinker(l,s->ceil_height,0.,s,ld,door,TRUE,-1.);
 	        break;
 	    }
+	    return TRUE;
 	    break;
 	  case 'W1':
-	    if(s->activated) return;
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto activate1;
 	    break;
 	  case 'S1':
-	    if(s->activated) return;
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto activate1;
 	    break;
 	  case 'G1':
-	    if(s->activated) return;
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto activate1;
 	    break;
 	  case 'PR':
 	    s=ld->back->sector;
-	    if(!(flags&WACTIVATE_PUSH)) return;
+	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
 	    goto activate;
 	  case 'WR':
-	    if(!(flags&WACTIVATE_WALK)) return;
+	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto activate;
 	  case 'GR':
-	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    if(!(flags&WACTIVATE_SHOOT)) return FALSE;
 	    goto activate;
 	  case 'SR':
-	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto activate;
         }
       }
     }
   }
+  return FALSE;
 }
 CDC *AltSwitchTexture(U8 *txt,Bool on=FALSE,Bool *res_txtr_is_on=NULL) {
   static U8 *switch_textures[40]={
@@ -2715,16 +2716,19 @@ U0 AddButtonThinker(CDoomLevel *l,CDoomSidedef *s,I64 which_part,Bool repeat=TRU
 
 U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags,CDoomThing *who) {
   CDoomSector *sector,*head=&l->sectors;
+  I64 trig=FALSE;
   if(!ld->special_type) return;
 //Push operators on the linedef that called it
   if(ld->special_type(CDoomDoor*)->trigger.u8[0]=='P') {
     ld->back->sector->bumped_into=TRUE;
-    _TriggerLinedef(l,ld->back->sector,ld,flags,who);
+    trig|=_TriggerLinedef(l,ld->back->sector,ld,flags,who);
   } else
     for(sector=head->next;sector!=head;sector=sector->next) {
       if(sector->tag_number==ld->sector_tag)
-        _TriggerLinedef(l,sector,ld,flags,who);
+        trig|=_TriggerLinedef(l,sector,ld,flags,who);
     }
+  if(!ld->activated)
+    ld->activated=trig;
 }
 
 
@@ -2760,7 +2764,7 @@ cell:
 	    else
 	      load->ammo+=20;
 	    load->ammo=ClampI64(load->ammo,0,maxCells);
-	    if(load->ammo!=orig) {
+	    if(load->ammo!=orig||new_gun) {
 rem:
 	      p->pickup_amt+=6;
 	      if(t->template->flags&TF_ARTIFACT)
@@ -2780,14 +2784,15 @@ rem:
 	    else
 	      load->ammo+=20;
 	    load->ammo=ClampI64(load->ammo,0,maxBullets);
-	    if(load->ammo!=orig) 
+	    if(load->ammo!=orig||new_gun) 
 	      goto rem;
 	    break;
 	  case 2005: //Chainsaw
 	    new_gun=!p->arsenal[5].available;
 	    picked_up_gun=5;
 	    p->arsenal[5].available=TRUE;
-	    break;
+	    if(new_gun)
+	      goto rem;
 	  case 2004: //Plasma gun
 	    new_gun=!p->arsenal[6].available;
 	    picked_up_gun=6;
@@ -2805,9 +2810,8 @@ rem:
 	    else
 	      load->ammo+=1;
 	    load->ammo=ClampI64(load->ammo,0,maxRockets);
-	    if(load->ammo!=orig) 
+	    if(load->ammo!=orig||new_gun) 
 	      goto rem;
-	    break;
 	    break;
 	  case 2001: //Shutgun
 	    picked_up_gun=2;
@@ -2820,7 +2824,7 @@ rem:
 	    else
 	      load->ammo+=4;
 	    load->ammo=ClampI64(load->ammo,0,maxBullets);
-	    if(load->ammo!=orig) 
+	    if(load->ammo!=orig||new_gun)
 	      goto rem;
 	    break;
 	  case 2008: //4 shells
@@ -2839,7 +2843,7 @@ rem:
 	    else
 	      load->ammo+=50;
 	    load->ammo=ClampI64(load->ammo,0,maxBullets);
-	    if(load->ammo!=orig) 
+	    if(load->ammo!=orig)
 	      goto rem;
 	    break;
 	  case 2046: //Box of rockets
@@ -2850,7 +2854,7 @@ rem:
 	    else
 	      load->ammo+=5;
 	    load->ammo=ClampI64(load->ammo,0,maxRockets);
-	    if(load->ammo!=orig) 
+	    if(load->ammo!=orig)
 	      goto rem;
 	    break;
 	  case 2049: //Box of shotfgu
@@ -2861,7 +2865,7 @@ rem:
 	    else
 	      load->ammo+=20;
 	    load->ammo=ClampI64(load->ammo,0,maxRockets);
-	    if(load->ammo!=orig) 
+	    if(load->ammo!=orig)
 	      goto rem;
 	    break;
 	  case 2007: //clip

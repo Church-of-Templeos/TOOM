@@ -258,20 +258,25 @@ U0 SaveGame(U8 *filename,U8 *title) {
   DocPrint(doc,"KEYS:%d,%d,%d\n",l->has_red_key,l->has_blue_key,l->has_yellow_key);
   head=&l->sectors;
   for(cur=head->next;head!=cur;cur=cur->next) {
-    DocPrint(doc,"%n,%n\n",
-	cur(CDoomSector*)->floor_height,
-	cur(CDoomSector*)->ceil_height
-    );
+    DocPrint(doc,"%n,%n,%n\n",
+	  cur(CDoomSector*)->floor_height,
+	  cur(CDoomSector*)->ceil_height,
+	  cur(CDoomSector*)->cur_light_level
+	  );
     DocPrint(doc,"%d,%d,%d\n",
-	cur(CDoomSector*)->tx_changed,
-	cur(CDoomSector*)->special_type,
-	GetSectorIndex(l,cur(CDoomSector*)->changed_from_sector));
+	  cur(CDoomSector*)->tx_changed,
+	  cur(CDoomSector*)->special_type,
+	  GetSectorIndex(l,cur(CDoomSector*)->changed_from_sector));
   }
-
   DocPrint(doc,"%d\n",l->stats.have_kills);
   DocPrint(doc,"%d\n",l->stats.have_items);
   DocPrint(doc,"%d\n",l->stats.have_secrets);
   DocPrint(doc,"%n\n",l->stats.time);
+  head=&l->linedefs;
+  for(cur=head->next;cur!=head;cur=cur->next) {
+    DocPrint(doc,"%d\n",cur(CDoomLinedef *)->activated);
+    DocPrint(doc,"%d\n",cur(CDoomLinedef *)->seen);
+  }
   DocWrite(doc);  
   DocDel(doc);
   Free(filename);
@@ -341,6 +346,7 @@ U0 LoadGame(U8 *filename) {
   CDoomThing *thing;
   CDoomSector *sector;
   COmniThinker *thinker,*next;
+  CDoomLinedef *ld;
   U8 *optr,*ptr;
   U8 buf[STR_LEN],*buf_ptr=buf,buf2[STR_LEN];
   GunAvail *avail;
@@ -653,9 +659,10 @@ skip_thinker:;
       case 6:
         head=&l->sectors;
         for(sector=head->next;head!=sector;sector=sector->next) {
-	  ptr=StrScan(ptr,"%n,%n\n",
+	  ptr=StrScan(ptr,"%n,%n,%n\n",
 	        &sector->floor_height,
-	        &sector->ceil_height);
+	        &sector->ceil_height,
+		&sector->cur_light_level);
 	  ptr=StrScan(ptr,"%d,%d,%d\n",
 	        &texture_changed,
 	        &sector->special_type,
@@ -672,6 +679,17 @@ skip_thinker:;
         ptr=StrScan(ptr,"%d\n",&l->stats.have_secrets);
         ptr=StrScan(ptr,"%n\n",&l->stats.time);
         state++;
+	break;
+      case 8:
+        head=&l->linedefs;
+	for(ld=head->next;ld!=head;ld=ld->next) {
+          ptr=StrScan(ptr,"%d\n",&i64);
+	  ld->activated=i64;
+          ptr=StrScan(ptr,"%d\n",&i64);
+	  ld->seen=i64;
+        }
+	state++;
+	break;
       default:
         goto fin;
     }

@@ -397,7 +397,7 @@ already_has:;
         floory=(wy<<1)&127;
         floorx&=~1;
         floory&=~1;
-        color=LookupLighting(texture->body[floorx+floory*128](U16),sector->cur_light_level);
+        color=LookupLighting(texture->body[floorx+floory*128](U16),sector->cur_light_level,dist);
         *dst=color&0xffff;
         dst(U8*)+=to_dc->width_internal;
         *dst=color>>16;
@@ -672,7 +672,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    ty=ClampI64(ty,0,texture->height-2);
 	    ty&=~1;
 	    color=texture->body[tx+ty*texture->width_internal](U16);
-	    dither_px=LookupLighting(color,light);
+	    dither_px=LookupLighting(color,light,dist);
 	    to=&to_dc->body[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
 	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
 	    if(*db_z>idist) {
@@ -809,7 +809,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p
 	    from=&trans_pixel;
         }
         dst=&to_dc->body[GR_WIDTH-2-x+y*to_dc->width_internal];
-	dither_px=LookupLighting(*from,light);
+	dither_px=LookupLighting(*from,light,dist);
         if(from->u8[0]!=TRANSPARENT)
 	  *dst=dither_px&0xffff,*db_z=dist,db_z[1]=dist;
         dst(U8*)+=to_dc->width_internal;

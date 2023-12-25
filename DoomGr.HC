@@ -141,33 +141,36 @@ CRGB *LoadPLAYPALFromLump(U8 *lump) {
   doom_palette_dithered=DitherPalette(ret);
   return ret;
 }
-U32 light_mat[0x100][8];
-U32 LookupLighting(U16 dith,I64 light) {
+U32 light_mat[0x100][16];
+U32 LookupLighting(U16 dith,I64 light,F64 distance) {
 //Make 0x0102 into 0x12
+  light=light-distance*1/16;
+  if(light<15)
+   light=15;
   dith=(dith&0xf)|(dith>>(8-4)); 
-  if(light>=144)
-    return light_mat[dith][7]; //Assume fullbright due to TempleOS palette
-  return light_mat[dith][light>>5]; //>>5 is divide by 32 (256/32==8)
+//  if(light>=144)
+//    return light_mat[dith][7]; //Assume fullbright due to TempleOS palette
+  return light_mat[dith][light>>4]; //>>5 is divide by 16 (256/16==16)
 }
 U0 InitLightTable() {
   CBGR48 pal[16],dimmed,raw_color;
   F64 best_dist,cur_dist;
   GrPaletteGet(pal);
   I64 y,x,ix,iy,best_color;
-  for(y=0;y!=8;y++) {
+  for(y=0;y!=16;y++) {
     for(x=0;x!=16;x++) {
       for(ix=0;ix!=16;ix++) {
         if(!y) {
 //just copy the pixels over
-	  light_mat[ix<<4|x][7].u16[0]=x|ix<<8;
-	  light_mat[ix<<4|x][7].u16[1]=ix<<8|x;
+	  light_mat[ix<<4|x][15].u16[0]=x|ix<<8;
+	  light_mat[ix<<4|x][15].u16[1]=x<<8|ix;
         } else {
 	  best_dist=I16_MAX;
 	  best_color=0;
-//y goes up to 7,10 so not totally dark
-	  dimmed.r=ToF64(pal[x].r+pal[ix].r)/2.*(10.-y)/10;
-	  dimmed.g=ToF64(pal[x].g+pal[ix].g)/2.*(10.-y)/10;
-	  dimmed.b=ToF64(pal[x].b+pal[ix].b)/2.*(10.-y)/10;
+//y goes up to 15,20 so not totally dark
+	  dimmed.r=ToF64(pal[x].r+pal[ix].r)/2.*(20.-y)/20;
+	  dimmed.g=ToF64(pal[x].g+pal[ix].g)/2.*(20.-y)/20;
+	  dimmed.b=ToF64(pal[x].b+pal[ix].b)/2.*(20.-y)/20;
 	  for(iy=0;iy!=0x100;iy++) {
 	    raw_color.r=ToF64(pal[iy&0xf].r+pal[iy>>4].r)/2.;
 	    raw_color.g=ToF64(pal[iy&0xf].g+pal[iy>>4].g)/2.;
@@ -181,10 +184,10 @@ U0 InitLightTable() {
 	    }
 	  }
 //Swap the pixels as .u16[1] is the 2nd "dither" pixel
-	  light_mat[ix<<4|x][8-y].u8[0]=best_color&0xf;
-	  light_mat[ix<<4|x][8-y].u8[1]=best_color>>4;
-	  light_mat[ix<<4|x][8-y].u8[2]=best_color>>4;
-	  light_mat[ix<<4|x][8-y].u8[3]=best_color&0xf;
+	  light_mat[ix<<4|x][15-y].u8[0]=best_color&0xf;
+	  light_mat[ix<<4|x][15-y].u8[1]=best_color>>4;
+	  light_mat[ix<<4|x][15-y].u8[2]=best_color>>4;
+	  light_mat[ix<<4|x][15-y].u8[3]=best_color&0xf;
         }
       }
     }

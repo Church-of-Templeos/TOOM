@@ -79,6 +79,7 @@ U8 *GetUNStr(U8 *ptr) {
   }
   return NULL;
 }
+
 U0 SaveGame(U8 *filename,U8 *title) {
   filename=ExtDft(filename,"prumnE"); //Greek word for that fuckin ass sauce
   CQue *head,*cur;
@@ -235,6 +236,11 @@ U0 SaveGame(U8 *filename,U8 *title) {
     } else if(!StrCmp("CLightFire",cur(CDoomThinker*)->cls_name)) {
       DocPrint(doc,"%d\n",GetSectorIndex(l,cur(CLightFire*)->s));
       DocPrint(doc,"%n\n",cur(CLightFire*)->end_tS);
+    } else if(!StrCmp("CLightBlinkThinker",cur(CDoomThinker*)->cls_name)) {
+      DocPrint(doc,"%d\n",GetSectorIndex(l,cur(CLightBlinkThinker*)->s));
+      DocPrint(doc,"%n\n",cur(CLightBlinkThinker*)->begin_at_tS);
+      DocPrint(doc,"%n\n",cur(CLightBlinkThinker*)->change_tS);
+      DocPrint(doc,"%d\n",cur(CLightBlinkThinker*)->on);
     } else {
 //Do Nothing
     }
@@ -261,6 +267,11 @@ U0 SaveGame(U8 *filename,U8 *title) {
 	cur(CDoomSector*)->special_type,
 	GetSectorIndex(l,cur(CDoomSector*)->changed_from_sector));
   }
+
+  DocPrint(doc,"%d\n",l->stats.have_kills);
+  DocPrint(doc,"%d\n",l->stats.have_items);
+  DocPrint(doc,"%d\n",l->stats.have_secrets);
+  DocPrint(doc,"%n\n",l->stats.time);
   DocWrite(doc);  
   DocDel(doc);
   Free(filename);
@@ -351,7 +362,6 @@ U0 LoadGame(U8 *filename) {
   QueInit(&l->thinkers);
   QueInit(&l->things);
   while(*ptr) {
-    PrintI("t",state);
     switch(state) {
       case 0: //Thing cnt
         ptr=StrScan(ptr,"THING_CNT:%d\n",&cnt);
@@ -427,7 +437,6 @@ U0 LoadGame(U8 *filename) {
 	  }
 	  ptr=StrScan(ptr,"[Thinker:%s]:\n",&buf_ptr);
 	  StrCpy(thinker->doom.cls_name,buf);
-PrintI(buf,thinker);
 	  if(!StrCmp(buf,"CBarrelThinker")) {
 	    thinker->doom.fun_ptr=&BarrelThinker;
 	    ptr=StrScan(ptr,"%d\n",&i64);
@@ -586,8 +595,16 @@ PrintI(buf,thinker);
 	    ptr=StrScan(ptr,"%d\n",&i64);
 	    thinker(CLightFire*)->s=GetNthSector(l,i64);
 	    ptr=StrScan(ptr,"%n\n",&thinker(CLightFire*)->end_tS);
-	  } else {
-            PrintI("fuk",thinker);
+	  } else if(!StrCmp("CLightBlinkThinker",thinker(CDoomThinker*)->cls_name)) {
+	    ptr=StrScan(ptr,"%d\n",&i64);
+            thinker(CLightBlinkThinker*)->s=GetNthSector(l,i64);
+            thinker->doom.fun_ptr=&LightBlinkThinker;
+	    ptr=StrScan(ptr,"%n\n",&thinker(CLightBlinkThinker*)->begin_at_tS);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CLightBlinkThinker*)->change_tS);
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CLightBlinkThinker*)->on=i64;
+	  }else {
+	    PrintI("fuk",thinker);
 	    next=thinker->doom.next;
 	    QueRem(thinker);
 	    Free(thinker);
@@ -649,6 +666,12 @@ skip_thinker:;
         }
         state++;
         break;
+      case 7:
+        ptr=StrScan(ptr,"%d\n",&l->stats.have_kills);
+        ptr=StrScan(ptr,"%d\n",&l->stats.have_items);
+        ptr=StrScan(ptr,"%d\n",&l->stats.have_secrets);
+        ptr=StrScan(ptr,"%n\n",&l->stats.time);
+        state++;
       default:
         goto fin;
     }

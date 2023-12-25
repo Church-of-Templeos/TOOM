@@ -2134,6 +2134,32 @@ again:;
   cnt=0;
   goto again;
 }
+
+class CLightBlinkThinker:CDoomThinkerBase {
+  CDoomSector *s;
+  F64 begin_at_tS;
+  F64 change_tS;
+  Bool on;
+};
+U0 LightBlinkThinker(CDoomLevel *l,CLightBlinkThinker *t) {
+  F64 ts=Server_tS;
+  CDoomSector *s=t->s;
+  if(ts<t->begin_at_tS) {
+    return;
+  }
+  if(ts>t->change_tS) {
+    t->on^=TRUE;
+    if(t->on)
+      t->change_tS=ts+1/7.*30;
+    else
+      t->change_tS=ts+1;
+  }
+  if(t->on) {
+    s->cur_light_level=s->base_light_level;
+  } else {
+    s->cur_light_level=LowestSurrondingLight(s);
+  }
+}
 extern U0 AddCrushThinker(CDoomLevel *l,CDoomSector *s,CDoomCrusher *c);
 U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags,CDoomThing *who) {
   CDoomActionSector *type;
@@ -2145,17 +2171,63 @@ U0 _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags,CDoom
   CDoomExit *exit;
   CDoomTeleporter *tp;
   CDoomCrusher *crush;
+  CDoomLight *light;
   I64 idx;
   CDoomLinedef *ld2;
   CDonutThinker *dt;
+  CLightBlinkThinker *blink;
   Vector *cross;
   CD2 point;
   F64 dst;
   if(ld) {
     if((type=ld->special_type)) {
-      if(type->type=='Crush') {
+      if(type->type=='Light') {
+	light=type;
+        switch(light->trigger) {
+	    break;case 'P1':
+light_activate1:
+	    if(s->activated) return;
+light_activate:
+	    s->activated=TRUE;
+	    if(light->target==LIGHT_255) {
+	      s->cur_light_level=255;
+	    } else if(light->target==LIGHT_35) {
+	      s->cur_light_level=35;
+	    } else if(light->target==LIGHT_MIN_NIEGHBOR)
+	      s->cur_light_level=LowestSurrondingLight(s);
+	    else if(light->target==LIGHT_MAX_NIEGHBOR)
+	      s->cur_light_level=HighestSurrondingLight(s);
+            else if(light->target==LIGHT_BLINK) {
+	      if(s->activated) return; //No need to add another thikner
+	      blink=AddThinker(l,&LightBlinkThinker,"CLightBlinkThinker");
+	      blink->on=FALSE;
+	      blink->begin_at_tS=Server_tS+1/30.*9;
+	    }
+	    break; case 'S1':    
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto light_activate1;
+	    break; case 'W1':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto light_activate1;
+	    break; case 'G1':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto light_activate1;
+	    break; case 'PR':
+	    if(!(flags&WACTIVATE_PUSH)) return;
+	    goto light_activate;
+	    break; case 'SR':
+	    if(!(flags&WACTIVATE_SWITCH)) return;
+	    goto light_activate;
+	    break; case 'GR':
+	    if(!(flags&WACTIVATE_SHOOT)) return;
+	    goto light_activate;
+	    break; case 'WR':
+	    if(!(flags&WACTIVATE_WALK)) return;
+	    goto light_activate;
+        }
+      } else if(type->type=='Crush') {
         crush=type;
-        switch(tp->trigger) {
+        switch(crush->trigger) {
 	    break;case 'P1':
 crush_activate1:
 	    if(s->activated) return;
@@ -2188,7 +2260,6 @@ crush_activate:
 	    if(!(flags&WACTIVATE_WALK)) return;
 	    goto crush_activate;
         }
-
       } else if(type->type=='Stairs') {
         tp=type;
         switch(tp->trigger) {

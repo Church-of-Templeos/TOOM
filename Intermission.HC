@@ -239,7 +239,7 @@ U0 DrawStats(CDC *to_dc,CDoomLevel *l,I64 ep,I64 l2,I64 tick=0) {
     DrawPercent(to_dc,GR_WIDTH-STATSX,y,tick,l->stats.max_secrets);
     tick=0;
   } else {
-    DrawPercent(to_dc,GR_WIDTH-STATSX,y,l->stats.have_secrets,l->stats.max_kills);
+    DrawPercent(to_dc,GR_WIDTH-STATSX,y,l->stats.have_secrets,l->stats.max_secrets);
     tick-=l->stats.have_secrets;
   }
   y+=lw;

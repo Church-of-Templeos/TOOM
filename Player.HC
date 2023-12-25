@@ -1,11 +1,12 @@
 
 
-U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 dir=1,F64 angle=0) {
+ U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 dir=1,F64 angle=0) {
   F64 speed=dir;
   if(p->running) speed*=30*.60;
   else speed*=20*.60;
   angle+=p->angle;
   CFifoI64 *crossed_f=FifoI64New(16);
+  CDoomSector *s=GetSectorForCoord(l,p->x,p->y);
   CDoomLinedef *crossed;
   CDoomLinedef *hit=MoveInLevel(l,&p->x,angle,speed,16,p->height,COLLISF_NO_HIT_THING|COLLISF_SLIDE|COLLISF_ADJUST_FOR_RADIUS,crossed_f,p);
   while(FifoI64Rem(crossed_f,&crossed)) {
@@ -13,6 +14,10 @@ U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 dir=1,F64 angle=0) {
   }
   if(hit) TriggerLinedef(l,hit,WACTIVATE_PUSH,p);
   FifoI64Del(crossed_f);
+  if(s&&s->special_type==9) {
+    s->special_type=0;
+    ++l->stats.have_secrets;
+  }
 }
 
 U0 PlayerLook(CDoomPlayer *p,F64 angle) {

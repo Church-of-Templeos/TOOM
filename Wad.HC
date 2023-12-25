@@ -451,7 +451,6 @@ U8 *W_GetLumpPtrFromNum(I64 idx,CWad *wad,I64 *lump_len=NULL) {
 // Nroot,Get pointer to lump
 //
 U8 *W_GetLumpPtrFromName(U8 *name,CWad *wad,I64 *lump_len=NULL,I64 which=1) {
-PrintI(name,wad);
   I64 idx=W_CheckNumForName(name,wad,which);
   return W_GetLumpPtrFromNum(idx,wad,lump_len);
 }
@@ -1244,6 +1243,8 @@ skip_thing:
     dsect->special_type=wsect->special_type;
     dsect->tag_number=wsect->tag_number;
     dsect_list[idx]=dsect;
+    if(dsect->special_type==9) //Secret
+      level->stats.max_secrets++;
     wsect++;
   }
 //SECTORS(2) Get sidedefs for the sector

@@ -718,6 +718,7 @@ class CDoomCrusher {
  Bool turn_on;
 };
 
+
 U0 LoadCrushers() {
   CDoomCrusher *new;
   I64 num;
@@ -767,6 +768,50 @@ skip:
   Free(optr);
 }
 
+#define LIGHT_35 1
+#define LIGHT_255 2
+#define LIGHT_BLINK 3
+#define LIGHT_MAX_NIEGHBOR 4
+#define LIGHT_MIN_NIEGHBOR 5
+class CDoomLight {
+  U64 type,trigger;
+  I64 target;
+};
+U0 LoadLights() {
+  CDoomLight *new;
+  I64 num;
+  U8 *optr=FileRead("Lights.TXT"),*fptr=optr,*ln;
+  U8 cls[STR_LEN],*cls_ptr=cls;
+  U8 trig[STR_LEN],*trig_ptr=trig;
+  U8 what[STR_LEN],*what_ptr=what;
+  while(ln=ReadALine(&fptr)) {
+    if(!*ln||*ln=='#')
+      goto skip;
+    StrScan(ln,"%d\t\%s\t%s\t%s\n",&num,&cls_ptr,&trig_ptr,&what_ptr);
+    new=CAlloc(sizeof CDoomLight);
+    action_sector_types[num]=new;
+    new->type='Light';
+
+    new->trigger=trig[0](U16);   
+   
+    if(!StrCmp(what,"255 Units"))
+      new->target=LIGHT_255;
+    else if(!StrCmp(what,"35 Units"))
+      new->target=LIGHT_35;
+    else if(!StrCmp(what,"Blinking"))
+      new->target=LIGHT_BLINK;
+    else if(!StrCmp(what,"Maximum Neighbor"))
+      new->target=LIGHT_MAX_NIEGHBOR;
+    else if(!StrCmp(what,"Minimum Neighbor"))
+      new->target=LIGHT_MIN_NIEGHBOR;
+    else
+       throw('Doom');
+skip:;
+    Free(ln);
+  }  
+  Free(optr);
+}
+LoadLights;
 LoadExits;
 LoadDoors;
 LoadFloors;

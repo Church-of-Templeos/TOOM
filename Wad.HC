@@ -200,7 +200,7 @@ class CDoomLinedef:CQue {
   I16 pad[2];
 //private
   CD2 clip_start,clip_end;
-  Bool in_view,seen;
+  Bool in_view,seen,activated;
 };
 
 
@@ -244,7 +244,7 @@ class CDoomSector:CQue {
   CDoomThing *noise_thing; //Last thing that made a noise
   F64 door_height_offset;
   I64 visplane_idx;
-  Bool drawn,activated;
+  Bool drawn;
   Bool paused; //Pause the action on the sector
   Bool bumped_into; //used for re-opening doors
   Bool sound_check;
@@ -451,7 +451,6 @@ U8 *W_GetLumpPtrFromNum(I64 idx,CWad *wad,I64 *lump_len=NULL) {
 // Nroot,Get pointer to lump
 //
 U8 *W_GetLumpPtrFromName(U8 *name,CWad *wad,I64 *lump_len=NULL,I64 which=1) {
-PrintI(name,wad);
   I64 idx=W_CheckNumForName(name,wad,which);
   return W_GetLumpPtrFromNum(idx,wad,lump_len);
 }
@@ -1244,6 +1243,8 @@ skip_thing:
     dsect->special_type=wsect->special_type;
     dsect->tag_number=wsect->tag_number;
     dsect_list[idx]=dsect;
+    if(dsect->special_type==9) //Secret
+      level->stats.max_secrets++;
     wsect++;
   }
 //SECTORS(2) Get sidedefs for the sector

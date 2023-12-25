@@ -19,6 +19,29 @@ I64 LowestSurrondingLight(CDoomSector *s) {
   }
   return min;
 }
+
+
+I64 HighestSurrondingLight(CDoomSector *s) {
+  I64 idx,max=0;
+  CDoomLinedef *ld;
+  CDoomSector *s2;
+  for(idx=0;idx!=s->linedef_cnt;idx++) {
+    ld=s->linedefs[idx];
+    if(ld->back) {
+      s2=ld->back->sector;
+      if(s2&&s2!=s)
+        max=MaxI64(s2->base_light_level,max);
+    }
+    if(ld->front) {
+      s2=ld->front->sector;
+      if(s2&&s2!=s)
+        max=MaxI64(s2->base_light_level,max);
+    }
+  }
+  return max;
+}
+
+
 class CLight1:CDoomThinkerBase {
   CDoomSector *s;
   F64 end_tS;

@@ -68,6 +68,9 @@ class CMonsterThinker:CDoomThinkerBase {
 U0 Sound(CMonsterThinker *t,U64 type) {
   if(type=='See')
     switch(t->self->template->type) {
+      case 16:
+        Spawn(&PlaySoundTask,"CYBSIT","snd",0,Fs);
+        break;
       case 9: //Shotgunna
       case 3004: //Zombie
         switch(Rand*2.99) {
@@ -94,6 +97,9 @@ U0 Sound(CMonsterThinker *t,U64 type) {
     }
   if(type=='Pain') {
     switch(t->self->template->type) {
+      case 16: //Cyber demon
+        Spawn(&PlaySoundTask,"DMPAIN","snd",0,Fs);
+	break;
       case 9: //Shotgunna
       case 3004: //Zombie
       case 3001: //Imp
@@ -103,6 +109,9 @@ U0 Sound(CMonsterThinker *t,U64 type) {
   }
   if(type=='Die') {
     switch(t->self->template->type) {
+      case 16:
+	Spawn(&PlaySoundTask,"CYBDTH","snd",0,Fs);
+	break;
       case 9: //Shotgunna
       case 3004: //Zombie
         switch(Rand*2.99) {
@@ -138,6 +147,9 @@ U0 Sound(CMonsterThinker *t,U64 type) {
   }
   if(type=='Attack') {
     switch(t->self->template->type) {
+      case 16:
+        Spawn(&PlaySoundTask,"RLAUNC","snd",0,Fs);
+        break;
       case 9: //Fuckin Shotgun asshole
         Spawn(&PlaySoundTask,"SHOTGN","snd",0,Fs);
         break;
@@ -213,7 +225,14 @@ explode:
 	  DamageMob(l,hit,t->shooter,dist);
       }
     }
-//TODO sound
+    switch(self->template->type) {
+      case 33:
+        Spawn(&PlaySoundTask,"BAREXP","snd",0,Fs);
+        break;
+      case 24:
+        Spawn(&PlaySoundTask,"FIRXPL","snd",0,Fs);
+        break;
+    }
     return;
   }
 next:
@@ -362,6 +381,8 @@ U0 BarrelThinker(CDoomLevel *l,CBarrelThinker *m) {
   if(self->health<=0.) {
     if(!m->explode_start_tS) {
       m->explode_start_tS=Server_tS;
+      self->solid=FALSE;
+      Spawn(&PlaySoundTask,"BAREXP","snd",0,Fs);
       self->flags&=~TF_OBSTACLE;
       self->animation=self->template(CDoomMonsterTemplate*)->_dying_frames;
       self->anim_no_repeat=TRUE;
@@ -878,6 +899,15 @@ U0 TroopAttack(CDoomLevel *l,CMonsterThinker *t) {
     SpawnMissile(l,t->self,t->target,'Imp');
   }
 }
+U0 CyberAttack(CDoomLevel *l,CMonsterThinker *t) {
+  if(t->target) {
+    FaceTarget(l,t);
+    Sound(t,'Attack');
+    t->self->flags|=MF_JUST_ATTACKED;
+    SpawnMissile(l,t->self,t->target,'Rocket');    
+  }
+}
+
 //Spectre
 U0 SargAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 angle,damage;
@@ -1050,13 +1080,13 @@ U0 BossDeath(CDoomLevel *l,CMonsterThinker *t) {
   TriggerLinedef(l,&dummy,WACTIVATE_WALK,p);   
 }
 U0 Hoof(CDoomLevel *l,CMonsterThinker *t) {
-  //TODO start sound
+  Spawn(&PlaySoundTask,"HOOF","snd",0,Fs);
   Chase(l,t);
 } 
 
 //Metal robot spider foot homie
 U0 Metal(CDoomLevel *l,CMonsterThinker *t) {
-  //TODO start sound
+  Spawn(&PlaySoundTask,"METAL","snd",0,Fs);
   Chase(l,t);
 } 
 
@@ -1132,6 +1162,7 @@ U0 LoadMonsterInfo() {
 //Plasma shot
   UH("plasma",plasma_ball=CAlloc(sizeof CDoomProjectileTemplate));
   p=plasma_ball;
+  p->type=34;
   p->flags=TF_FLOATING;
   p->radius=13.;
   p->height=8.;
@@ -1238,6 +1269,7 @@ U0 LoadMonsterInfo() {
 //Rocket
   UH("rocket",rocket=CAlloc(sizeof CDoomProjectileTemplate));
   p=rocket;
+  p->type=33;
   p->flags=TF_FLOATING;
   p->direct=20.;
   p->splash=128.;
@@ -1375,6 +1407,33 @@ U0 LoadMonsterInfo() {
   AddState(t->pain_state="ZOMBIE.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"ZOMBIE.S_POSS_RUN");
   AddState(t->death_state="ZOMBIE.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
   AddState(t->gib_state="ZOMBIE.S_POSS_GIB",STATE_NO_REPEAT,t->_gib_frames,&XFall,"ST_NULL");
+//Cyber demon
+  t=doom_thing_types[16];
+  t->reaction_time=8*1/35.;
+  t->pain_time=20*1/35.;
+  t->mass=1000;
+  t->health=4000;
+  t->speed=16;
+  t->pain_chance=20./255;
+  UH("cyberidle",t->_idle_frames=GenerateCacheFrames(t,"AB"));
+  UH("cyberchase",t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD"));
+  UH("cyberattack",t->_attack_frames=GenerateCacheFrames(t,"EFEFEF"));
+  UH("cyberhurt",t->_hurt_frames=GenerateCacheFrames(t,"G"));
+  UH("cyberdying",t->_dying_frames=GenerateCacheFrames(t,"HIJKLMNOPP"));
+  AddState(t->spawn_state="CYBER.STND",10,t->_idle_frames,&Look,"CYBER.STND");
+  AddState(t->see_state="CYBER.RUN1",3,t->_chase_frames,&Hoof,"CYBER.RUN2");
+  AddState("CYBER.RUN2",STATE_UNTIL_ANIM_DONE,t->_chase_frames,&Chase,"CYBER.RUN3");
+  AddState("CYBER.RUN3",STATE_UNTIL_ANIM_DONE,t->_chase_frames,&Chase,"CYBER.RUN4");
+  AddState("CYBER.RUN4",3,t->_chase_frames,&Metal,"CYBER.RUN1");
+  AddState("CYBER.RUN1",STATE_UNTIL_ANIM_DONE,t->_chase_frames,&Chase,"CYBER.RUN4");
+  AddState(t->missile_state="CYBER.ATK1",3,t->_chase_frames,&FaceTarget,"CYBER.ATK2");
+  AddState("CYBER.ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&CyberAttack,"CYBER.ATK3");
+  AddState("CYBER.ATK3",3,t->_attack_frames,&FaceTarget,"CYBER.ATK4");
+  AddState("CYBER.ATK4",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&CyberAttack,"CYBER.ATK5");
+  AddState("CYBER.ATK5",3,t->_attack_frames,&FaceTarget,"CYBER.ATK6");
+  AddState("CYBER.ATK6",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&CyberAttack,"CYBER.RUN1");
+  AddState(t->death_state="CYBER.DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
+  AddState(t->pain_state="CYBER.PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"CYBER.RUN1");
 };
 
 LoadMonsterInfo;

@@ -118,6 +118,7 @@ U0 SaveGame(U8 *filename,U8 *title) {
       DocPrint(doc,"%n\n",cur(CDoomPlayer*)->armor);
       DocPrint(doc,"%n\n",cur(CDoomPlayer*)->rad_suit_time);
       DocPrint(doc,"%n\n",cur(CDoomPlayer*)->bezerk_time);
+      DocPrint(doc,"%d\n",cur(CDoomPlayer*)->has_backpack);
     }
     idx++;
   }
@@ -404,6 +405,18 @@ U0 LoadGame(U8 *filename) {
 	    thing(CDoomPlayer*)->armor=f64;
 	    ptr=StrScan(ptr,"%n\n",&thing(CDoomPlayer*)->rad_suit_time);
 	    ptr=StrScan(ptr,"%n\n",&thing(CDoomPlayer*)->bezerk_time);	    
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    if(thing(CDoomPlayer*)->has_backpack=i64) {
+	      maxBullets=400;
+	      maxShells=200;
+	      maxRockets=100;
+	      maxCells=600;
+	    } else {
+	      maxBullets=200;
+	      maxShells=50;
+	      maxRockets=50;
+	      maxCells=300;
+	    }
 	  }
 	  thing=thing->next;
         }
@@ -427,7 +440,7 @@ U0 LoadGame(U8 *filename) {
 	  }
 	  ptr=StrScan(ptr,"[Thinker:%s]:\n",&buf_ptr);
 	  StrCpy(thinker->doom.cls_name,buf);
-PrintI(buf,thinker);
+	  PrintI(buf,thinker);
 	  if(!StrCmp(buf,"CBarrelThinker")) {
 	    thinker->doom.fun_ptr=&BarrelThinker;
 	    ptr=StrScan(ptr,"%d\n",&i64);
@@ -587,7 +600,7 @@ PrintI(buf,thinker);
 	    thinker(CLightFire*)->s=GetNthSector(l,i64);
 	    ptr=StrScan(ptr,"%n\n",&thinker(CLightFire*)->end_tS);
 	  } else {
-            PrintI("fuk",thinker);
+	    PrintI("fuk",thinker);
 	    next=thinker->doom.next;
 	    QueRem(thinker);
 	    Free(thinker);

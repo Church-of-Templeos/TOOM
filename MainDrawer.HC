@@ -68,7 +68,7 @@ class CDoomPlayer:CDoomThing {
 //When you die,the player stares at the thing that killed the player
   CDoomThing *stare_at;
   GunAvail arsenal[8];
-  Bool running,made_a_sound;
+  Bool running,made_a_sound,has_backpack;
 };
 
 //IMPORTANT
@@ -2822,7 +2822,28 @@ rem:
 	    if(load->ammo!=orig)
 	      goto rem;
 	    break;
-
+	  case 8: //Backpack
+	    if(!p->has_backpack) {
+              p->has_backpack=TRUE;
+	      maxBullets=400;
+	      maxShells=200;
+	      maxRockets=100;
+	      maxCells=600;
+	    }
+	    //Poo poo cells
+	    load=p->arsenal[6].load;
+	    load->ammo=ClampI64(load->ammo+20,0,maxCells);
+	    //4 Shothun shells
+	    load->ammo=ClampI64(load->ammo,0,maxCells);
+	    load=p->arsenal[2].load;
+	    load->ammo=ClampI64(load->ammo+4,0,maxShells);
+	    //10 bullets
+	    load=p->arsenal[1].load;
+	    load->ammo=ClampI64(load->ammo+10,0,maxBullets);
+	    //1 rocket
+	    load=p->arsenal[4].load;
+	    load->ammo=ClampI64(load->ammo+1,0,maxRockets);
+	    goto rem;
 	    //Yeah homie,we bout to get some power ups
 	  case 2015:
 	    orig=p->armor;

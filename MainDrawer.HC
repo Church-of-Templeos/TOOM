@@ -26,13 +26,22 @@ F64 ray_cast_table_cos[GR_WIDTH/2];
 F64 ray_cast_table_sin[GR_WIDTH/2];
 Bool paused = FALSE,gameExit=FALSE;
 F64 time_offset=0,base_tS=tS;
+F64 paused_at=0;
 F64 Server_tS() {
-  static F64 pause_tS=tS;
   if(paused) {
-    return pause_tS-base_tS+time_offset;
+    return paused_at;
   }
-  pause_tS=tS;
-  return tS-base_tS+time_offset;
+  paused_at=tS-base_tS+time_offset;
+  return paused_at;
+}
+U0 Unpause(F64 to=-1) {
+  base_tS=tS;
+  if(to<0)
+    time_offset=paused_at;
+  else
+    time_offset=to;
+  paused_at=time_offset;
+  paused=FALSE;
 }
 #include "Lighting.HC";
 class CJobRunnerData {
@@ -2196,6 +2205,7 @@ Bool _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags,CDo
   F64 dst;
   if(ld) {
     if((type=ld->special_type)) {
+PrintI(&type->type,ld->activated);
       if(type->type=='Light') {
 	light=type;
         switch(light->trigger) {
@@ -3041,7 +3051,7 @@ U0 UpdateLevel(CDoomLevel *l) {
   UpdateThinkers(l);
   CheckPowerupPickup(l);
   if(p&&p->rad_suit_time)
-    p->rad_suit_time=Clamp(p->rad_suit_time-1,0.,60.);
+    p->rad_suit_time=Clamp(p->rad_suit_time-1/30.,0.,60.);
 }
 
 
@@ -3273,15 +3283,14 @@ U8 *NextLevel(U8 *nm,Bool special=FALSE) {
   return NULL;
 }
 Bool in_level=FALSE;
+#include"Finale.HC";
 U0 PlayLevel(Bool init=TRUE) { 
   WinBorder;
   WinMax;
   DocClear;
   Bool transition=FALSE;
-  static F64 at_pause;
-//Re-assign in case we got here from loading the game 
-  at_pause=time_offset;
   CDoomThing *t,*head;
+  U8 *next_lvl;
 ent:;
   CDoomLevel *l2;
   if(init) {
@@ -3313,7 +3322,7 @@ ent:;
   if(Fs->animate_task)
     Kill(Fs->animate_task,FALSE);
   Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
-  paused=FALSE;
+  Unpause;
   while(!l->ended) {
     UpdateCameraFromPlayer(&cam,p);
     DrawDoomWorld(&cam,l,doom_scrn);
@@ -3411,7 +3420,6 @@ ent:;
       while((mr=ScanMsg(&a,&b))!=MSG_NULL) {
         if(mr==MSG_KEY_DOWN&&a==CH_ESC) {
 	  paused=TRUE;
-          at_pause=time_offset;
 	  Refresh;
 	  FlushMsgs; //Flush Esc msg
 	  break;
@@ -3420,8 +3428,7 @@ ent:;
     } else {
       mr=MainMenu;
       if(!mr) {
-        time_offset=at_pause;
-        paused=FALSE;
+        Unpause;
       }
     }
 
@@ -3436,7 +3443,12 @@ ret:
   transition=TRUE;
   QueRem(p);
 //
-  l2=LoadWadLevel(wad,NextLevel(l->map_name,l->ended_special),l->skill);  
+  next_lvl=NextLevel(l->map_name);
+  if(!next_lvl) {
+    Finale(gr.dc,l->map_name[0]-'0');
+    goto fin_level;
+  }
+  l2=LoadWadLevel(wad,next_lvl,l->skill);  
   FreeLevel(l);
   l=NULL;
   l=l2;

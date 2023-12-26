@@ -720,9 +720,7 @@ fin:
   }
   Free(optr);
   Free(filename);
-  base_tS=tS;
-  time_offset=level_time;
-  paused=FALSE;
+  Unpause(level_time);
   if(!in_level)
     PlayLevel(FALSE);
 }

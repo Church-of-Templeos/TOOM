@@ -196,7 +196,7 @@ I16 GetWeaponIndex()
 
 U0 DoomPrint(CDC *dc,I64 x,I64 y,U8 *fmt,...) {
   fmt=StrPrintJoin(NULL,fmt,argc,argv);
-  I64 len=StrLen(fmt),idx,c;
+  I64 len=StrLen(fmt),idx,c,ox=x;
   CDC *ch_dc;
   U8 lump_name[16];
   for(idx=0;idx!=len;idx++) {
@@ -211,8 +211,11 @@ U0 DoomPrint(CDC *dc,I64 x,I64 y,U8 *fmt,...) {
         x+=ch_dc->width;
       } else
 	x+=4*2;
+    } else if(c=='\n') {
+      x=ox;
+      y+=11*2;
     } else 
-     x+=4*2;
+      x+=4*2;
   }
   Free(fmt);
 } 
@@ -508,11 +511,14 @@ U0 ST_refreshBackground(CDoomPlayer *p)
       GrBlot(doom_scrn,ix,iy,STGNUM[idx]);
     } else
       GrBlot(doom_scrn,ix,iy,ReturnSprite(idx,FALSE));
+    
     if(l->has_red_key) {
       GrBlot(doom_scrn,2*239,212*2,STKEYS[2]);
-    } else if(l->has_blue_key) {
+    }
+    if(l->has_blue_key) {
       GrBlot(doom_scrn,2*239,222*2,STKEYS[0]);
-    } else if(l->has_yellow_key) {
+    }
+    if(l->has_yellow_key) {
       GrBlot(doom_scrn,2*239,232*2,STKEYS[1]);
     }
 
@@ -1315,7 +1321,6 @@ U0 ST_Start(CDoomPlayer *p)
     pal=13;
     if(p->rad_suit_time<5&&Blink)
       pal=0;
-    p->rad_suit_time=Max(p->rad_suit_time-1/30.,0.);
   }
   ST_DoPaletteStuff(p,pal);
 }

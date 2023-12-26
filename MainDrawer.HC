@@ -806,6 +806,11 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *_
   tox=ClampI64(copy.x+new_width/2,0,GR_WIDTH-2);;
   fromy=copy.y-new_height;
   toy=ClampI64(copy.y,0,GR_HEIGHT-2);
+//&~1 aligns to 2 for dithering super pixels
+  fromy&=~1;
+  toy&=~1;
+  fromx&=~1;
+  tox&=~1;
   for(y=fromy;y<toy;y+=2) {
     if(y<0) y=0;
     if(y>toy) break;
@@ -2205,7 +2210,6 @@ Bool _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags,CDo
   F64 dst;
   if(ld) {
     if((type=ld->special_type)) {
-PrintI(&type->type,ld->activated);
       if(type->type=='Light') {
 	light=type;
         switch(light->trigger) {

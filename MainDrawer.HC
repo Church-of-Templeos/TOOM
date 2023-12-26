@@ -3449,7 +3449,8 @@ ret:
 //
   next_lvl=NextLevel(l->map_name);
   if(!next_lvl) {
-    Finale(gr.dc,l->map_name[0]-'0');
+//EXM9
+    Finale(gr.dc,l->map_name[1]-'0');
     goto fin_level;
   }
   l2=LoadWadLevel(wad,next_lvl,l->skill);  

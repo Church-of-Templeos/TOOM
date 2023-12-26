@@ -210,7 +210,7 @@ U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
   if(hit) {
     if(!(hit->flags&TF_SHOOTABLE)||hit==t->shooter)
       goto next;
-    DamageMob(l,hit,t->shooter,template->direct*(Rand&7+1));
+    DamageMob(l,hit,t->shooter,template->direct*(RandU16&7+1));
 explode:
     t->hit=TRUE;
     self->anim_start_tS=Server_tS;
@@ -219,10 +219,10 @@ explode:
     splash=template->splash;
 //Splash damae
     for(hit=head->next;hit!=head;hit=hit->next) {
-      if(hit->thinker&&hit->flags&TF_SHOOTABLE) {
+      if(hit->flags&TF_SHOOTABLE) {
         dist=Sqrt(Sqr(hit->x-self->x)+Sqr(hit->y-self->y));
         if(dist<splash)
-	  DamageMob(l,hit,t->shooter,dist);
+	  DamageMob(l,hit,self,splash-dist);
       }
     }
     switch(self->template->type) {
@@ -868,7 +868,7 @@ U0 SpawnMissile(CDoomLevel *l,CDoomThing *t,CDoomThing *target,U64 type) {
   self->x=t->x;
   self->y=t->y;
   self->angle=angle;
-  self->height=t->height+t->template->height/2;
+  self->height=t->height+t->template->height/2.;
   self->template=template;
   self->flags=template->flags;
   QueIns(self,l->things.next);
@@ -877,7 +877,7 @@ U0 SpawnMissile(CDoomLevel *l,CDoomThing *t,CDoomThing *target,U64 type) {
   think->shooter=t;
   if(target&&target->template) { //???
     dist=Sqrt(Sqr(target->x-self->x)+Sqr(target->y-self->y));
-    think->vslope=(target->height+target->template->height/2
+    think->vslope=(target->height+target->template->height/2.
 	-self->height)/dist;
   } else
     think->vslope=0.;
@@ -1075,9 +1075,10 @@ U0 BossDeath(CDoomLevel *l,CMonsterThinker *t) {
   }
 //Yeah  will pwned em all homie,activate #666 Floor FloorToLowest
 //See Floors.TXT for more info on our dummy thang(37)
+  MemSet(&dummy,0,sizeof CDoomLinedef); //Clear activated
   dummy.sector_tag=666;
   dummy.special_type=action_sector_types[37];
-  TriggerLinedef(l,&dummy,WACTIVATE_WALK,p);   
+  TriggerLinedef(l,&dummy,-1,p); //-1 for all types
 }
 U0 Hoof(CDoomLevel *l,CMonsterThinker *t) {
   Spawn(&PlaySoundTask,"HOOF","snd",0,Fs);
@@ -1206,8 +1207,8 @@ U0 LoadMonsterInfo() {
   AddState(t->missile_state="BARON.S_POSS_ATK2",t->reaction_time*4,t->_idle_frames,&FaceTarget,"BARON.S_POSS_ATK3");
   AddState("BARON.S_POSS_ATK3",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&BarronOfHellAttack,"BARON.S_POSS_RUN");
   AddState(t->pain_state="BARON.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"BARON.S_POSS_RUN");
-  AddState(t->death_state="BARON.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"BARON.S_POSS_DIE2");
-  AddState(t->death_state="BARON.S_POSS_DIE2",0,t->_dying_frames,&BossDeath,"ST_NULL");
+  AddState(t->death_state="BARON.S_POSS_DIE",STATE_UNTIL_ANIM_DONE,t->_idle_frames,&Fall,"BARON.S_POSS_DIE2");
+  AddState("BARON.S_POSS_DIE2",STATE_NO_REPEAT,t->_dying_frames,&BossDeath,"ST_NULL");
 //Booger ball
   UH("baronfb",baron_fireball=CAlloc(sizeof CDoomProjectileTemplate));
   p=baron_fireball;

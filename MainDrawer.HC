@@ -798,10 +798,10 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p
       db_z=&to_dc->depth_buf[GR_WIDTH-2-x+y*to_dc->width_internal];
       if(*db_z>dist) {
         if(!reflect)
-	  ix=Lerp((x-fromx)/new_width,0,sprite->width-1);
+	  ix=Lerp((x-fromx)/new_width,0,sprite->width-2);
         else
-	  ix=Lerp((x-fromx)/new_width,sprite->width-1,0);
-        iy=Lerp((y-fromy)/new_height,0,sprite->height-1);
+	  ix=Lerp((x-fromx)/new_width,sprite->width-2,0);
+        iy=Lerp((y-fromy)/new_height,0,sprite->height-2);
         from=&sprite->body[(ix&~1)+(iy&~1)*sprite->width_internal];
         if(transparent) {
 	  if(RandU16<ToI64(0x10000*.75)) {

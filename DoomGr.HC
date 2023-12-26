@@ -144,10 +144,12 @@ CRGB *LoadPLAYPALFromLump(U8 *lump) {
 U32 light_mat[0x100][16];
 U32 LookupLighting(U16 dith,I64 light,F64 distance) {
 //Make 0x0102 into 0x12
-  light=light-distance*1/16;
+  if(dith&0xff==TRANSPARENT)
+    return TRANSPARENT|TRANSPARENT<<8;
+  light=light-distance*1/16.;
   if(light<15)
    light=15;
-  dith=(dith&0xf)|(dith>>(8-4)); 
+  dith=(dith&0xf)|(dith>>(8-4));
 //  if(light>=144)
 //    return light_mat[dith][7]; //Assume fullbright due to TempleOS palette
   return light_mat[dith][light>>4]; //>>5 is divide by 16 (256/16==16)

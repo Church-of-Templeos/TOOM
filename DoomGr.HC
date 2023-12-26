@@ -149,6 +149,8 @@ U32 LookupLighting(U16 dith,I64 light,F64 distance) {
   light=light-distance*1/16.;
   if(light<15)
    light=15;
+  else if(light>255)
+   light=255;
   dith=(dith&0xf)|(dith>>(8-4));
 //  if(light>=144)
 //    return light_mat[dith][7]; //Assume fullbright due to TempleOS palette

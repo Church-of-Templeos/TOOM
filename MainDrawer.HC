@@ -17,6 +17,8 @@ CTask *doom_task=Fs;
 #include "Thinker.HC";
 #include "Music.HC";
 
+#define MUZZLE_FLASH_LIGHT 50
+
 extern U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage);
 extern CDoomThing **GetCrushedThingsInSector(CDoomLevel *l,CDoomSector *s);
 #define mp_cnt 1 //Reduces flickering
@@ -65,11 +67,12 @@ class CDoomPlayer:CDoomThing {
   F64 armor,rad_suit_time,bezerk_time,last_attack;
 //These are used for screen palete effects
   F64 hurt_amt,pickup_amt;
+  F64 muzzle_flash_end_tS;
 //When you die,the player stares at the thing that killed the player
   CDoomThing *stare_at;
   GunAvail arsenal[8];
   Bool running,made_a_sound,has_backpack;
-};
+} *p=NULL;
 
 //IMPORTANT
 CacheAnimationFrames;
@@ -397,7 +400,10 @@ already_has:;
         floory=(wy<<1)&127;
         floorx&=~1;
         floory&=~1;
-        color=LookupLighting(texture->body[floorx+floory*128](U16),sector->cur_light_level,dist);
+	if(Server_tS<p->muzzle_flash_end_tS)
+	  color=LookupLighting(texture->body[floorx+floory*128](U16),sector->cur_light_level+MUZZLE_FLASH_LIGHT,dist);
+	else
+          color=LookupLighting(texture->body[floorx+floory*128](U16),sector->cur_light_level,dist);
         *dst=color&0xffff;
         dst(U8*)+=to_dc->width_internal;
         *dst=color>>16;
@@ -432,6 +438,8 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
     light=MaxI64(light,ld->back->sector->cur_light_level);
   if(ld->back==sd&&ld->front)
     light=MaxI64(light,ld->front->sector->cur_light_level);
+  if(Server_tS<p->muzzle_flash_end_tS)
+    light+=MUZZLE_FLASH_LIGHT;
   CD2 clone_st,clone_en,zero;
   clone_st.x=st->x,clone_st.y=st->y;
   clone_en.x=en->x,clone_en.y=en->y;
@@ -768,7 +776,7 @@ U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 le
   j->fptr=&RayCastJob;
   RayCastJob(j);
 }
-U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p,F64 level,Bool reflect=FALSE,Bool transparent=FALSE,I64 light=255) {
+U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *_p,F64 level,Bool reflect=FALSE,Bool transparent=FALSE,I64 light=255) {
   if(!sprite) return;
   CD2 copy,copy2;
   F64 new_height,new_width,angle;
@@ -776,13 +784,13 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p
   U16 *from,*dst,black=BLACK|BLACK<<8,trans_pixel=TRANSPARENT|TRANSPARENT<<8;
   U32 dither_px;
   I32 *db_z;
-  copy.x=p->x,copy.y=p->y;
-  copy2.x=p->x,copy2.y=p->y;
+  copy.x=_p->x,copy.y=_p->y;
+  copy2.x=_p->x,copy2.y=_p->y;
   if(!ClipLineToScrenCoords(cam,&copy,&copy2,level))
     return;
   angle=(ToF64(copy.x)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
   angle=Clamp(angle,-cam->fov/2,cam->fov/2);
-  dist=Sqrt(1+Sqr(p->x-cam->x)+Sqr(p->y-cam->y));
+  dist=Sqrt(1+Sqr(_p->x-cam->x)+Sqr(_p->y-cam->y));
   new_height=DIST_SCALE/(ToF64(1+dist)*FCos(angle))*sprite->height/2;
   new_width=new_height/sprite->height*sprite->width;
   fromx=copy.x-new_width/2;
@@ -813,7 +821,10 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *p
 	    from=&trans_pixel;
         }
         dst=&to_dc->body[GR_WIDTH-2-x+y*to_dc->width_internal];
-	dither_px=LookupLighting(*from,light,dist);
+       if(Server_tS<p->muzzle_flash_end_tS)
+	  dither_px=LookupLighting(*from,light*ray_cast_table_cos[ix/2],dist);
+	else
+	  dither_px=LookupLighting(*from,light,dist);
         if(from->u8[0]!=TRANSPARENT)
 	  *dst=dither_px&0xffff,*db_z=dist,db_z[1]=dist;
         dst(U8*)+=to_dc->width_internal;
@@ -2733,14 +2744,12 @@ U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags,CDoomThing *who) {
 
 
 
-extern CDoomThing *p;
 extern U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 angle,F64 damage);
 #include "Collision.HC";
 #include "ST.HC";
 #include "Player.HC";
 #include "Enemy.HC";
 #include "Physics.HC";
-CDoomPlayer *p=NULL;
 U0 CheckPowerupPickup(CDoomLevel *l) {
   CDoomThing *t,*head=&l->things,*next;
   AmmoType *load;
@@ -3022,6 +3031,7 @@ Bool PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U
   } else {
     SpawnMissile(l,p,target,rocket_type);
   }
+  p->muzzle_flash_end_tS=Server_tS+1/10.;
   return TRUE;
 }
 

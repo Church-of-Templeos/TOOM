@@ -1,8 +1,6 @@
 //#include "Weapons.HC";
 extern Bool PlayerAttack(F64 shots_per_min,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0);
 
-#define BG 4
-#define FG 0
 #define SCREENWIDTH 640
 #define SCREENHEIGHT 480
 
@@ -56,22 +54,19 @@ class MultiIcon
     I64 x_off;
     I64 y_off; //Added by nroot
 
+
     // last icon number
     I64 oldinum;
 
     // pointer to current icon
-    I64 inum;
+    CDC *icon_dc;
 
-    // pointer to boolean stating
-    //  whether to update icon
-    Bool on;
-
-    // list of icons
-    CDC** p;
+    I64 state;
     
     // user data
-    I64 data;
-    
+    I64 flash_x_off;
+    I64 flash_y_off;
+    CDC *flash_dc;
 };
 
 
@@ -173,6 +168,8 @@ static CDC*		NUMS7;
 static CDC*		NUMS8;
 static CDC*		NUMS9;
 
+static CDC*		big_nums[10];
+static CDC*		small_nums[10];
 static CDC*		STGNUM[10];
 static CDC*		STKEYS[6];
 static CDC		*STARMS;
@@ -187,13 +184,6 @@ static Bool st_stopped = TRUE;
 
 
 static I64 st_palette = 0;
-
-
-I16 GetWeaponIndex()
-{
- return weaponIndex;
-}
-
 U0 DoomPrint(CDC *dc,I64 x,I64 y,U8 *fmt,...) {
   fmt=StrPrintJoin(NULL,fmt,argc,argv);
   I64 len=StrLen(fmt),idx,c,ox=x;
@@ -220,261 +210,112 @@ U0 DoomPrint(CDC *dc,I64 x,I64 y,U8 *fmt,...) {
   Free(fmt);
 } 
 
-CDC*ReturnSprite(U16 value,Bool large)
+U0 DrawNumber(CDoomPlayer *p, U32 x, U32 y, U16 weapon,Bool large,Bool percent=FALSE)
 {
- if(large)
- {
-  switch(value)
-  {
-   case 0:
-     return NUM0;
-     break;
-   case 1:
-     return NUM1;
-     break;
-   case 2:
-     return NUM2;
-     break;
-   case 3:
-     return NUM3;
-     break;
-   case 4:
-     return NUM4;
-     break;
-   case 5:
-     return NUM5;
-     break;
-   case 6:
-     return NUM6;
-     break;
-   case 7:
-     return NUM7;
-     break;
-   case 8:
-     return NUM8;
-     break;
-   case 9:
-     return NUM9;
-     break;
-   default:
-     return NUM0;
-     break;
+  I64 ch;
+  U32 num_width=10;
+  if(large) num_width=28;
+//bullets
 
-  }
- }
- else
- {
-  switch(value)
-  {
-   case 0:
-     return NUMS0;
-     break;
-   case 1:
-     return NUMS1;
-     break;
-   case 2:
-     return NUMS2;
-     break;
-   case 3:
-     return NUMS3;
-     break;
-   case 4:
-     return NUMS4;
-     break;
-   case 5:
-     return NUMS5;
-     break;
-   case 6:
-     return NUMS6;
-     break;
-   case 7:
-     return NUMS7;
-     break;
-   case 8:
-     return NUMS8;
-     break;
-   case 9:
-     return NUMS9;
-     break;
-   default:
-     return NUMS0;
-     break;
-
-  }
- 
- }
-}
-
-U0 DrawNumber(CDoomPlayer *p, U32 x, U32 y,U32 xInc, U16 weapon,Bool small)
-{
-    //bullets
-
-    U64 ammoNum;
-    if(weapon>=8)
+  U64 ammoNum;
+  if(weapon>=8)
     {
-      switch(weapon)
+    switch(weapon)
       {
-       case 8:
+      case 8:
         ammoNum=maxBullets;
         break;
 
-       case 9:
+      case 9:
         ammoNum=maxShells;
         break;
 
-       case 10:
+      case 10:
         ammoNum=maxRockets;
         break;
 
-       case 11:
+      case 11:
         ammoNum=maxCells;
         break;
-       case 12: //health
+      case 12: //health
         ammoNum=p->health;
         break;
-       case 13: //armor
+      case 13: //armor
         ammoNum=p->armor;
         break;
-      }
     }
-    else
+  }
+  else
     {
-      ammoNum = p->arsenal[weapon].load->ammo;
-    }
+    ammoNum = p->arsenal[weapon].load->ammo;
+  }
 
-    U16 hundreds = ammoNum/100;
-    U16 remainder = ammoNum%100;
-    U16 tens = remainder/10;
-    U16 ones = remainder%10;
-        
-    if(hundreds>0)
-    {
-     GrBlot(doom_scrn,x,y,ReturnSprite(hundreds,small));
-     GrBlot(doom_scrn,x+xInc,y,ReturnSprite(tens,small));
-     GrBlot(doom_scrn,x+xInc+xInc,y,ReturnSprite(ones,small));
 
-     if(weapon>=12)
-     {
-       GrBlot(doom_scrn,x+xInc+xInc+xInc,y,NUMPCT);
+  U8 buf[STR_LEN];
+  StrPrint(buf,"%d",ammoNum);
+  x+=(3+percent)*num_width/2;
+  x-=(percent+StrLen(buf))*num_width/2;
+  for(ch=0;ch!=StrLen(buf);ch++) {
+    if(large)
+      GrBlot(doom_scrn,x,y,big_nums[buf[ch]-'0']);
+    else 
+      GrBlot(doom_scrn,x,y,small_nums[buf[ch]-'0']);
+    x+=num_width;
+  }
 
-     }
-    }
-    else
-    {
-     if(tens>0)
-     {
-      if(!small){
-        GrBlot(doom_scrn,x,y,ReturnSprite(tens,small));
-        GrBlot(doom_scrn,x+xInc,y,ReturnSprite(ones,small));
-      }
-      else
-      {
-        GrBlot(doom_scrn,x+(xInc/2),y,ReturnSprite(tens,small));
-        GrBlot(doom_scrn,x+xInc+(xInc/2),y,ReturnSprite(ones,small));
-        if(weapon>=12)
-        {
-         GrBlot(doom_scrn,x+xInc+xInc+(xInc/2),y,NUMPCT);
-
-        }
-      }
-     }
-     else
-     {
-      if(!small){
-        GrBlot(doom_scrn,x,y,ReturnSprite(ones,small));
-      }
-      else
-      {
-        GrBlot(doom_scrn,x+xInc,y,ReturnSprite(ones,small));
-        if(weapon>=12)
-        {
-         GrBlot(doom_scrn,x+xInc+xInc,y,NUMPCT);
- 
-        } 
-      }
-     }
-    }
+  if(percent)    
+    GrBlot(doom_scrn,x,y,NUMPCT);
 }
 
 
 U0 ST_refreshBackground(CDoomPlayer *p)
 {
   I64 idx,ix,iy;
+  CDC *dc;
   if (st_statusbaron)
     {
 //
     //WEAPONS
     //
+    weapons.y=(200./480)*480-120;
+    //TODO account for lighting
+    if(dc=weapons.icon_dc)
+      GrBlot(doom_scrn,weapons.x+weapons.x_off-dc->x*2,
+	    weapons.y+weapons.y_off-dc->y*2,
+	    dc);//weapon
+    if(dc=weapons.flash_dc)
+      GrBlot(doom_scrn,
+	    weapons.x+weapons.flash_x_off+weapons.x_off-dc->x*2,
+	    weapons.y+weapons.y_off-dc->y*2,
+	    dc);
 
-    if(weapons.data>0)
-      {//draw weapons flash
-      I16 xmodify=0;
-      if(weapons.inum<10&&weapons.inum>3)//pistol
-        {
-        GrBlot(doom_scrn,weapons.x+18+weapons.x_off,weapons.y-42,
-	      weapons.p[weapons.data]);
-      }
-      if(weapons.inum>=10&&weapons.inum<16)//shotgun
-        {
-        GrBlot(doom_scrn,weapons.x+38+weapons.x_off,weapons.y-32,
-	      weapons.p[weapons.data]);
-      }
-      if(weapons.inum>=16&&weapons.inum<20&&weapons.on==TRUE)//chaingun
-        {
-        GrBlot(doom_scrn,weapons.x+32+weapons.x_off,weapons.y-32,
-	      weapons.p[weapons.data]);
-      }
-      if(weapons.inum>=20&&weapons.inum<26)//missile launcher 1
-        {
-        if(weapons.data>22)
-	  xmodify=-16;
-        if(weapons.data>23)
-	  xmodify=-28;
-        if(weapons.data>24)
-	  xmodify=-38;  
-        GrBlot(doom_scrn,weapons.x+42+xmodify+weapons.x_off,weapons.y-32+xmodify,
-	      weapons.p[weapons.data]);
-      }
-      if(weapons.inum>=34&&weapons.inum<38)//bfg
-        {
-        if(weapons.data==38)
-	  xmodify=-54;
-
-        GrBlot(doom_scrn,weapons.x+72+xmodify+weapons.x_off,weapons.y-16+xmodify,
-	      weapons.p[weapons.data]);
-      }
-    }
-
-
-    if(weapons.p[weapons.inum])
-      GrBlot(doom_scrn,weapons.x+weapons.x_off,weapons.y,
-	    weapons.p[weapons.inum]);//weapon
-
-
-    //STATUSBAR
+      //STATUSBAR
 
     GrBlot(doom_scrn,0,SCREENHEIGHT-64,ST); //Read the ST
-    GrBlot(doom_scrn,SCREENWIDTH/2-25,SCREENHEIGHT-60,///2-25 -60
-	  toom_faces.p[toom_faces.inum]);//faces
+
+//Face
+    if(toom_faces.icon_dc)
+      GrBlot(doom_scrn,SCREENWIDTH/2-25,SCREENHEIGHT-60,///2-25 -60
+	  toom_faces.icon_dc);//faces
 
     //bullets max
-    DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-55,10,8,FALSE);
-    DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-43,10,9,FALSE);        
-    DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-30,10,10,FALSE);
-    DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-18,10,11,FALSE);
+    DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-55,8,FALSE);
+    DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-43,9,FALSE);
+    DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-30,10,FALSE);
+    DrawNumber(p,SCREENWIDTH-44,SCREENHEIGHT-18,11,FALSE);
 
     //current ammo
-    DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-55,10,1,FALSE);
-    DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-43,10,2,FALSE);        
-    DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-30,10,4,FALSE);
-    DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-18,10,6,FALSE);
+    DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-55,1,FALSE);
+    DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-43,2,FALSE);        
+    DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-30,4,FALSE);
+    DrawNumber(p,SCREENWIDTH-84,SCREENHEIGHT-18,6,FALSE);
 
     //current ammo large
-    DrawNumber(p,8,SCREENHEIGHT-52,28,weaponIndex,TRUE);
+    DrawNumber(p,8,SCREENHEIGHT-52,weaponIndex,TRUE);
 //current health
-    DrawNumber(p,SCREENWIDTH-542,SCREENHEIGHT-52,28,12,TRUE);
+    DrawNumber(p,SCREENWIDTH-542,SCREENHEIGHT-52,12,TRUE,TRUE);
 //current armor
-    DrawNumber(p,SCREENWIDTH-282,SCREENHEIGHT-52,28,13,TRUE);    
+    DrawNumber(p,SCREENWIDTH-282,SCREENHEIGHT-52,13,TRUE,TRUE);    
   }
 
   GrBlot(doom_scrn,208,SCREENHEIGHT-64,STARMS);
@@ -482,7 +323,7 @@ U0 ST_refreshBackground(CDoomPlayer *p)
   for(idx=2;idx<=7;idx++) {
     switch(idx) {
       start:
-	iy=212*2;
+        iy=212*2;
         case 2:
 	  ix=111*2+2*12*0;
 	  break;
@@ -495,7 +336,7 @@ U0 ST_refreshBackground(CDoomPlayer *p)
       end:
         break;
       start:
-	iy=222*2;
+        iy=222*2;
         case :
 	  ix=111*2+2*12*0;
 	  break;
@@ -510,8 +351,8 @@ U0 ST_refreshBackground(CDoomPlayer *p)
     if(!p->arsenal[idx].available) {
       GrBlot(doom_scrn,ix,iy,STGNUM[idx]);
     } else
-      GrBlot(doom_scrn,ix,iy,ReturnSprite(idx,FALSE));
-    
+      GrBlot(doom_scrn,ix,iy,small_nums[idx]);
+
     if(l->has_red_key) {
       GrBlot(doom_scrn,2*239,212*2,STKEYS[2]);
     }
@@ -532,18 +373,8 @@ U0 ST_refresh(CDoomPlayer *p)
 
 U0 InitWidgets()
 {
-    toom_faces.p = MAlloc(sizeof(CDC)*40);
-    weapons.p = MAlloc(sizeof(CDC)*39);
-    toom_faces.inum=0;
-
-    // faces
-    //STlib_initMultIcon(&w_faces,
-//		       ST_FACESX,
-//		       ST_FACESY,
-//		       faces,
-//		       &st_faceindex,
-//		       &st_statusbaron);
-
+  MemSet(&toom_faces,0,sizeof MultiIcon);
+  MemSet(&weapons,0,sizeof MultiIcon);
 }
 
 
@@ -575,595 +406,145 @@ U0 ST_ReadOnce()
 
 
     ST = GetGrLump("STBAR");
-    NUM0=GetGrLump("STTNUM0");
-    NUM1=GetGrLump("STTNUM1");
-    NUM2=GetGrLump("STTNUM2");
-    NUM3=GetGrLump("STTNUM3");
-    NUM4=GetGrLump("STTNUM4");
-    NUM5=GetGrLump("STTNUM5");
-    NUM6=GetGrLump("STTNUM6");
-    NUM7=GetGrLump("STTNUM7");
-    NUM8=GetGrLump("STTNUM8");
-    NUM9=GetGrLump("STTNUM9");
+    for(idx=0;idx!=10;idx++) {
+      StrPrint(dummy,"STTNUM%d",idx);
+      big_nums[idx]=GetGrLump(dummy);
+    }
     NUMPCT=GetGrLump("STTPRCNT");
 
-    NUMS0=GetGrLump("STYSNUM0");
-    NUMS1=GetGrLump("STYSNUM1");
-    NUMS2=GetGrLump("STYSNUM2");
-    NUMS3=GetGrLump("STYSNUM3");
-    NUMS4=GetGrLump("STYSNUM4");
-    NUMS5=GetGrLump("STYSNUM5");
-    NUMS6=GetGrLump("STYSNUM6");
-    NUMS7=GetGrLump("STYSNUM7");
-    NUMS8=GetGrLump("STYSNUM8");
-    NUMS9=GetGrLump("STYSNUM9");
+    for(idx=0;idx!=10;idx++) {
+      StrPrint(dummy,"STYSNUM%d",idx);
+      small_nums[idx]=GetGrLump(dummy);
+    }
 
-    //FACES
-
-    FACE00=GetGrLump("STFST01");
-    FACE0R=GetGrLump("STFST00");
-    FACE0L=GetGrLump("STFST02");
-
-
-    //WEAPONS
-    //PUNCH
-    PUNCH=GetGrLump("PUNGA0");
-    PUNCH1=GetGrLump("PUNGB0");
-    PUNCH2=GetGrLump("PUNGC0");
-    PUNCH3=GetGrLump("PUNGD0");
-
-    //PISTOL
-    PISTOL=GetGrLump("PISGA0");
-    PISTOLU=GetGrLump("PISGB0");
-    PISTOL1=GetGrLump("PISGC0");
-    PISTOL2=GetGrLump("PISGA0");
-    PISTOL3=GetGrLump("PISGA0");
-    PISTOLF=GetGrLump("PISFA0");
-//SHOTGUN   
-    SHOTGUN=GetGrLump("SHTGA0");
-    SHOTGUN1=GetGrLump("SHTGB0");
-    SHOTGUN2=GetGrLump("SHTGC0");
-    SHOTGUN3=GetGrLump("SHTGD0");
-    SHOTGUNF1=GetGrLump("SHTFA0");
-    SHOTGUNF2=GetGrLump("SHTFB0");
-//CHAINGUN
-    CHAINGUN=GetGrLump("CHGGA0");
-    CHAINGUN1=GetGrLump("CHGGB0");
-    CHAINGUNF1=GetGrLump("CHGFA0");
-    CHAINGUNF2=GetGrLump("CHGFB0");
-
-    //MISSILELAUNCHER
-    MISSILELAUNCHER=GetGrLump("MISGA0");
-    MISSILELAUNCHER1=GetGrLump("MISGB0");
-    MISSILELAUNCHERF1=GetGrLump("MISFA0");
-    MISSILELAUNCHERF2=GetGrLump("MISFB0");
-    MISSILELAUNCHERF3=GetGrLump("MISFC0");
-    MISSILELAUNCHERF4=GetGrLump("MISFD0");
-
-    //CHAINSAW
-    CHAINSAW = GetGrLump("SAWGA0"); 
-    CHAINSAW1 = GetGrLump("SAWGB0"); 
-    CHAINSAW2 = GetGrLump("SAWGC0"); 
-    CHAINSAW3 = GetGrLump("SAWGAD0"); 
-
-    //PLASMAGUN
-    PLASMAGUN = GetGrLump("PLSGA0");
-    PLASMAGUN1 = GetGrLump("PLSGB0");
-    PLASMAGUNF1 = GetGrLump("PLSFA0");
-    PLASMAGUNF2 = GetGrLump("PLSFB0");
-
-    //BFG
-    BFG=GetGrLump("BFGA0");
-    BFG1=GetGrLump("BFGB0");
-    BFG2=GetGrLump("BFGC0");
-    BFGF1=GetGrLump("BFGFA0");
-    BFGF2=GetGrLump("BFGFB0");
-
-    toom_faces.p[0]=FACE00;
-    toom_faces.p[1]=FACE0R;
-    toom_faces.p[2]=FACE0L;
-
-    weapons.on=FALSE;
-    weapons.inum=0;
-    weapons.oldinum=0;
-    weapons.x=SCREENWIDTH/3;
-    weapons.y=SCREENHEIGHT-106;$IV,1$$IV,0$
-
-    weapons.data=0;
-
-    weapons.p[0]=PUNCH;
-    weapons.p[1]=PUNCH1;
-    weapons.p[2]=PUNCH2;
-    weapons.p[3]=PUNCH3;
-
-    weapons.p[4]=PISTOL;
-    weapons.p[5]=PISTOL1;
-    weapons.p[6]=PISTOL2;
-    weapons.p[7]=PISTOL3;
-    weapons.p[8]=PISTOLU;
-    weapons.p[9]=PISTOLF;
-
-    weapons.p[10]=SHOTGUN;
-    weapons.p[11]=SHOTGUN1;
-    weapons.p[12]=SHOTGUN2;
-    weapons.p[13]=SHOTGUN3;
-    weapons.p[14]=SHOTGUNF1;
-    weapons.p[15]=SHOTGUNF2;
-
-    weapons.p[16]=CHAINGUN;
-    weapons.p[17]=CHAINGUN1;
-    weapons.p[18]=CHAINGUNF1;
-    weapons.p[19]=CHAINGUNF2;
-
-    weapons.p[20]=MISSILELAUNCHER;
-    weapons.p[21]=MISSILELAUNCHER1;
-    weapons.p[22]=MISSILELAUNCHERF1;
-    weapons.p[23]=MISSILELAUNCHERF2;
-    weapons.p[24]=MISSILELAUNCHERF3;
-    weapons.p[25]=MISSILELAUNCHERF4;
-
-    weapons.p[26]=CHAINSAW;
-    weapons.p[27]=CHAINSAW1;
-    weapons.p[28]=CHAINSAW2;
-    weapons.p[29]=CHAINSAW3; 
-
-    weapons.p[30]=PLASMAGUN;
-    weapons.p[31]=PLASMAGUN1;
-    weapons.p[32]=PLASMAGUNF1;
-    weapons.p[33]=PLASMAGUNF2;     
-
-    weapons.p[34]=BFG;
-    weapons.p[35]=BFG1;
-    weapons.p[36]=BFG2;
-    weapons.p[37]=BFGF1;     
-    weapons.p[38]=BFGF2;     
-
-
+    weapons.state=FALSE;
   }
-
-
-
 }
 
 U0 AnimateFire(CDoomPlayer *p)
 {
-   if(weapons.on)
-   {
-    if(p->arsenal[weaponIndex].load->ammo>0||weaponIndex==0||weaponIndex==5)
+  U8 *anim=NULL;
+  U8 *template=NULL;
+  U8 *flash_template=NULL;
+  U8 *flash_anim=NULL;
+  U8 *pause_anim=NULL;
+  U8 *idle_anim=NULL;
+  U8 buf[STR_LEN];
+  I64 fr,l,flash_off=0;
+  switch(weaponIndex)
     {
-     switch(weaponIndex)
-     {
-     case 0://punch
-        switch(weapons.oldinum)
-        {
-          case -1:
-           weapons.oldinum=0;
-           weapons.x=SCREENWIDTH/1.5-50;
-           weapons.y=SCREENHEIGHT-150;
-           weapons.inum=1;
-           break;
-	  case 0:
-           weapons.oldinum=1;
-           weapons.x=SCREENWIDTH/1.5-75;
-           weapons.inum=2;
-           break;
-	  case 1:
-           weapons.oldinum=2;
-	   weapons.x=SCREENWIDTH/1.5-125;
-           weapons.inum=3;
-           break;
-	  case 2:
-           weapons.oldinum=3;
-           weapons.x=SCREENWIDTH/1.5-75;
-           weapons.inum=2;
-           break;
-	  case 3:
-           weapons.oldinum=4;
-	   weapons.x=SCREENWIDTH/1.5-50;
-           weapons.inum=1;
-           break;
-	  case 4:
-           weapons.x=SCREENWIDTH/3;
-           weapons.y=SCREENHEIGHT-106;$IV,1$$IV,0$
-           weapons.oldinum=5;
-           weapons.inum=0;
-           break;
-	  case 5:
-           weapons.oldinum=0;          
-           weapons.inum=0;
-           weapons.on=FALSE;
-           break;
-
-        }
-        break;
-      case 1://pistol
-	
-       switch(weapons.oldinum)
-        {
-          case -1:
-           weapons.oldinum=0;
-           weapons.inum=4;
-           break;
-	  case 0:
-           //weapons.x=SCREENWIDTH/3;
-           weapons.oldinum=1;
-           weapons.inum=5;
-           break;
-	  case 1:
-           weapons.oldinum=2;
-           Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
-           weapons.data=9;
-           weapons.inum=7;
-           break;
-	  case 2:
-           weapons.oldinum=3;
-           weapons.inum=8;
-           break;
-	  case 3:
-           weapons.oldinum=4;
-           weapons.data=0;
-           weapons.inum=8;
-           break;
-	  case 4:
-           //weapons.data=0;
-           weapons.oldinum=8;
-           weapons.inum=8;
-           break;
-	  case 5://skip
-           weapons.oldinum=6;
-           weapons.inum=7;
-           break;
-	  case 6://skip
-           weapons.oldinum=7;
-           weapons.inum=6;
-           break;
-          case 7://skip
-           weapons.oldinum=8;
-           weapons.inum=5;
-           break; 
-	  case 8:
-           //weapons.x=SCREENWIDTH/2.5;
-           weapons.oldinum=0;
-           weapons.inum=4;
-           weapons.on=FALSE;
-           break;
-
-        }
-        break;
-      case 2://shotgun
-	Spawn(&PlaySoundTask,"SHOTGN","snd",0,Fs);
-       switch(weapons.oldinum)
-        {
-          case -1:
-           //weapons.data=14;
-           //weapons.x=SCREENWIDTH/2.16;
-           weapons.y=SCREENHEIGHT-164;
-           weapons.oldinum=0;
-           weapons.inum=10;
-           break;
-	  case 0:
-           weapons.data=15;
-           weapons.oldinum=1;
-           weapons.inum=10;
-           Play("tttA#...");
-           break;
-	  case 1:
-           weapons.data=14;
-           weapons.oldinum=2;
-           weapons.inum=10;
-           //Play("1A");
-           break;
-	  case 2:            
-           weapons.data=0;
-           weapons.oldinum=3;
-           weapons.inum=10;
-           break;
-	  case 3:
-           weapons.oldinum=4;
-           weapons.inum=11;
-           weapons.x=SCREENWIDTH/4.5;
-           weapons.y=SCREENHEIGHT-306;
-	   Sleep(40);
-           break;
-	  case 4:
-           weapons.oldinum=5;
-           weapons.inum=12;
-	   Sleep(40);
-           break;
- 	  case 5:
-           weapons.oldinum=6; 
-           weapons.inum=13;
-           Sleep(40);
-           break;
-	  case 6:
-           weapons.oldinum=7;
-           weapons.inum=12;
-	   Sleep(40);
-           break;
-	  case 7:
-           weapons.x=SCREENWIDTH/2.5;
-           weapons.y=SCREENHEIGHT-184;
-           weapons.oldinum=8;
-	   weapons.inum=11;
-           Sleep(40);
-           break;	 
-	  case 8:
-           weapons.oldinum=0;
-           weapons.inum=10;
-           weapons.on=FALSE;
-           break;
-
-        }
-        break;
-      case 3://chaingun
-	Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
-       switch(weapons.oldinum)
-        {
-          case -1:
-            //weapons.x=
-            weapons.oldinum=0;
-            weapons.data=19;
-            weapons.inum=17;
-	    Sleep(5);
-            break;
-          case 0:
-            weapons.oldinum=0;
-            weapons.data=18;
-            weapons.inum=16;
-            Sleep(5);
-            weapons.on=FALSE;
-            break;
-        }
-        break;
-      case 4://missile launcher
-	Spawn(&PlaySoundTask,"RLAUNC","snd",0,Fs);      
-       switch(weapons.oldinum)
-        {
-          case -1:
-            weapons.oldinum=0;
-            weapons.inum=21;
-            weapons.data=22;
-            weapons.y=weapons.y+25;
-            Sleep(5);
-            break;
-          case 0:
-            weapons.oldinum=1;
-            weapons.data=23;
-            Sleep(5);
-            break;
-          case 1:
-            weapons.oldinum=2;
-            weapons.data=24;
-            weapons.y=weapons.y-15;
-            Sleep(5);
-            break;
-          case 2:
-            weapons.oldinum=3;
-            weapons.data=25;
-            weapons.y=weapons.y-5;
-            Sleep(5);
-            break;
-          case 3:
-            weapons.oldinum=0;
-            weapons.data=0;
-            weapons.y=weapons.y-5;
-            weapons.inum=20;
-            Sleep(5);
-            weapons.on=FALSE;
-            break;
-             
-        }
-        break;
-      case 5://chainsaw
-	Spawn(&PlaySoundTask,"SAWFUL","snd",0,Fs);      
-       switch(weapons.oldinum)
-        {
-          case -1:
-            weapons.oldinum=0;
-            weapons.inum=27;
-            break;
-          case 0:
-            weapons.oldinum=1;
-            weapons.inum=28;
-            weapons.y=weapons.y-86;
-            break;
-          case 1:
-            weapons.oldinum=2;
-            weapons.inum=29;
-            break;
-          case 2:
-            weapons.oldinum=3;
-            weapons.inum=28;
-            break;
-          case 3:
-            weapons.oldinum=0;
-            weapons.y=weapons.y+86;
-            weapons.inum=27;
-            weapons.on=FALSE;
-            break;
-        }
-        break;
-      case 6://plasma gun
-       Spawn(&PlaySoundTask,"PLASMA","snd",0,Fs);      
-       switch(weapons.oldinum)
-        {
-          case -1:
-            weapons.oldinum=0;
-            weapons.inum=32;
-            //weapons.data=32;
-            Sleep(20);
-            break;
-          case 0:
-            weapons.oldinum=1;
-            weapons.inum=33;
-            Sleep(20);
-            //weapons.data=33;
-            break;
-          case 1:
-            weapons.oldinum=2;
-            weapons.x=weapons.x-86;
-            weapons.y=weapons.y-92;
-            weapons.inum=31;
-            Sleep(24);
-            break;
-          case 2:
-            weapons.oldinum=0;
-            weapons.inum=30;
-            weapons.data=0;
-            weapons.x=weapons.x+86;
-            weapons.y=weapons.y+92;
-            weapons.on=FALSE;
-            break;
-        }
-        break;
-      case 7://BFG
-       Spawn(&PlaySoundTask,"BFG","snd",0,Fs);      
-       switch(weapons.oldinum)
-        {
-          case -1:
-            weapons.oldinum=0;
-            weapons.inum=35;
-            //weapons.data=32;
-            Sleep(20);
-            break;
-          case 0:
-            weapons.oldinum=1;
-            weapons.inum=36;
-            weapons.data=37;
-            Sleep(20);
-            //weapons.data=33;
-            break;
-          case 1:
-            weapons.oldinum=2;
-            weapons.data=38;
-            Sleep(60);
-            //weapons.data=33;
-            break;
-          case 2:
-            weapons.oldinum=0;
-            weapons.inum=35;
-            weapons.data=0;
-            weapons.on=FALSE;
-            break;
-        }
-        break;
-     }
+    case 0://punch
+      if(weapons.state==1) Spawn(&PlaySoundTask,"PUNCH","snd",0,Fs);
+      anim="BCDCB";
+      template="PUNG%c0";
+      idle_anim="A";
+      break;
+    case 1://pistol
+      if(weapons.state==1) Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
+      anim="ABC";
+      template="PISG%c0";
+      flash_template="PISF%c0";
+      flash_anim="A";
+      flash_off=2;
+      idle_anim="A";
+      break;
+    case 2://shotgun
+      if(weapons.state==1) Spawn(&PlaySoundTask,"SHOTGN","snd",0,Fs);
+      anim="AABCDCBAA";
+      template="SHTG%c0";
+      flash_template="SHTF%c0";
+      flash_anim="AB";
+      flash_off=0;
+      idle_anim="A";
+      break;
+    case 3://chaingun
+      if(weapons.state==1) Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
+      anim="ABB";
+      template="CHGG%c0";
+      flash_template="CHGF%c0";
+      flash_anim="AB";
+      idle_anim="A";
+      flash_off=0;
+      break;
+    case 4://missile launcher
+      if(weapons.state==1) Spawn(&PlaySoundTask,"RLAUNC","snd",0,Fs);      
+      template="MISG%c0";
+      anim="BBB";
+      flash_template="MISG%c0";
+      flash_anim="ABCD";
+      flash_off=0;
+      idle_anim="A";
+      break;
+    case 5://chainsaw
+      if(weapons.state==1) Spawn(&PlaySoundTask,"SAWFUL","snd",0,Fs);      
+      template="SAWG%c0";
+      anim="ABB";
+      idle_anim="CD";
+      break;
+    case 6://plasma gun
+      if(weapons.state==1) Spawn(&PlaySoundTask,"PLASMA","snd",0,Fs);      
+      template="PLSG%c0";
+      anim="A";
+      pause_anim="B";
+      flash_off=0;
+      flash_template="PLSF%c0";
+      flash_anim="AB";
+      idle_anim="A";
+      break;
+    case 7://BFG
+      if(weapons.state==1) Spawn(&PlaySoundTask,"BFG","snd",0,Fs);      
+      template="BFGG%c0";
+      anim="ABBB";
+      flash_template="BFGF%c0";
+      flash_anim="AB";
+      flash_off=1;
+      idle_anim="A";
+  }
+  weapons.flash_dc=NULL;
+  if(weapons.state==0) {
+    l=StrLen(idle_anim);
+    for(fr=0;fr!=l;fr++) {
+      StrPrint(buf,template,idle_anim[fr]);
+      weapons.icon_dc=GetGrLump(buf);
+      Sleep(33*3);
     }
-    else
-    {
-     Sleep(5);
-     weapons.oldinum=0;
-     //weapons.inum=0;
-     weapons.on=FALSE;
-     weapons.data=0;      
+  } else if(weapons.state==1) {
+    l=StrLen(anim);
+    for(fr=0;fr!=l;fr++) {
+      StrPrint(buf,template,anim[fr]);
+      weapons.flash_dc=NULL;
+      weapons.icon_dc=GetGrLump(buf);
+      if(flash_anim&&fr>=flash_off) {
+        if(fr-flash_off<StrLen(flash_anim)) {
+	  StrPrint(buf,flash_template,flash_anim[fr-flash_off]);
+	  weapons.flash_dc=GetGrLump(buf);
+        }
+      }
+      Sleep(33*3);
     }
-
-   }
+    weapons.state=0;
+  } else if(weapons.state==2) { //PAUSEING
+    l=StrLen(pause_anim);
+    for(fr=0;fr!=l;fr++) {
+      StrPrint(buf,template,pause_anim[fr]);
+      weapons.icon_dc=GetGrLump(buf);
+      Sleep(33*3);
+    }
+    weapons.state=0;
+  }
 }
 
 U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
 {
-  if(!weapons.on)
-  {
   if(!p->arsenal[weapon].available)
     return;
   weaponIndex = weapon;
-
-  switch(weapon)
-  {
-   case 0:
-    weapons.x=SCREENWIDTH/3;
-    weapons.x_off = 0;
-    weapons.y=SCREENHEIGHT-106;
-    weapons.inum=0;//hands
-    weapons.data=0;
-    weapons.on=FALSE;
-    break;
-   case 1:
-    //weapons.on=TRUE;
-    weapons.x=SCREENWIDTH/2.5;
-    weapons.y=SCREENHEIGHT-186;$IV,1$$IV,0$
-    weapons.data=0;
-    weapons.inum=8;//pistol 
-    weapons.inum=5;
-    weapons.inum=4;
-    weapons.on=FALSE;
-    break;
-   case 2:
-    //weapons.on=TRUE;
-    weapons.x=SCREENWIDTH/2.5;
-    weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
-    weapons.data=0;
-    weapons.inum=12;//shotgun
-    weapons.inum=11;//shotgun
-    weapons.inum=10;//shotgun
-    weapons.on=FALSE;
-    
-    break;
-   case 3:
-    //weapons.on=TRUE;
-    weapons.x=SCREENWIDTH/3;
-    weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$//chaingun
-    weapons.data=0;
-    weapons.inum=17;
-    weapons.inum=16;
-    weapons.on=FALSE;
-    
-    break;
-   case 4:
-    //weapons.on=TRUE;
-    weapons.x=SCREENWIDTH/2.75;
-    weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
-    weapons.data=0;
-    weapons.inum=21;//missile launcher
-    weapons.inum=20;
-    weapons.on=FALSE;
-    
-    break;
-   case 5:
-    //weapons.on=TRUE;
-    weapons.x=SCREENWIDTH/3.5;
-    weapons.y=SCREENHEIGHT-146;$IV,1$$IV,0$
-    weapons.data=0;
-    //weapons.inum=29;//chainsaw
-    //weapons.inum=28;
-    //weapons.inum=27;
-    weapons.inum=26;
-    weapons.on=FALSE;
-    
-    break;
-   case 6:
-    //weapons.on=TRUE;
-    weapons.x=SCREENWIDTH/2.75;
-    weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
-    weapons.data=0;
-    weapons.inum=31;//plasma gun
-    weapons.inum=30;
-    weapons.on=FALSE;
-    
-    break;
-   case 7:
-    //weapons.on=TRUE;
-    weapons.x=SCREENWIDTH/4;
-    weapons.y=SCREENHEIGHT-184;$IV,1$$IV,0$
-    weapons.data=0;
-    weapons.inum=36;//BFG
-    weapons.inum=35;
-    weapons.inum=34;
-    weapons.on=FALSE;
-    
-    break;
-   
-   }
-  }
 }
-
 U0 ST_Fire(CDoomPlayer *p)
 {
-  if(!weapons.on) {
+  if(!weapons.state) {
 //Dont wait for aninmation to be done
-    weapons.on=TRUE;
-    weapons.oldinum=-1;
+    weapons.state=TRUE;
   }
 
   switch(weaponIndex) {
@@ -1218,29 +599,9 @@ U0 ST_Fire(CDoomPlayer *p)
   }
 }
 
-U0 ST_Key(U16 val)
-{
-   switch(val)
-   {
-     case 0: //release
-       toom_faces.inum=0;
-       break;
-     case 1: //right
-       toom_faces.inum=1;
-       break;
-     case 2: //left
-       toom_faces.inum=2;
-       break;
-
-   }
-
-}
-
 
 U0 ST_Exit()
 {
-  Free(toom_faces.p);
-  Free(weapons.p);
 }
 
 CBGR48 defacto_pal[COLORS_NUM];
@@ -1291,6 +652,74 @@ U0 ST_DoPaletteStuff(CDoomPlayer *p,I64 pal) {
   GrPaletteSet(pal2);
 }
 
+CDC *ST_UpdateFacesTask(I64) {
+  F64 old_health=100,angle,delay;
+  U8 health_f,f2,stared_at;
+  U8 *base,buf[STR_LEN];
+  if(p) old_health=p->health;
+again:;
+  stared_at=FALSE;
+  delay=0;
+  if(p) {
+    f2='0';
+    base="ST";
+    if(80<=p->health) {
+      health_f='0';
+    } else if(60<=p->health) {
+      health_f='1';
+    } else if(40<=p->health) {
+      health_f='2';
+    } else if(20<=p->health) {
+      health_f='3';
+    } else if(1<=p->health) {
+      health_f='4';
+    } else {
+      toom_faces.icon_dc=GetGrLump("STFDEAD0");
+      Refresh;
+      goto again;
+    }
+
+    if(p->stare_at&&p->health>=1.) {
+      angle=FArg(p->stare_at->y-p->x,p->stare_at->y-p->y);
+//World is drawn backwards
+      if(Sin(angle-p->angle)<0.)
+        base="TL";
+      else
+        base="TR";
+      delay=10*30;
+      stared_at=TRUE;
+    }
+    if(old_health!=p->health) {
+      if(old_health-p->health>=20.) {
+        base="OUCH";
+        delay=30*30;
+      } else {
+	base="KILL";
+        delay=5*30;
+      }
+      old_health=p->health;
+    }
+    if(!StrCmp(base,"ST")) {
+      if(Bt(kbd.down_bitmap,SC_CURSOR_LEFT)||Bt(kbd.down_bitmap,Char2ScanCode('a')))
+        f2='0';
+      else if(Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)||Bt(kbd.down_bitmap,Char2ScanCode('d')))
+        f2='2';
+      else 
+        f2='1';
+    }
+    if(StrLen(base)==2)
+      StrPrint(buf,"STF%s%c%c",base,health_f,f2);
+    else
+      StrPrint(buf,"STF%s%c",base,health_f); 
+    toom_faces.icon_dc=GetGrLump(buf);
+    Sleep(delay);
+    if(stared_at)
+      p->stare_at=NULL,stared_at=FALSE;
+  }
+  Refresh;
+  goto again;
+}
+
 U0 ST_Start(CDoomPlayer *p)
 {
   I64 pal=0;
@@ -1307,7 +736,6 @@ U0 ST_Start(CDoomPlayer *p)
     } else if(p->bezerk_time) {
       pal=3;
     }
-    p->bezerk_time=Max(p->bezerk_time-1/30.,0.);
   }
   if(p->hurt_amt) {
     pal=ClampI64(MaxI64(pal,ToI64(p->hurt_amt-- +7)>>3+2),2,8);

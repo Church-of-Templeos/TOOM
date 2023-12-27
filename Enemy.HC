@@ -351,10 +351,10 @@ U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
     p->armor=Max(p->armor-damage,0.);
   }
   target->health-=damage;
+  if(p==target)
+    p->stare_at=opp;
   if(0.>=target->health) {
     target->health=0.;
-    if(p==target)
-      p->stare_at=opp;
     if(thinker&&thinker->signature=='Monster')
       SetState(l,thinker,template->death_state);
     return;

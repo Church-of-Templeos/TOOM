@@ -3020,6 +3020,7 @@ rem:
 Bool PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0) {
   F64 cooldown=60./shots_per_minute;
   if(Server_tS<p->last_attack+cooldown) return FALSE;
+  weapons.state=1;
   p->last_attack=Server_tS;
   F64 angle=p->angle,r;
   F64 damage=Rand*(max_damage-min_damage)+min_damage;
@@ -3142,10 +3143,12 @@ pass:
 
 U0 AnimateTask(I64)
 {
+//Nroots hack,kiling this task will kill the child task
+  Spawn(&ST_UpdateFacesTask,NULL,NULL,,Fs);
   while(TRUE)
     {   
     AnimateFire(p);
-    Sleep(60);  
+    Refresh;  
   }
 }
 
@@ -3159,7 +3162,7 @@ U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
     cam->h=p->height+32;
   cam->x=p->x;
   cam->y=p->y;
-  if(p->stare_at) {
+  if(p->stare_at&&p->health<=0.) {
 //We are dead(?) and looking at who killed us
     angle=FArg(p->stare_at->x-cam->x,p->stare_at->y-cam->y);
     cam->angle=(cam->angle+angle)/2;
@@ -3351,8 +3354,7 @@ ent:;
         }
         cursor_x=ms.pos.x;   
         cursor_tx = cursor_x;
-        if(weaponIndex!=0)
-	  weapons.x_off=cursor_x-GR_WIDTH/2;
+	weapons.x_off=cursor_x-GR_WIDTH/2;
       }
 #define SCRN_MARGIN 200
       #define SCRN_TURN_RATE (pi/1.5/30.)
@@ -3369,25 +3371,21 @@ ent:;
 	  p->running=Bt(kbd.down_bitmap,SC_SHIFT);
 	  PlayerMove(l,p,1);
 	  UpdateCameraFromPlayer(&cam,p);
-	  ST_Key(0);
         }
         if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)||Bt(kbd.down_bitmap,Char2ScanCode('s'))) {
 	  p->running=Bt(kbd.down_bitmap,SC_SHIFT);
 	  PlayerMove(l,p,-1);
 	  UpdateCameraFromPlayer(&cam,p);
-	  ST_Key(0);
         }
         if(Bt(kbd.down_bitmap,Char2ScanCode('a'))||Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
 	  p->running=Bt(kbd.down_bitmap,SC_SHIFT);
 	  PlayerMove(l,p,1,pi/2);
 	  UpdateCameraFromPlayer(&cam,p);
-	  ST_Key(2);
         }
         if(Bt(kbd.down_bitmap,Char2ScanCode('d'))||Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)) {
 	  p->running=Bt(kbd.down_bitmap,SC_SHIFT);
 	  PlayerMove(l,p,1,-pi/2);
 	  UpdateCameraFromPlayer(&cam,p);
-	  ST_Key(1);
         }
         if(ms.lb) {
 	  ST_Fire(p);

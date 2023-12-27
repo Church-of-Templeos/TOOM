@@ -282,6 +282,7 @@ class CDoomLevel {
   CLevelStats stats;
 //ended is TRUE if we exited the level by pressing a button etc
   Bool has_red_key,has_blue_key,has_yellow_key,ended,ended_special;
+  Bool has_map;
   U8 map_name[5]; //EXMY
 };
 

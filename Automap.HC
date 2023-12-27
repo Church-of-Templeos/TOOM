@@ -41,7 +41,7 @@ U0 AutomapInteract() {
 }
 U0 DrawAutomap(CDC *dc,CDoomLevel *l) {
   I64 mat;
-  Bool all=am_state.all;
+  Bool all=l->has_map;
   F64 x=am_state.x;
   F64 y=am_state.y;
   F64 zoom=am_state.zoom;

@@ -278,6 +278,7 @@ U0 SaveGame(U8 *filename,U8 *title) {
     DocPrint(doc,"%d\n",cur(CDoomLinedef *)->activated);
     DocPrint(doc,"%d\n",cur(CDoomLinedef *)->seen);
   }
+  DocPrint(doc,"%d\n",l->has_map);
   DocWrite(doc);  
   DocDel(doc);
   Free(filename);
@@ -701,6 +702,11 @@ skip_thinker:;
           ptr=StrScan(ptr,"%d\n",&i64);
 	  ld->seen=i64;
         }
+	state++;
+	break;
+      case 9:
+        ptr=StrScan(ptr,"%d\n",&i64);
+	l->has_map=i64;
 	state++;
 	break;
       default:

@@ -2920,6 +2920,9 @@ rem:
 	    if(load->ammo!=orig)
 	      goto rem;
 	    break;
+          case 2026: //Computer map
+	    l->has_map=TRUE;
+	    goto rem;
 	  case 8: //Backpack
 	    if(!p->has_backpack) {
               p->has_backpack=TRUE;

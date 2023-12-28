@@ -81,6 +81,13 @@ class CDoomPlayer:CDoomThing {
   CDoomThing *stare_at;
   GunAvail arsenal[8];
   Bool running,made_a_sound,has_backpack;
+//Private
+#define WEAPON_IDLE 0
+#define WEAPON_FIRE 1
+#define WEAPON_REFIRE 2
+#define WEAPON_PAUSE 3
+  I64 weapon_state;
+  F64 weapon_cooldown;
 } *p=NULL;
 
 //IMPORTANT
@@ -3019,8 +3026,12 @@ rem:
 
 Bool PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0) {
   F64 cooldown=60./shots_per_minute;
-  if(Server_tS<p->last_attack+cooldown) return FALSE;
-  weapons.state=1;
+  p->weapon_cooldown=cooldown;
+  if(Server_tS<p->last_attack+p->weapon_cooldown) return FALSE;
+  if(!p->weapon_state) {
+    p->weapon_state=1;
+  } else
+    p->weapon_state=2;
   p->last_attack=Server_tS;
   F64 angle=p->angle,r;
   F64 damage=Rand*(max_damage-min_damage)+min_damage;
@@ -3354,7 +3365,7 @@ ent:;
         }
         cursor_x=ms.pos.x;   
         cursor_tx = cursor_x;
-	weapons.x_off=cursor_x-GR_WIDTH/2;
+        weapons.x_off=cursor_x-GR_WIDTH/2;
       }
 #define SCRN_MARGIN 200
       #define SCRN_TURN_RATE (pi/1.5/30.)
@@ -3389,33 +3400,42 @@ ent:;
         }
         if(ms.lb) {
 	  ST_Fire(p);
+        } else if(weaponIndex==6&&(WEAPON_FIRE==p->weapon_state||WEAPON_REFIRE==p->weapon_state)){ //Account for weapon pause on plasma gun
+	  p->last_attack=Server_tS;
+	  p->weapon_state=WEAPON_PAUSE;
+	  p->weapon_cooldown=1/3.;
         }
-        if(Bt(kbd.down_bitmap,Char2ScanCode('1'))) {
-	  SwapWeapon(p,1);
+        if(Server_tS>p->last_attack+p->weapon_cooldown) {
+	  p->weapon_state=WEAPON_IDLE;
         }
-        if(Bt(kbd.down_bitmap,Char2ScanCode('2'))) {
-	  SwapWeapon(p,2);
-        }
-        if(Bt(kbd.down_bitmap,Char2ScanCode('3'))) {
-	  SwapWeapon(p,3);
-        }
-        if(Bt(kbd.down_bitmap,Char2ScanCode('4'))) {
-	  SwapWeapon(p,4);
-        }
-        if(Bt(kbd.down_bitmap,Char2ScanCode('5'))) {
-	  SwapWeapon(p,5);
-        }
-        if(Bt(kbd.down_bitmap,Char2ScanCode('6'))) {
-	  SwapWeapon(p,6);
-        }
-        if(Bt(kbd.down_bitmap,Char2ScanCode('7'))) {
-	  SwapWeapon(p,7);
-        }
-        if(Bt(kbd.down_bitmap,Char2ScanCode('8'))) {
-	  SwapWeapon(p,8);
-        }
-        if(Bt(kbd.down_bitmap,Char2ScanCode('0'))) {
-	  SwapWeapon(p,0);
+        if(p->weapon_state==WEAPON_IDLE) {
+	  if(Bt(kbd.down_bitmap,Char2ScanCode('1'))) {
+	    SwapWeapon(p,1);
+	  }
+	  if(Bt(kbd.down_bitmap,Char2ScanCode('2'))) {
+	    SwapWeapon(p,2);
+	  }
+	  if(Bt(kbd.down_bitmap,Char2ScanCode('3'))) {
+	    SwapWeapon(p,3);
+	  }
+	  if(Bt(kbd.down_bitmap,Char2ScanCode('4'))) {
+	    SwapWeapon(p,4);
+	  }
+	  if(Bt(kbd.down_bitmap,Char2ScanCode('5'))) {
+	    SwapWeapon(p,5);
+	  }
+	  if(Bt(kbd.down_bitmap,Char2ScanCode('6'))) {
+	    SwapWeapon(p,6);
+	  }
+	  if(Bt(kbd.down_bitmap,Char2ScanCode('7'))) {
+	    SwapWeapon(p,7);
+	  }
+	  if(Bt(kbd.down_bitmap,Char2ScanCode('8'))) {
+	    SwapWeapon(p,8);
+	  }
+	  if(Bt(kbd.down_bitmap,Char2ScanCode('0'))) {
+	    SwapWeapon(p,0);
+	  }
         }
         if(Bt(kbd.down_bitmap,Char2ScanCode(' ')&0xff)) {
 	  PressAWall(l,&p->x,p->angle,p->height);

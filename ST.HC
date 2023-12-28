@@ -62,6 +62,7 @@ class MultiIcon
     CDC *icon_dc;
 
     I64 state;
+    I64 old_state;
     
     // user data
     I64 flash_x_off;
@@ -368,6 +369,7 @@ U0 ST_refreshBackground(CDoomPlayer *p)
 
 U0 ST_refresh(CDoomPlayer *p)
 {
+  if(p) weapons.state=p->weapon_state;
   ST_refreshBackground(p);
 }
 
@@ -417,8 +419,8 @@ U0 ST_ReadOnce()
       small_nums[idx]=GetGrLump(dummy);
     }
 
-    weapons.state=FALSE;
   }
+  weapons.state=FALSE;
 }
 
 U0 AnimateFire(CDoomPlayer *p)
@@ -430,17 +432,18 @@ U0 AnimateFire(CDoomPlayer *p)
   U8 *pause_anim=NULL;
   U8 *idle_anim=NULL;
   U8 buf[STR_LEN];
-  I64 fr,l,flash_off=0;
+  I64 fr,l,flash_off=0,ostate;
+  F64 wait;
   switch(weaponIndex)
     {
     case 0://punch
-      if(weapons.state==1) Spawn(&PlaySoundTask,"PUNCH","snd",0,Fs);
+      if(weapons.state) Spawn(&PlaySoundTask,"PUNCH","snd",0,Fs);
       anim="BCDCB";
       template="PUNG%c0";
       idle_anim="A";
       break;
     case 1://pistol
-      if(weapons.state==1) Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
+      if(weapons.state) Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
       anim="ABC";
       template="PISG%c0";
       flash_template="PISF%c0";
@@ -449,7 +452,7 @@ U0 AnimateFire(CDoomPlayer *p)
       idle_anim="A";
       break;
     case 2://shotgun
-      if(weapons.state==1) Spawn(&PlaySoundTask,"SHOTGN","snd",0,Fs);
+      if(weapons.state) Spawn(&PlaySoundTask,"SHOTGN","snd",0,Fs);
       anim="AABCDCBAA";
       template="SHTG%c0";
       flash_template="SHTF%c0";
@@ -458,7 +461,7 @@ U0 AnimateFire(CDoomPlayer *p)
       idle_anim="A";
       break;
     case 3://chaingun
-      if(weapons.state==1) Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
+      if(weapons.state) Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
       anim="ABB";
       template="CHGG%c0";
       flash_template="CHGF%c0";
@@ -467,7 +470,7 @@ U0 AnimateFire(CDoomPlayer *p)
       flash_off=0;
       break;
     case 4://missile launcher
-      if(weapons.state==1) Spawn(&PlaySoundTask,"RLAUNC","snd",0,Fs);      
+      if(weapons.state) Spawn(&PlaySoundTask,"RLAUNC","snd",0,Fs);      
       template="MISG%c0";
       anim="BBB";
       flash_template="MISG%c0";
@@ -476,13 +479,13 @@ U0 AnimateFire(CDoomPlayer *p)
       idle_anim="A";
       break;
     case 5://chainsaw
-      if(weapons.state==1) Spawn(&PlaySoundTask,"SAWFUL","snd",0,Fs);      
+      if(weapons.state) Spawn(&PlaySoundTask,"SAWFUL","snd",0,Fs);      
       template="SAWG%c0";
       anim="ABB";
       idle_anim="CD";
       break;
     case 6://plasma gun
-      if(weapons.state==1) Spawn(&PlaySoundTask,"PLASMA","snd",0,Fs);      
+      if(weapons.state) Spawn(&PlaySoundTask,"PLASMA","snd",0,Fs);      
       template="PLSG%c0";
       anim="A";
       pause_anim="B";
@@ -492,7 +495,7 @@ U0 AnimateFire(CDoomPlayer *p)
       idle_anim="A";
       break;
     case 7://BFG
-      if(weapons.state==1) Spawn(&PlaySoundTask,"BFG","snd",0,Fs);      
+      if(weapons.state) Spawn(&PlaySoundTask,"BFG","snd",0,Fs);      
       template="BFGG%c0";
       anim="ABBB";
       flash_template="BFGF%c0";
@@ -501,36 +504,44 @@ U0 AnimateFire(CDoomPlayer *p)
       idle_anim="A";
   }
   weapons.flash_dc=NULL;
+  ostate=weapons.state;
   if(weapons.state==0) {
     l=StrLen(idle_anim);
     for(fr=0;fr!=l;fr++) {
       StrPrint(buf,template,idle_anim[fr]);
       weapons.icon_dc=GetGrLump(buf);
-      Sleep(33*3);
     }
-  } else if(weapons.state==1) {
+  } else if(weapons.state==1||weapons.state==2) {
     l=StrLen(anim);
-    for(fr=0;fr!=l;fr++) {
-      StrPrint(buf,template,anim[fr]);
-      weapons.flash_dc=NULL;
-      weapons.icon_dc=GetGrLump(buf);
-      if(flash_anim&&fr>=flash_off) {
-        if(fr-flash_off<StrLen(flash_anim)) {
-	  StrPrint(buf,flash_template,flash_anim[fr-flash_off]);
-	  weapons.flash_dc=GetGrLump(buf);
+    wait=p->weapon_cooldown/l+.035;
+    if(wait>=.030) {
+      for(fr=0;fr!=l;fr++) {
+        StrPrint(buf,template,anim[fr]);
+        weapons.flash_dc=NULL;
+        weapons.icon_dc=GetGrLump(buf);
+        if(flash_anim&&fr>=flash_off) {
+	  if(fr-flash_off<StrLen(flash_anim)) {
+	    StrPrint(buf,flash_template,flash_anim[fr-flash_off]);
+	    weapons.flash_dc=GetGrLump(buf);
+	  }
         }
+	if(ostate!=weapons.state)
+	  break;
+        Sleep(wait*1000);
       }
-      Sleep(33*3);
     }
-    weapons.state=0;
-  } else if(weapons.state==2) { //PAUSEING
+  } else if(weapons.state==3) { //PAUSEING
     l=StrLen(pause_anim);
-    for(fr=0;fr!=l;fr++) {
-      StrPrint(buf,template,pause_anim[fr]);
-      weapons.icon_dc=GetGrLump(buf);
-      Sleep(33*3);
+    wait=p->weapon_cooldown/l+.035;
+    if(wait>=.030) {
+      for(fr=0;fr!=l;fr++) {
+        StrPrint(buf,template,pause_anim[fr]);
+        weapons.icon_dc=GetGrLump(buf);
+	if(ostate!=weapons.state)
+	  break;
+        Sleep(wait*1000);
+      }
     }
-    weapons.state=0;
   }
 }
 
@@ -542,11 +553,6 @@ U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
 }
 U0 ST_Fire(CDoomPlayer *p)
 {
-  if(!weapons.state) {
-//Dont wait for aninmation to be done
-    weapons.state=TRUE;
-  }
-
   switch(weaponIndex) {
     case 0: //First
 //TODO test for beserk

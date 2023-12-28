@@ -3233,12 +3233,13 @@ U8 *NextLevel(U8 *nm,Bool special=FALSE) {
     return "E1M2";
   else if(!StrCmp(nm,"E1M2")) 
     return "E1M3";
-  else if(!StrCmp(nm,"E1M3")) 
-    return "E1M4";
-  else if(!StrCmp(nm,"E1M4")) {
+  else if(!StrCmp(nm,"E1M3"))  {
     if(special) return "E1M9";
+    return "E1M4";
+  }
+  else if(!StrCmp(nm,"E1M4"))
     return "E1M5";
-  } else if(!StrCmp(nm,"E1M5")) 
+  else if(!StrCmp(nm,"E1M5")) 
     return "E1M6";
   else if(!StrCmp(nm,"E1M6")) 
     return "E1M7";
@@ -3468,7 +3469,7 @@ ret:
   transition=TRUE;
   QueRem(p);
 //
-  next_lvl=NextLevel(l->map_name);
+  next_lvl=NextLevel(l->map_name,l->ended_special);
   if(!next_lvl) {
 //EXM9
     Finale(gr.dc,l->map_name[1]-'0');

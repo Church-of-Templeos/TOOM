@@ -763,7 +763,7 @@ U0 ST_Start(CDoomPlayer *p)
     pal=ClampI64(ToI64(p->pickup_amt-- +7)>>3+10,10,12);
     if(p->pickup_amt<0.) p->pickup_amt=0.;
   }
-  if(pal&&p->rad_suit_time) {
+  if(!pal&&p->rad_suit_time) {
     pal=13;
     if(p->rad_suit_time<5&&Blink)
       pal=0;

@@ -383,7 +383,7 @@ U0 BarrelThinker(CDoomLevel *l,CBarrelThinker *m) {
       m->explode_start_tS=Server_tS;
       self->solid=FALSE;
       Spawn(&PlaySoundTask,"BAREXP","snd",0,Fs);
-      self->flags&=~TF_OBSTACLE;
+      self->flags&=~(TF_OBSTACLE|TF_SHOOTABLE);
       self->animation=self->template(CDoomMonsterTemplate*)->_dying_frames;
       self->anim_no_repeat=TRUE;
       for(hit=head->next;hit!=head;hit=hit->next) {

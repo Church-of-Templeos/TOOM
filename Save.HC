@@ -51,17 +51,6 @@ I64 GetSidedefIndex(CDoomLevel *l,U8 *t) {
   }
   return -1;
 }
-I64 GetLinedefIndex(CDoomLevel *l,U8 *t) {
-  CQue *head=&l->sidedefs,*cur;
-  I64 idx=0;
-  for(cur=head->next;head!=cur;cur=cur->next) {
-    if(cur==t)
-      return idx;
-    idx++;
-  }
-  return -1;
-}
-
 //DONT FUCKIN FREE 
 U8 *GetUNStr(U8 *ptr) {
   CHashTable *tab=Fs->hash_table;

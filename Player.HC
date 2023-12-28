@@ -12,7 +12,8 @@
   while(FifoI64Rem(crossed_f,&crossed)) {
     TriggerLinedef(l,crossed,WACTIVATE_WALK,p);
   }
-  if(hit) TriggerLinedef(l,hit,WACTIVATE_PUSH,p);
+//Walking includes "walking into a wall"?
+  if(hit) TriggerLinedef(l,hit,WACTIVATE_PUSH|WACTIVATE_WALK,p);
   FifoI64Del(crossed_f);
   if(s&&s->special_type==9) {
     s->special_type=0;

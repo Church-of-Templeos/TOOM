@@ -188,7 +188,7 @@ U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
   QueRem(self);
 //No speeding through targets
   while(dist>0.) {
-    if(ld=MoveInLevel(l,&self->x,self->angle,Min(dist,template->radius),template->radius,self->height,COLLISF_NO_HIT_THING,NULL,t->shooter,&hit))
+    if(ld=MoveInLevel(l,&self->x,self->angle,Min(dist,template->radius),template->radius,self->height,COLLISF_NO_HIT_THING|COLLISF_PROJECTILE,NULL,t->shooter,&hit))
       break;
     dist-=template->radius;
   }
@@ -802,7 +802,7 @@ defacto:
 //Check to see if we hit a shootable wall
     dummy.x=self->x;
     dummy.y=self->y;
-    ld=MoveInLevel(l,&dummy,angle,dist+8,8.,self->height,);
+    ld=MoveInLevel(l,&dummy,angle,dist+8,8.,self->height,COLLISF_PROJECTILE);
     if(ld)
       TriggerLinedef(l,ld,WACTIVATE_SHOOT|WACTIVATE_MONSTER,self);
   }
@@ -1053,7 +1053,7 @@ U0 RadiusAttack(CDoomLevel *l,CDoomThing *dik,F64 boom) {
       angle=FArg(cur->x-src.x,cur->y-src.y);
       dummy.x=src.x;
       dummy.y=src.y;
-      if(!MoveInLevel(l,&dummy,angle,dist,dik->template->radius,dik->height,0))
+      if(!MoveInLevel(l,&dummy,angle,dist,dik->template->radius,dik->height,COLLISF_PROJECTILE))
 	DamageMob(l,cur,dik,dist);
     }
   }

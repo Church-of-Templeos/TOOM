@@ -433,7 +433,7 @@ U0 AnimateFire(CDoomPlayer *p)
   U8 *idle_anim=NULL;
   U8 buf[STR_LEN];
   I64 fr,l,flash_off=0,ostate;
-  F64 wait;
+  F64 wait,next_frame;
   switch(weaponIndex)
     {
     case 0://punch
@@ -510,10 +510,16 @@ U0 AnimateFire(CDoomPlayer *p)
     for(fr=0;fr!=l;fr++) {
       StrPrint(buf,template,idle_anim[fr]);
       weapons.icon_dc=GetGrLump(buf);
+      next_frame=.033*5+Server_tS;
+      while(next_frame>Server_tS) {
+        if(ostate!=weapons.state)
+	  break;
+        Refresh;
+      }
     }
   } else if(weapons.state==1||weapons.state==2) {
     l=StrLen(anim);
-    wait=p->weapon_cooldown/l+.035;
+    wait=p->weapon_cooldown/l;
     if(wait>=.030) {
       for(fr=0;fr!=l;fr++) {
         StrPrint(buf,template,anim[fr]);
@@ -525,21 +531,27 @@ U0 AnimateFire(CDoomPlayer *p)
 	    weapons.flash_dc=GetGrLump(buf);
 	  }
         }
-	if(ostate!=weapons.state)
-	  break;
-        Sleep(wait*1000);
+        next_frame=wait+Server_tS;
+        while(next_frame>Server_tS) {
+	  if(ostate!=weapons.state)
+	    break;
+	  Refresh;
+        }
       }
     }
   } else if(weapons.state==3) { //PAUSEING
     l=StrLen(pause_anim);
-    wait=p->weapon_cooldown/l+.035;
+    wait=p->weapon_cooldown/l;
     if(wait>=.030) {
       for(fr=0;fr!=l;fr++) {
         StrPrint(buf,template,pause_anim[fr]);
         weapons.icon_dc=GetGrLump(buf);
-	if(ostate!=weapons.state)
-	  break;
-        Sleep(wait*1000);
+        next_frame=wait+Server_tS;
+        while(next_frame>Server_tS) {
+	  if(ostate!=weapons.state)
+	    break;
+	  Refresh;
+        }
       }
     }
   }

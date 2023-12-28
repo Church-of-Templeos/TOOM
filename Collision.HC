@@ -199,7 +199,7 @@ $SP,"<1>",BI=1$
 
 
 //Returns apporixmate (wall) hit distance,or -1. if the shoot Pushin-P Pwned the target
-F64 ValidateLineOfSightShot(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 source_h,F64 target_h,Bool monster=FALSE) {
+F64 ValidateLineOfSightShot(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 source_h,F64 target_h) {
   CD2 dummy;
   Bool hit_wall=FALSE;
   I64 blockx,blocky;
@@ -239,7 +239,7 @@ F64 ValidateLineOfSightShot(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 source_
 	    ceil_height=Min(lds[0]->back->sector->ceil_height,
 		  lds[0]->front->sector->ceil_height);
 	  }
-	  if(!(floor_height<=source_h<=ceil_height)||(monster&&(*lds)->flags&WAD_LINEDEFF_WALL_MONSTER))
+	  if(!(floor_height<=source_h<=ceil_height))
 	    while(CrosesLine(*lds,at,&dummy)&&dist2>0.) {
 	      hit_wall=TRUE;
 //get a more "precise" wall hit positon,homie

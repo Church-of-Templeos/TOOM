@@ -465,11 +465,12 @@ Bool CanSeeTarget(CDoomLevel *l,CMonsterThinker *t) {
   if(!t->target) return FALSE;
   CDoomThing *self=t->self;
   CDoomThing *tar=t->target;
-  F64 dist=Sqrt(Sqr(self->x-tar->x)+Sqr(self->y-tar->y));
+  F64 dist=Sqrt(Sqr(self->x-tar->x)+Sqr(self->y-tar->y)),dist2;
   F64 angle=FArg(tar->x-self->x,tar->y-self->y);
 //Returns -1 if we Pushin P didnt hit a wall
-//TRUEfor monster(ignores linedefs that monsters cant pass mofo)
-  if(ValidateLineOfSightShot(l,&self->x,angle,dist,self->height+16,tar->height+16,TRUE)<0.) {
+//TRUEfor monster(ignores linedefs that monsters cant pass mofo)    
+  dist2=ValidateLineOfSightShot(l,&self->x,angle,dist,self->height+self->template->height,tar->height+tar->template->height);
+  if(dist2>dist||dist2<0.) {
     return TRUE;
   }
   return FALSE;

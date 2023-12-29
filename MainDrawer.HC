@@ -3499,14 +3499,14 @@ U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
   CDoomThing **crushed=GetCrushedThingsInSector(l,s),*T;
   I64 idx;
 //Maybe it was stopped
-  if(s->cur_action_linedef) {
+  if(!s->cur_action_linedef) {
     QueRem(t);
     Free(t);
     return;
   }
   if(t->going_up) {
     tar_dst=s->base_ceil_height;
-    s->ceil_height+=t->base_speed;
+    s->ceil_height+=t->base_speed/35.;
     if(s->ceil_height>=tar_dst) {
       s->ceil_height=tar_dst;
       t->going_up=FALSE;
@@ -3515,9 +3515,9 @@ U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
     tar_dst=s->base_floor_height+8;
 //Slow crushers will slow down by /8
     if(*crushed&&t->base_speed<=DOOR_SPEED_SLOW) {
-      s->ceil_height-=t->base_speed/8;
+      s->ceil_height-=t->base_speed/8/35.;
     } else
-      s->ceil_height-=t->base_speed;
+      s->ceil_height-=t->base_speed/35.;
     if(s->ceil_height<=tar_dst) {
       s->ceil_height=tar_dst;
       t->going_up=TRUE;
@@ -3531,6 +3531,7 @@ U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
     }
   }
   Free(crushed);
+  s->door_height_offset=s->ceil_height-s->base_floor_height;  
 }
 U0 AddCrushThinker(CDoomLevel *l,CDoomSector *s,CDoomCrusher *c) {
   CCrushThinker *t=AddThinker(l,&CrushThinker,"CCrushThinker");

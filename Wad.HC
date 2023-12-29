@@ -318,7 +318,7 @@ CDC *TextureName2DC(U8 *name) {
   name2[8]=0;
   MemCpy(name2,name,8);
   Upper8(name2);
-  StrPrint(buf,"Txr.%s",name);
+  StrPrint(buf,"Txr.%s",name2);
   return FramePtr(buf);
 }
 
@@ -328,7 +328,7 @@ CDC *SpriteName2DC(U8 *name) {
   name2[8]=0;
   MemCpy(name2,name,8);
   Upper8(name2);
-  StrPrint(buf,"Spr.%s",name);
+  StrPrint(buf,"Spr.%s",name2);
   return FramePtr(buf);
 }
 

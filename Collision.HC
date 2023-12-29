@@ -72,10 +72,13 @@ Bool CheckLineWithBox(CDoomLinedef *ld,CD2 *at,F64 radius) {
   tr.y=at->y+radius;
   bl.y=at->y-radius;
   br.y=at->y-radius;
-  return CrosesLine(ld,&tl,&tr)||
+  if(CrosesLine(ld,&tl,&tr)||
 	CrosesLine(ld,&tr,&br)||
 	CrosesLine(ld,&br,&bl)||
-	CrosesLine(ld,&tl,&bl);
+	CrosesLine(ld,&tl,&bl)) {
+    return DistFromLine(at,ld->start,ld->end)-.1<radius;
+  }
+  return FALSE;
 }
 
 //Sort of from here
@@ -123,13 +126,10 @@ Bool CloseToLine(CD2 *tip=NULL,CD2 *p1,CD2 *p2,CD2 *at,F64 radius) {
 F64 IntersectDist(CDoomLinedef *ld,CD2 *a,CD2 *b) {
   return DistFromLine(a,ld->start,ld->end);
 }
-
-Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F64 cur_h,F64 to_travel,CDoomThing *exclude) {
-  I64 i;
-  CD2 closest_point,side,rel_point;
-  F64 angle2,angle3;
-  F64 dist;
-  F64 x,y;
+//Ask nroot how this works
+F64 NormalScore(CDoomLinedef *ld,CD2 *point,F64 angle) {
+  CD2 rel_point;
+  F64 angle2,angle3,score;
   Vector *v=CreateVector(2);
   v->data[0]=ld->end->x-ld->start->x;
   v->data[1]=ld->end->y-ld->start->y;
@@ -138,14 +138,21 @@ Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F6
   angle3=FArg(v->data[0],v->data[1]);
   if(IsFrontSideOfVector2D(v,&rel_point)) {
     angle2=angle3-angle;
-    x=to_travel*FCos(angle2);
-    MoveInLevel(l,point,angle3,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING,,exclude);
-  } else{
+    score=FCos(angle2);
+  } else  {
     angle2=angle3-angle;
-    x=-to_travel*FCos(angle2);
-    MoveInLevel(l,point,angle3,x,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING,,exclude);
+    score=-FCos(angle2);
   }
   DestroyVector(v);
+  return score;
+}
+Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F64 cur_h,F64 to_travel,CDoomThing *exclude) {
+  I64 i;
+  CD2 closest_point,side,rel_point;
+  F64 score;
+  F64 angle3=FArg(ld->end->x-ld->start->x,ld->end->y-ld->start->y);
+  score=NormalScore(ld,point,angle);
+  MoveInLevel(l,point,angle3,score*to_travel,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING|COLLISF_SLIDE,,exclude);
 }
 
 CDoomThing *HitsAThing(CDoomLevel *l,CD2 *dummy,F64 dummy_radius,CDoomThing *exclude=NULL,CDoomThing *test_for=NULL) {
@@ -490,17 +497,24 @@ pass:
     cap=I16_MAX;
     for(i=0;i!=wall_idx;i++) {
       wall=walls[i];
-//+2 because to steped down by 1(+1 for extra wiggle room)
-      if(CheckLineWithBox(walls[i],&cur_pos,radius+2)) {
-        tmp=DistFromLine(result,wall->start,wall->end);
-        if(tmp<cap) {
+      if(CheckLineWithBox(walls[i],&cur_pos,radius)) {
+        tmp=NormalScore(walls[i],&cur_pos,angle);
+        if(Abs(tmp)<Abs(cap)) {
 	  cap=tmp;
 	  wall2=wall;
         }
       }
     }
-    if(wall2) //???
-      SlideWalk(l,wall2,result,angle,radius,cur_height,odist,exclude);
+    static I64 recur_depth=0;
+    static F64 portion=0;
+    if(wall2&&recur_depth<3) { //???
+      if(!recur_depth)
+        portion=odist;
+      recur_depth++;
+      if(portion>.01)
+        SlideWalk(l,wall2,result,angle,radius,cur_height,portion*(1/(1.+recur_depth)),exclude);
+      --recur_depth;
+    }
   }
   if(!best&&walked_over_hot) {
     min_dist=I16_MAX;

@@ -1179,7 +1179,7 @@ U0 LoadMonsterInfo() {
   UH("impfire",imp_fireball=CAlloc(sizeof CDoomProjectileTemplate));
   p=imp_fireball;
   p->flags=TF_FLOATING;
-  p->direct=9;
+  p->direct=3;
   p->speed=350/30.;
   p->radius=6.;
   p->height=8.;

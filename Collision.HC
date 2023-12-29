@@ -1,7 +1,7 @@
 #ifndef COLLISION_H
 #define COLLISION_H "Yunno wut I mean"
 //Returns TRUE on collision
-#define STEP_HEIGHT 24.
+#define STEP_HEIGHT 25
 #define COLLISF_SLIDE 1
 #define COLLISF_NO_DROP 2
 #define COLLISF_NO_HIT_THING 4

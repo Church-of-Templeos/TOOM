@@ -355,7 +355,7 @@ already_has:;
 //Reverse sorted
         from=intersects[idx];
         to=intersects[idx+1];
-        dir=-1;
+	dir=-1;
       } else{
 //Forward sorted
         from=intersects[idx];
@@ -368,7 +368,7 @@ already_has:;
       if(GetSectorForCoord(l,wx,wy)!=sector) {
         goto next2;
       }
-      for(y=from;(dir==1&&y<to)||(dir==-1&&y>to);y+=dir) {
+      for(y=from;(dir==1&&y<=to)||(dir==-1&&y>=to);y+=dir) {
         if(y<0) {
 	  y=0-dir;
 	  if(dir==-1)
@@ -1472,20 +1472,20 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type,Bool going_up=TRUE) {
         for(idx=0;idx!=floor->linedef_cnt;idx++) {
 	  sd=floor->linedefs[idx]->front;
 	  if(sd&&sd!=floor)
-	    highest=Max(highest,sd->sector->floor_height);
+	    highest=Max(highest,sd->sector->base_floor_height);
 	  sd=floor->linedefs[idx]->back;
 	  if(sd&&sd!=floor)
-	    highest=Max(highest,sd->sector->floor_height);
+	    highest=Max(highest,sd->sector->base_floor_height);
         }
         return highest;
       } else {
         for(idx=0;idx!=floor->linedef_cnt;idx++) {
 	  sd=floor->linedefs[idx]->front;
 	  if(sd&&sd!=floor)
-	    lowest=Min(lowest,sd->sector->floor_height);
+	    lowest=Min(lowest,sd->sector->base_floor_height);
 	  sd=floor->linedefs[idx]->back;
 	  if(sd&&sd!=floor)
-	    lowest=Min(lowest,sd->sector->floor_height);
+	    lowest=Min(lowest,sd->sector->base_floor_height);
         }
         return lowest;
       }
@@ -1621,19 +1621,26 @@ U0 LiftThinker(CDoomLevel *l,CLiftThinker *t) {
     if(action->target==LIFT_LOW_HIGH_REPEAT) {
       dir=Sign(t->target_end-t->target_start);
       s->floor_height=dir*t->speed*TIME_SCALE*(Server_tS-t->start_tS)+t->target_start;
-      if(t->going_up) {
+      if(dir>0.) {
+	t->going_up=TRUE;
         if(s->floor_height>t->target_end) {
 	  s->floor_height=t->target_end;
 lift_again:
+	  t->target_start=s->floor_height;
 	  Spawn(&PlaySoundTask,"PSTART","snd",0,Fs);
 	  t->start_tS=Server_tS;
-	  t->target_end=GetTargetLiftHeight(s,ld,!t->going_up);
+	  t->target_end=GetTargetLiftHeight(s,action->target,!t->going_up);
+	  t->going_up=!t->going_up;
         }
-      } else if(t->going_down) {
+      } else if(dir<0.) {
+	t->going_up=FALSE;
         if(s->floor_height<t->target_end) {
 	  s->floor_height=t->target_end;
 	  goto lift_again;
         }
+      } else {
+	t->going_up=!t->going_up;
+	goto lift_again;
       }
     } else  {
       if(t->target_end>s->floor_height)

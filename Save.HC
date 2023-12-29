@@ -334,6 +334,7 @@ U0 LoadGame(U8 *filename) {
   filename=ExtDft(filename,"prumnE");
   I64 state=0;
   CQue *head;
+  CDC *old,*new;
   CDoomThing *thing;
   CDoomSector *sector;
   COmniThinker *thinker,*next;
@@ -606,8 +607,8 @@ U0 LoadGame(U8 *filename) {
 	    ptr=StrScan(ptr,"%n\n",&thinker(CLightFire*)->end_tS);
 	  } else if(!StrCmp("CLightBlinkThinker",thinker(CDoomThinker*)->cls_name)) {
 	    ptr=StrScan(ptr,"%d\n",&i64);
-            thinker(CLightBlinkThinker*)->s=GetNthSector(l,i64);
-            thinker->doom.fun_ptr=&LightBlinkThinker;
+	    thinker(CLightBlinkThinker*)->s=GetNthSector(l,i64);
+	    thinker->doom.fun_ptr=&LightBlinkThinker;
 	    ptr=StrScan(ptr,"%n\n",&thinker(CLightBlinkThinker*)->begin_at_tS);
 	    ptr=StrScan(ptr,"%n\n",&thinker(CLightBlinkThinker*)->change_tS);
 	    ptr=StrScan(ptr,"%d\n",&i64);
@@ -665,7 +666,7 @@ skip_thinker:;
 	  ptr=StrScan(ptr,"%n,%n,%n\n",
 	        &sector->floor_height,
 	        &sector->ceil_height,
-		&sector->cur_light_level);
+	        &sector->cur_light_level);
 	  ptr=StrScan(ptr,"%d,%d,%d\n",
 	        &texture_changed,
 	        &sector->special_type,
@@ -682,22 +683,22 @@ skip_thinker:;
         ptr=StrScan(ptr,"%d\n",&l->stats.have_secrets);
         ptr=StrScan(ptr,"%n\n",&l->stats.time);
         state++;
-	break;
+        break;
       case 8:
         head=&l->linedefs;
-	for(ld=head->next;ld!=head;ld=ld->next) {
-          ptr=StrScan(ptr,"%d\n",&i64);
+        for(ld=head->next;ld!=head;ld=ld->next) {
+	  ptr=StrScan(ptr,"%d\n",&i64);
 	  ld->activated=i64;
-          ptr=StrScan(ptr,"%d\n",&i64);
+	  ptr=StrScan(ptr,"%d\n",&i64);
 	  ld->seen=i64;
         }
-	state++;
-	break;
+        state++;
+        break;
       case 9:
         ptr=StrScan(ptr,"%d\n",&i64);
-	l->has_map=i64;
-	state++;
-	break;
+        l->has_map=i64;
+        state++;
+        break;
       default:
         goto fin;
     }
@@ -715,6 +716,9 @@ fin:
   }
   Free(optr);
   Free(filename);
+  old=DCCopy(gr.dc2); //The screen,make a copy so it doestn change
+  new=DCCopy(old); //Same dimension
+  screen_melt=TRUE;
   Unpause(level_time);
   if(!in_level)
     PlayLevel(FALSE);

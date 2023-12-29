@@ -156,18 +156,18 @@ againm:;
         );
   U8 level[STR_LEN],next=FALSE;
   U64 r,a,b;
-  CDC *dc;
+  CDC *dc,*old,*new;
   switch(state) {
     case 0:
       r=MenuInteract(gr.dc,items,97,67);
       if(r=='NGAME') {
         state=1;
       } else if(r=='LOADG') {
-	state=7;
-	active_menu_item=0;
+        state=7;
+        active_menu_item=0;
       } else if(r=='SAVEG') {
-	state=6;
-	active_menu_item=0;
+        state=6;
+        active_menu_item=0;
       } else if(r=='RDTHIS') {
         state=4;
       } else if(r=='QUITG') {
@@ -190,8 +190,10 @@ againm:;
         StrPrint(level,"E%cM1",ep);
         if(l)
 	  FreeLevel(l);
+
         active_menu=NULL;
         l=LoadWadLevel(wad,level,s-'1'+1);
+	screen_melt=TRUE;
 //This will check if we are in a level,otherwise the world is just swapped with l
         PlayLevel;
         return 0;
@@ -214,9 +216,9 @@ againm:;
         dc=GetGrLump("HELP1");
         GrBlot(,0,0,dc);
         if(next) {
-          state=5;
+	  state=5;
 	  FlushMsgs;
-	}
+        }
         break;
       case 5:
         dc=GetGrLump("HELP2");
@@ -224,20 +226,20 @@ againm:;
         if(next) {
 	  state=0;
 	  FlushMsgs;
-	}
+        }
         break;
     end:
       break;;
-      case 6:
-	r=LoadSaveInteract(gr.dc,TRUE);
-	if(r==-1)
-	  state=0;
-	return r;
-      case 7:
-	r=LoadSaveInteract(gr.dc,FALSE);
-	if(r==-1)
-	  state=0;
-	return r;
+    case 6:
+      r=LoadSaveInteract(gr.dc,TRUE);
+      if(r==-1)
+        state=0;
+      return r;
+    case 7:
+      r=LoadSaveInteract(gr.dc,FALSE);
+      if(r==-1)
+        state=0;
+      return r;
   }
   return INVALID_PTR;
 }
@@ -309,7 +311,7 @@ press:
 	    } else {
 	      StrPrint(buf,"/ToomSave/SAVE%d.SAVE",active_menu_item);
 	      if(FileFind(buf)) {
-	        LoadGame(buf);
+		LoadGame(buf);
 	      }
 	      return -1;
 	    }

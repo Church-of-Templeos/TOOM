@@ -9,6 +9,8 @@ U0 DbgPrint(U8*,...) {}
 #ifndef MemSetI64
 #define MemSetI64 MemSetU64
 #endif
+Bool in_level=FALSE,screen_melt=FALSE;
+#include "ScreenMelt.HC"
 #include "Serialize.HC";
 #include "FastTrig.HC";
 #include "Wad.HC";
@@ -16,9 +18,7 @@ U0 DbgPrint(U8*,...) {}
 CTask *doom_task=Fs;
 #include "Thinker.HC";
 #include "Music.HC";
-
 #define MUZZLE_FLASH_LIGHT 50
-
 extern U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage);
 extern CDoomThing **GetCrushedThingsInSector(CDoomLevel *l,CDoomSector *s);
 #define mp_cnt 1 //Reduces flickering
@@ -3311,7 +3311,6 @@ U8 *NextLevel(U8 *nm,Bool special=FALSE) {
   //Intermission
   return NULL;
 }
-Bool in_level=FALSE;
 #include"Finale.HC";
 U0 PlayLevel(Bool init=TRUE) { 
   WinBorder;
@@ -3320,6 +3319,7 @@ U0 PlayLevel(Bool init=TRUE) {
   Bool transition=FALSE;
   CDoomThing *t,*head;
   U8 *next_lvl;
+  CDC *new,*old;
 ent:;
   CDoomLevel *l2;
   if(init) {
@@ -3328,6 +3328,7 @@ ent:;
     } else  {
       transition=FALSE;
       head=&l->things;
+      screen_melt=TRUE;
       for(t=head->next;t!=head;t=t->next) {
 //https://doomwiki.org/wiki/Thing_types#Other
         if(t->thing_type==1) {
@@ -3342,6 +3343,18 @@ ent:;
     PlayerMove(l,p,0);   
     InitLevel(l);
   }
+  if(screen_melt) {
+    screen_melt=FALSE;
+    Server_tS; //Update server time
+    paused=TRUE;
+    old=DCCopy(gr.dc2);
+    new=DCCopy(gr.dc2);
+    UpdateCameraFromPlayer(&cam,p);
+    DrawDoomWorld(&cam,l,new);
+    ScreenMelt(gr.dc,new,old);
+    DCDel(old),DCDel(new);
+    Unpause;
+  }
 //Return to parent instance  of PlayLevel(if recursivly called)
   //But be sure to initailize the level and player
   if(in_level) return;
@@ -3353,6 +3366,18 @@ ent:;
   Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
   Unpause;
   while(!l->ended) {
+    if(screen_melt) {
+      screen_melt=FALSE;
+      Server_tS; //Update server time
+      paused=TRUE;
+      old=DCCopy(gr.dc2);
+      new=DCCopy(gr.dc2);
+      UpdateCameraFromPlayer(&cam,p);
+      DrawDoomWorld(&cam,l,new);
+      ScreenMelt(gr.dc,new,old);
+      DCDel(old),DCDel(new);
+      Unpause;
+    }
     UpdateCameraFromPlayer(&cam,p);
     DrawDoomWorld(&cam,l,doom_scrn);
 
@@ -3543,8 +3568,10 @@ U0 AddCrushThinker(CDoomLevel *l,CDoomSector *s,CDoomCrusher *c) {
 
 #include "Save.HC";
 U64 r;
+CDC *title=GetGrLump("TITLEPIC");
 while(TRUE) {
-  DCFill;
+  DCFill(,BLACK);
+  GrBlot(,0,0,title);
   r=MainMenu;
   Refresh;
   if(!r) {

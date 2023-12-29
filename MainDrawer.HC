@@ -3063,11 +3063,13 @@ Bool PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U
         LineAttack(l,p,target,range,angle+r*9.8*pi/360.,damage);
       }
     } else
-      LineAttack(l,p,target,range,angle,damage);
+//0,5 is fist/chainsaw
+      LineAttack(l,p,target,range,angle,damage,weaponIndex==0||weaponIndex==5);
   } else {
     SpawnMissile(l,p,target,rocket_type);
   }
-  p->muzzle_flash_end_tS=Server_tS+1/10.;
+  if(weaponIndex!=0&&weaponIndex!=5)
+    p->muzzle_flash_end_tS=Server_tS+1/10.;
   return TRUE;
 }
 

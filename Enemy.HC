@@ -742,7 +742,7 @@ U0 SpawnSmokePuff(CDoomLevel *l,CD2 *at,F64 h,F64 attack_range) {
   t->self=smoke;
   smoke->animation=smoke->template->_animation;
 } 
-U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 angle,F64 damage) {
+U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 angle,F64 damage,Bool melee=FALSE) {
   CDoomThing *hit=ShotSmacksAHomie(l,&self->x,angle,range,self->height+self->template->height-2,self);
   CDoomLinedef *ld;
   CD2 puff_pos,dummy;
@@ -751,6 +751,9 @@ U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 an
   if(hit) {
     target=hit;
 hit_target:
+    dist2=Sqrt(Sqr(self->x-target->x)+Sqr(self->y-target->y));
+    if(melee&&dist2>range)
+      return;
 //I will make some distance between the blood-puff and the target to avoid z-clipping
     //Angle from hit->self 
     angle2=FArg(self->x-hit->x,self->y-hit->y);
@@ -770,6 +773,8 @@ hit_target:
     dst_h=target->height+target->template->height/2;
     dist2=Sqrt(Sqr(self->x-target->x)+Sqr(self->y-target->y));
     dist=ValidateLineOfSightShot(l,&self->x,angle,dist2,src_h,dst_h); 
+    if(melee&&dist2>range)
+      return;
     if(dist>0.) {
       angle2=FArg(target->x-self->x,target->y-self->y);
       dst_h=Lerp(dist/dist2,src_h,dst_h); //Good enough?
@@ -788,6 +793,8 @@ defacto:
 //Make shot right in front of us
     src_h=self->height+self->template->height/2;
     dist=ValidateLineOfSightShot(l,&self->x,angle,range,src_h,src_h); 
+    if(melee&&dist>range)
+      return;
     if(dist>=5.) {
       dist-=5.;
       puff_pos.x=self->x+dist*Cos(angle);

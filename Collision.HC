@@ -512,7 +512,7 @@ pass:
         portion=odist;
       recur_depth++;
       if(portion>.01)
-        SlideWalk(l,wall2,result,angle,radius,cur_height,portion*(1/(1.+recur_depth)),exclude);
+        SlideWalk(l,wall2,result,angle,radius,cur_height,portion*(1/(1.5+recur_depth)),exclude);
       --recur_depth;
     }
   }

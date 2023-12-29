@@ -1,7 +1,7 @@
 U0 ScreenMelt(CDC *to,CDC *new,CDC *old) {
   I64 w=old->width/2,i,y,y2;
   I64 *offsets=CAlloc(8*w),o=0,continue;
-  U32 *dst,*src;
+  U16 *dst,*src;
   for(i=0;i!=w;i++) {
     if(!o)
       o+=4;

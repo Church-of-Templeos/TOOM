@@ -568,7 +568,7 @@ U0 ST_Fire(CDoomPlayer *p)
   switch(weaponIndex) {
     case 0: //First
 //TODO test for beserk
-      PlayerAttack(123.5,2,20,32);
+      PlayerAttack(123.5,2,20,70);
       break;
     start:
       case 1: //Pistol
@@ -597,7 +597,7 @@ U0 ST_Fire(CDoomPlayer *p)
         }
         break;
       case 5: //Chainsaw
-        PlayerAttack(525,2,20,32);
+        PlayerAttack(525,2,20,70);
         break;
       case 6: //Plsmaa
         if(p->arsenal[weaponIndex].load->ammo>0) {

@@ -599,8 +599,10 @@ U0 ST_Fire(CDoomPlayer *p)
 {
   switch(weaponIndex) {
     case 0: //First
-//TODO test for beserk
-      PlayerAttack(123.5,2,20,70);
+      if(p->bezerk_time)
+        PlayerAttack(123.5,20,200,70);
+      else
+        PlayerAttack(123.5,2,20,70);
       break;
     start:
       case 1: //Pistol
@@ -780,11 +782,11 @@ U0 ST_Start(CDoomPlayer *p)
   //ST_refresh();
   if(p->bezerk_time) {
     if(p->bezerk_time>20-8) {
-      pal=8; 
+      pal=7; 
     } else if(p->bezerk_time>7) {
-      pal=5; 
+      pal=4; 
     } else if(p->bezerk_time) {
-      pal=3;
+      pal=2;
     }
   }
   if(p->hurt_amt) {
@@ -794,7 +796,9 @@ U0 ST_Start(CDoomPlayer *p)
   if(!pal&&p->pickup_amt) {
     pal=ClampI64(ToI64(p->pickup_amt-- +7)>>3+10,10,12);
     if(p->pickup_amt<0.) p->pickup_amt=0.;
-  }
+  } else 
+    p->pickup_amt=MaxI64(p->pickup_amt---1,0); //Drain pickup amont to avoid wiating until bezerk is gone
+ 
   if(!pal&&p->rad_suit_time) {
     pal=13;
     if(p->rad_suit_time<5&&Blink)

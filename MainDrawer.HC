@@ -1701,7 +1701,7 @@ floor_en:
 U0 AddLiftThinker(CDoomLevel *l,F64 st,F64 en,
 	CDoomSector *s,CDoomLinedef *ld,
 	CDoomLift *action,Bool up) {
-  if(action->target==LIFT_STOP) {
+  if(action->target==LIFT_STOP&&action->type=='Lift') {
     s->cur_action_linedef=NULL;
     return;
   }
@@ -1998,6 +1998,7 @@ U0 DonutThinker(CDoomLevel *l,CDonutThinker *t) {
 	  s2->floor_height=s3->floor_height;
 	  MemCpy(s2->floor_dc,s3->floor_dc,sizeof(CDC*)*4);
 	  s2->cur_action_linedef=NULL;
+	  s2->special_type=0;
 	}
 //Decending poo poo
 	if(s1->floor_height>s3->floor_height) {
@@ -2286,8 +2287,7 @@ crush_activate1:
 	    if(ld->activated) return FALSE;
 crush_activate:
 	    if(crush->turn_on) {
-	      s->cur_action_linedef=ld;
-	      AddCrushThinker(l,s,crush);
+	      AddCrushThinker(l,s,ld);
 	    } else  //The thinker checks for this
 	      s->cur_action_linedef=NULL;
 	    return TRUE;
@@ -3015,6 +3015,11 @@ rem:
 	      break;
 	    p->health=ClampI64(p->health+10,0,100);
 	    goto rem;
+	  case 2023:
+	    p->bezerk_time=30*30; //assumes 30 ticks a motherfuckin second
+	    if(p->health<100.)
+	      p->health=100.;
+	    goto rem;
 	  case 2025: //Radiuation suit
 	    p->rad_suit_time=60*30; //assumes 30 ticks a motherfuckin second
 	    goto rem;
@@ -3093,6 +3098,8 @@ U0 UpdateLevel(CDoomLevel *l) {
   CheckPowerupPickup(l);
   if(p&&p->rad_suit_time)
     p->rad_suit_time=Clamp(p->rad_suit_time-1/30.,0.,60.);
+  if(p&&p->bezerk_time)
+    p->bezerk_time=Clamp(p->bezerk_time-1/30.,0.,60.);
 }
 
 
@@ -3555,7 +3562,7 @@ U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
     tar_dst=s->base_floor_height+8;
 //Slow crushers will slow down by /8
     if(*crushed&&t->base_speed<=DOOR_SPEED_SLOW) {
-      s->ceil_height-=t->base_speed/8/35.;
+      s->ceil_height-=t->base_speed/35.;
     } else
       s->ceil_height-=t->base_speed/35.;
     if(s->ceil_height<=tar_dst) {
@@ -3573,8 +3580,10 @@ U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
   Free(crushed);
   s->door_height_offset=s->ceil_height-s->base_floor_height;  
 }
-U0 AddCrushThinker(CDoomLevel *l,CDoomSector *s,CDoomCrusher *c) {
+U0 AddCrushThinker(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld) {
+  if(s->cur_action_linedef) return;
   CCrushThinker *t=AddThinker(l,&CrushThinker,"CCrushThinker");
+  CDoomCrusher *c=ld->special_type);
   t->base_speed=c->speed;
   t->s=s;
   t->going_up=FALSE;

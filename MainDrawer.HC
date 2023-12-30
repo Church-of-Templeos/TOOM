@@ -409,8 +409,6 @@ already_has:;
         }
         if(*already)
 	  goto next;
-        if(cam->wall_depths[x]<idist)
-	  goto next2;
         if(idist>*db_z)
 	  goto next;
         wx=cam->x+(dist/cos2)*cos_table[x];
@@ -423,10 +421,9 @@ already_has:;
         db_z[0]=idist;
         db_z[1]=idist;
         db_z-=to_dc->width_internal;
+//wx<<1 multiples by 2,which means any number*2 is even
         floorx=(wx<<1)&127; //In doom flats are 64,(*2 for dither super pixel)
         floory=(wy<<1)&127;
-        floorx&=~1;
-        floory&=~1;
 	if(Server_tS<p->muzzle_flash_end_tS)
 	  color=LookupLighting(texture->body[floorx+floory*128](U16),sector->cur_light_level+MUZZLE_FLASH_LIGHT,dist);
 	else
@@ -474,7 +471,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   TransformPointToCamera(cam,&clone_st);
   TransformPointToCamera(cam,&clone_en);
   st=&clone_st;
-   en=&clone_en;
+  en=&clone_en;
   F64 start_angle=FArg(st->x,st->y);
   F64 end_angle=FArg(en->x,en->y),tmp,tyf;
   F64 margin;
@@ -542,26 +539,18 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       if(cam->wall_depths[ix>>1]<idist)
         goto next;
       tx=(ToI64(Sqrt(Sqr(hit.x-st->x)+Sqr(hit.y-st->y)))*2+xoff*2)%texture->width;
-//The offset from the ground is included in the "height",we dont render the overdraw
-      margin=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-level);
-      ih=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*height;
-      ih&=~1;
-      ratio=height/ToF64(ih);
-      iy=GR_HEIGHT/2;
-      if(margin>=0.) {
-        iy-=ih;
-        iy+=margin;
-        ih2=ih;
-      } else {
-        iy-=ih;
-        iy+=margin;
-        ih2=ih;
-      }
+      iy=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-(height+level))+GR_HEIGHT/2;
+      ih=(DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-level)+GR_HEIGHT/2)-iy;
+      if(ih&1) ih++;
+      if(iy&1) ih++,iy--;
       iy&=~1;
+      ih&=~1;
+      ih2=ih;
+      ratio=height/ToF64(ih);
       if(floor==3) { //If a "visplane" draw
         if(0<=ix<=GR_WIDTH-2) {
 	  vp=&cam->visplanes[sd->sector->visplane_idx];
-          if(vp->sector_limits[ix>>1]<idist||vp->sector_limits[ix>>1]==I32_MAX)
+	  if(vp->sector_limits[ix>>1]<idist||vp->sector_limits[ix>>1]==I32_MAX)
 	    vp->sector_limits[ix>>1]=idist;
 	  for(ty=0;ty!=2;ty++) {
 	    if(!ty)
@@ -677,7 +666,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    tyf=(ToF64(ih2)/ih)*(texture->height-2);
 	  }
 
-          wall_cmd=&cam->wall_commands[ix>>1][cam->wall_command_cnts[ix>>1]];
+	  wall_cmd=&cam->wall_commands[ix>>1][cam->wall_command_cnts[ix>>1]];
 	  wall_cmd->ld=ld;
 	  wall_cmd->end=0;
 	  wall_cmd->start=GR_HEIGHT;
@@ -701,9 +690,9 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    wall_cmd->start=MinI64(wall_cmd->start,iy+ih2);
 	    wall_cmd->end=MaxI64(wall_cmd->end,iy+ih2);
 	    if(floor==0)
-	     wall_cmd->end=GR_HEIGHT/2; //All the way down(we dont need to drawn benith the floor)
+	      wall_cmd->end=GR_HEIGHT/2; //All the way down(we dont need to drawn benith the floor)
 	    if(floor==2)
-	     wall_cmd->start=0; //All the way up(We dont need to draw past the ceiling)
+	      wall_cmd->start=0; //All the way up(We dont need to draw past the ceiling)
 	    ty=tyf;
 	    if(repeat)
 	      ty=ty%texture->height;
@@ -729,14 +718,14 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 skip_p:;
 	  }
         }
-	if(wall_cmd->start<wall_cmd->end&&(texture->flags&DCF_NO_TRANSPARENTS)) {
+        if(wall_cmd->start<wall_cmd->end&&(texture->flags&DCF_NO_TRANSPARENTS)) {
 	  if(tx=cam->wall_command_cnts[ix>>1]) {
 	    if(cam->wall_command_cnts[tx-1]!=*wall_cmd) { //CWallCommand is I64
-              cam->wall_command_cnts[ix>>1]++;
+	      cam->wall_command_cnts[ix>>1]++;
 	    }
 	  } else
-            cam->wall_command_cnts[ix>>1]++;
-	}
+	    cam->wall_command_cnts[ix>>1]++;
+        }
       }
       if(texture->flags&DCF_NO_TRANSPARENTS) {
         if(!is_sky) {

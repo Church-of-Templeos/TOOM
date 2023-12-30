@@ -21,7 +21,6 @@ CTask *doom_task=Fs;
 #define MUZZLE_FLASH_LIGHT 50
 extern U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage);
 extern CDoomThing **GetCrushedThingsInSector(CDoomLevel *l,CDoomSector *s);
-#define mp_cnt 1 //Reduces flickering
 U0 TallBlot(CDC *to,I64 x,I64 y,I64 h,CDC *from) {
   I64 i,w=from->width;
   if(x+from->width>to->width)
@@ -1615,6 +1614,12 @@ class CLiftThinker:CDoomThinkerBase {
 U0 LiftThinker(CDoomLevel *l,CLiftThinker *t) {
   CDoomSector *s=t->s;
   CDoomLift *action=t->action;
+//Maybe we were stoped?
+  if(!s->cur_action_linedef) {
+    QueRem(t);
+    Free(t);
+    return;
+  }
   CDoomLinedef *ld=t->ld;
   F64 dir;
   if(action->type=='Lift') {
@@ -1622,8 +1627,8 @@ U0 LiftThinker(CDoomLevel *l,CLiftThinker *t) {
       dir=Sign(t->target_end-t->target_start);
       s->floor_height=dir*t->speed*TIME_SCALE*(Server_tS-t->start_tS)+t->target_start;
       if(dir>0.) {
-	t->going_up=TRUE;
-        if(s->floor_height>t->target_end) {
+        t->going_up=TRUE;
+        if(s->floor_height>=t->target_end) {
 	  s->floor_height=t->target_end;
 lift_again:
 	  t->target_start=s->floor_height;
@@ -1633,14 +1638,14 @@ lift_again:
 	  t->going_up=!t->going_up;
         }
       } else if(dir<0.) {
-	t->going_up=FALSE;
-        if(s->floor_height<t->target_end) {
+        t->going_up=FALSE;
+        if(s->floor_height<=t->target_end) {
 	  s->floor_height=t->target_end;
 	  goto lift_again;
         }
       } else {
-	t->going_up=!t->going_up;
-	goto lift_again;
+        t->going_up=!t->going_up;
+        goto lift_again;
       }
     } else  {
       if(t->target_end>s->floor_height)
@@ -1659,28 +1664,28 @@ floor_defacto:
         s->floor_height=t->target_end;
         t->going_up=FALSE;
 floor_en:
-	  if(action->type=='Lift'&&!t->reverting) {
-	    if(!t->waiting) {
-	      t->waiting=TRUE;
-	      Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
-	      t->start_tS=Server_tS;
-	    }
-	    if(t->wait_time+t->start_tS>Server_tS||t->wait_time<0.) {
-	      return;
-	    }
-	    t->waiting=FALSE;
-	    t->start_tS=Server_tS;
-	    t->reverting=TRUE;
-	    t->target_start=s->floor_height;
-	    t->target_end=s->base_floor_height;
-	  } else {
-	    t->reverting=FALSE;
-	    s->cur_action_linedef=NULL;
-	    QueRem(t);
-	    Free(t);
-	    t->going_up=FALSE,t->going_down=FALSE;
+        if(action->type=='Lift'&&!t->reverting) {
+	  if(!t->waiting) {
+	    t->waiting=TRUE;
 	    Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
+	    t->start_tS=Server_tS;
 	  }
+	  if(t->wait_time+t->start_tS>Server_tS||t->wait_time<0.) {
+	    return;
+	  }
+	  t->waiting=FALSE;
+	  t->start_tS=Server_tS;
+	  t->reverting=TRUE;
+	  t->target_start=s->floor_height;
+	  t->target_end=s->base_floor_height;
+        } else {
+	  t->reverting=FALSE;
+	  s->cur_action_linedef=NULL;
+	  QueRem(t);
+	  Free(t);
+	  t->going_up=FALSE,t->going_down=FALSE;
+	  Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
+        }
       }
     } else if(t->going_down) {
       if(s->floor_height<=t->target_end) {
@@ -1696,7 +1701,13 @@ floor_en:
 U0 AddLiftThinker(CDoomLevel *l,F64 st,F64 en,
 	CDoomSector *s,CDoomLinedef *ld,
 	CDoomLift *action,Bool up) {
-  if(s->cur_action_linedef) return;
+  if(action->target==LIFT_STOP) {
+    s->cur_action_linedef=NULL;
+    return;
+  }
+  if(s->cur_action_linedef) {
+    return;
+  }
   s->cur_action_linedef=ld;
   CLiftThinker *t=AddThinker(l,&LiftThinker,"CLiftThinker");
   t->start_tS=Server_tS;
@@ -1818,7 +1829,6 @@ U0 AddDoorThinker(CDoomLevel *l,F64 st,F64 en,
   s->cur_action_linedef=ld;
   CDoorThinker *t=AddThinker(l,&DoorThinker,"CDoorThinker");
   t->start_tS=Server_tS;
-  s->cur_action_linedef=ld;
   t->target_start=st;
   t->target_end=st;
   t->speed=action->speed;
@@ -2078,11 +2088,11 @@ U0 TeleportThing(CDoomLevel *l,CDoomTeleporter *tp,I64 sector_tag,CDoomThing *wh
   CDoomSector *sec;
   static CDoomThingTemplate *teleport_fog=NULL;
   if(!teleport_fog) {
-     teleport_fog=CAlloc(sizeof CDoomThingTemplate);
+     UH("telefog",teleport_fog=CAlloc(sizeof CDoomThingTemplate));
      teleport_fog->spr_base_name[0](U32)='TFOG';
      teleport_fog->radius=20;
      teleport_fog->animation="ABABCDEFGHIJ";
-     teleport_fog->_animation=GenerateCacheFrames(teleport_fog,teleport_fog->animation);
+     UH("telefoganim",teleport_fog->_animation=GenerateCacheFrames(teleport_fog,teleport_fog->animation));
   }
   for(cur=l->things.next;cur!=&l->things;cur=cur->next) {
 //https://doomwiki.org/wiki/Teleporter
@@ -2500,8 +2510,9 @@ cactivate:
 lactivate1:
 	    if(ld->activated) return FALSE;
 lactivate:
-	    if(s->cur_action_linedef)
+	    if(!lift->monster&&(flags&WACTIVATE_MONSTER))
 	      return FALSE;
+//LIFT_STOP will remove the thinker in AddLiftThinker
 	    dst=GetTargetLiftHeight(s,lift->target);
 	    AddLiftThinker(l,s->floor_height,dst,s,ld,lift,dst>s->floor_height);
 	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
@@ -2576,6 +2587,8 @@ activate1:
 	    if(ld->activated) return 0;
 activate:
 	    if(s->cur_action_linedef)
+	      return FALSE;
+	    if(!door->monster&&(flags&WACTIVATE_MONSTER))
 	      return FALSE;
 //Check for keys
 	    if(!l->has_red_key&&(door->key&DOOR_LOCK_RED)) return 0;

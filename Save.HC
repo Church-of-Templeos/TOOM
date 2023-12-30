@@ -253,7 +253,8 @@ U0 SaveGame(U8 *filename,U8 *title) {
 	  cur(CDoomSector*)->ceil_height,
 	  cur(CDoomSector*)->cur_light_level
 	  );
-    DocPrint(doc,"%d,%d,%d\n",
+    DocPrint(doc,"%d,%d,%d,%d\n",
+	  GetLinedefIndex(l,cur(CDoomSector*)->cur_action_linedef),
 	  cur(CDoomSector*)->tx_changed,
 	  cur(CDoomSector*)->special_type,
 	  GetSectorIndex(l,cur(CDoomSector*)->changed_from_sector));
@@ -667,10 +668,12 @@ skip_thinker:;
 	        &sector->floor_height,
 	        &sector->ceil_height,
 	        &sector->cur_light_level);
-	  ptr=StrScan(ptr,"%d,%d,%d\n",
+	  ptr=StrScan(ptr,"%d,%d,%d,%d\n",
+		&i64,
 	        &texture_changed,
 	        &sector->special_type,
 	        &texture_src);
+	  sector->cur_action_linedef=GetNthLinedef(l,i64);
 	  if(texture_src!=-1&&texture_changed) {
 	    MemCpy(&sector->floor_dc,&(GetNthSector(l,texture_src)->floor_dc),8*4);
 	  }

@@ -6,9 +6,6 @@ U8 *UH(U8 *name,U8 *ptr) {
 }
 //This can be purged at across levels
 U8 *UH2(U8 *name,U8 *ptr) {
-  U8 buf[STR_LEN];
-  StrPrint(buf,"Unique2.%s",name);
-  FramePtrAdd(buf,ptr);
   return ptr;
 }
 U0 PurgeUH2() {

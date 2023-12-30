@@ -145,7 +145,7 @@ U32 light_mat[0x100][16];
 U32 LookupLighting(U16 dith,I64 light,F64 distance) {
 //Make 0x0102 into 0x12
   if(dith&0xff==TRANSPARENT)
-    return TRANSPARENT|TRANSPARENT<<8;
+    return 0xffffffff;//4 TRANSPARENTs
   light=light-distance*1/16.;
   if(light<15)
    light=15;

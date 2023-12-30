@@ -22,6 +22,17 @@ CTask *doom_task=Fs;
 extern U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage);
 extern CDoomThing **GetCrushedThingsInSector(CDoomLevel *l,CDoomSector *s);
 #define mp_cnt 1 //Reduces flickering
+U0 TallBlot(CDC *to,I64 x,I64 y,I64 h,CDC *from) {
+  I64 i,w=from->width;
+  if(x+from->width>to->width)
+    w=to->width-x;
+  U8 *src,*dst;
+  for(i=0;i<h;i++) {
+    dst=&to->body[x+(y+i)*to->width_internal];
+    src=&from->body[ToI64(i/ToF64(h)*from->height)*from->width_internal];
+    MemCpy(dst,src,w);
+  }
+}
 F64 ray_cast_table_cos[GR_WIDTH/2];
 F64 ray_cast_table_sin[GR_WIDTH/2];
 Bool paused = FALSE,gameExit=FALSE;
@@ -3572,8 +3583,7 @@ U0 AddCrushThinker(CDoomLevel *l,CDoomSector *s,CDoomCrusher *c) {
 U64 r;
 CDC *title=GetGrLump("TITLEPIC");
 while(TRUE) {
-  DCFill(,BLACK);
-  GrBlot(,0,0,title);
+  TallBlot(gr.dc,0,0,GR_HEIGHT,title);
   r=MainMenu;
   Refresh;
   if(!r) {

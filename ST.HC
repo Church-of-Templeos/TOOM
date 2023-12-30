@@ -268,11 +268,43 @@ U0 DrawNumber(CDoomPlayer *p, U32 x, U32 y, U16 weapon,Bool large,Bool percent=F
     GrBlot(doom_scrn,x,y,NUMPCT);
 }
 
+U0 BlotWithLighting(CDC *to,I64 x,I64 y,CDC *dc,F64 light=255) {
+  I64 w=dc->width>>1,h=dc->height>>1,i,i2;
+  U16 *src,*dst,*dst2;
+  I32 lighting;
+  for(i2=0;i2!=h;i2++) {
+    if(to->height>i2*2+y>=0) {
+      src=&dc->body[i2*2*dc->width_internal];
+      dst=&to->body[x+(i2<<1+y)*to->width_internal];
+      dst2=dst(U8*)+to->width_internal;
+      for(i=0;i!=w;i++) {
+        if(0<=x+i*2<to->width) {
+	  lighting=LookupLighting(*src,light,0);
+	  if(lighting&0xff!=TRANSPARENT) {
+	    *dst=lighting&0xffff;
+	    *dst2=lighting>>16;
+	  }
+        }
+	++dst;
+ 	++dst2;
+        src++;
+      }
+    }
+  }
+}
 
 U0 ST_refreshBackground(CDoomPlayer *p)
 {
   I64 idx,ix,iy;
   CDC *dc;
+  F64 add;
+  CDoomSector *s=GetSectorForCoord(l,p->x,p->y);
+
+  if(Server_tS<p->muzzle_flash_end_tS)
+    add=MUZZLE_FLASH_LIGHT;
+  else
+    add=0;
+
   if (st_statusbaron)
     {
 //
@@ -281,14 +313,14 @@ U0 ST_refreshBackground(CDoomPlayer *p)
     weapons.y=(200./480)*480-120;
     //TODO account for lighting
     if(dc=weapons.icon_dc)
-      GrBlot(doom_scrn,weapons.x+weapons.x_off-dc->x*2,
+      BlotWithLighting(doom_scrn,weapons.x+weapons.x_off-dc->x*2,
 	    weapons.y+weapons.y_off-dc->y*2,
-	    dc);//weapon
+	    dc,s->cur_light_level+add);//weapon
     if(dc=weapons.flash_dc)
-      GrBlot(doom_scrn,
+      BlotWithLighting(doom_scrn,
 	    weapons.x+weapons.flash_x_off+weapons.x_off-dc->x*2,
 	    weapons.y+weapons.y_off-dc->y*2,
-	    dc);
+	    dc,s->cur_light_level+add);
 
       //STATUSBAR
 

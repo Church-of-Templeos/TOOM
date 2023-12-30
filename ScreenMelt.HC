@@ -4,7 +4,7 @@ U0 ScreenMelt(CDC *to,CDC *new,CDC *old) {
   U16 *dst,*src;
   for(i=0;i!=w;i++) {
     if(!o)
-      o+=4;
+      o+=8;
     o+=8*Sign(Rand-.5);
     offsets[i]=o;
   }
@@ -13,6 +13,7 @@ U0 ScreenMelt(CDC *to,CDC *new,CDC *old) {
     continue=FALSE;
     for(i=0;i!=w;i++) {
       for(y=0;y<offsets[i];y+=2) {
+	if(y>=2+to->height) break;
 	src=&new->body[new->width*y+i*2];
         dst=&to->body[to->width*y+i*2];
 	*dst=*src;
@@ -34,4 +35,5 @@ U0 ScreenMelt(CDC *to,CDC *new,CDC *old) {
     }
     Refresh;
   }
+  Free(offsets);
 }

@@ -14,49 +14,6 @@ Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
   return PlaneIntersect(NULL,a,b,ld->start,ld->end);
 }
 
-
-CDoomSector *GetHighestSectorInRadius(CDoomLevel *l,F64 x,F64 y,F64 radius) {
-  I64 blockx,blocky,idx,xo,yo;
-  CDoomSector *highest=GetSectorForCoord(l,x,y);
-  CD2 points[5];
-  CDoomLinedef **lds,*ld ;
-  points[0].x=x-radius;
-  points[0].y=y-radius;
-  points[1].x=x+radius;
-  points[1].y=y-radius;
-  points[2].x=x+radius;
-  points[2].y=y+radius;
-  points[3].x=x-radius;
-  points[3].y=y+radius;
-  points[4].x=x-radius;
-  points[4].y=y-radius;
-  blockx=ToI64(x-l->block_map_x_off)/128;
-  blocky=ToI64(y-l->block_map_y_off)/128;
-  for(xo=-1;xo<=1;xo++)
-  for(yo=-1;yo<=1;yo++)
-  if(0<=blockx+xo<l->block_map_cols)
-    if(0<=blocky+yo<l->block_map_rows) {
-      lds=l->block_map_data+l->block_map_offsets[
-	    blockx+xo+
-	    (yo+blocky)*l->block_map_cols];
-      for(;*lds;lds++) {
-	ld=*lds;
-	for(idx=0;idx!=4;idx++) {
-	   if(PlaneIntersect(NULL,points+idx,points+idx+1,ld->start,ld->end)) {
-	     if(ld->front&&ld->front->sector->floor_height>highest->floor_height) {
-		highest=ld->front->sector;
-	     } else if(ld->back&&ld->back->sector->floor_height>highest->floor_height) {
-		highest=ld->back->sector;
-	     }
-	     break;
-	   }
-	}
-      }
-    }
-  return highest;
-}
-
-
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
 F64 DistFromLine(CD2 *p,CD2 *l1,CD2 *l2) {
   return Abs((l2->x-l1->x)*(l1->y-p->y)-(l2->y-l1->y)*(l1->x-p->x))/Sqrt(Sqr(l1->x-l2->x)+Sqr(l1->y-l2->y));
@@ -81,6 +38,35 @@ Bool CheckLineWithBox(CDoomLinedef *ld,CD2 *at,F64 radius) {
   return FALSE;
 }
 
+
+CDoomSector *GetHighestSectorInRadius(CDoomLevel *l,F64 x,F64 y,F64 radius) {
+  I64 blockx,blocky,idx,xo,yo;
+  CDoomSector *highest=GetSectorForCoord(l,x,y);
+  CD2 points[5],at;
+  at.x=x,at.y=y;
+  CDoomLinedef **lds,*ld ;
+  blockx=ToI64(x-l->block_map_x_off)/128;
+  blocky=ToI64(y-l->block_map_y_off)/128;
+  for(xo=-1;xo<=1;xo++)
+    for(yo=-1;yo<=1;yo++)
+      if(0<=blockx+xo<l->block_map_cols)
+        if(0<=blocky+yo<l->block_map_rows) {
+	  lds=l->block_map_data+l->block_map_offsets[
+	        blockx+xo+
+	        (yo+blocky)*l->block_map_cols];
+	  for(;*lds;lds++) {
+	    ld=*lds;
+	    if(CheckLineWithBox(ld,&at,radius))
+	      if(ld->front&&ld->front->sector->floor_height>highest->floor_height) {
+	        highest=ld->front->sector;
+	      } else if(ld->back&&ld->back->sector->floor_height>highest->floor_height) {
+	        highest=ld->back->sector;
+	      }
+	    break;
+	  }
+        }
+  return highest;
+}
 //Sort of from here
 //https://www.sevenson.com.au/programming/sat/
 Bool CloseToLine(CD2 *tip=NULL,CD2 *p1,CD2 *p2,CD2 *at,F64 radius) {
@@ -511,8 +497,8 @@ pass:
       if(!recur_depth)
         portion=odist;
       recur_depth++;
-      if(portion>.01)
-        SlideWalk(l,wall2,result,angle,radius,cur_height,portion*(1/(1.5+recur_depth)),exclude);
+      if(portion>.1)
+        SlideWalk(l,wall2,result,angle,radius,cur_height,portion*(1/(2.+recur_depth)),exclude);
       --recur_depth;
     }
   }

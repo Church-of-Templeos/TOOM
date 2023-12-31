@@ -99,7 +99,7 @@ class CDoomPlayer:CDoomThing {
 #define WEAPON_REFIRE 2
 #define WEAPON_PAUSE 3
   I64 weapon_state;
-  F64 weapon_cooldown,message_end_tS;
+  F64 weapon_cooldown,message_end_tS,light_goggles_time;
 } *p=NULL;
 
 //IMPORTANT
@@ -287,11 +287,23 @@ I64 F64Sort(F64 a,F64 b) {
   return 0;
 }
 
+F64 LightOffset() {
+  if(!p) return 0;
+  if(p->light_goggles_time>5) {
+    return 255.;
+  } else if(p->light_goggles_time) {
+    if(Blink)
+      return 255.;
+  }
+  if(Server_tS<p->muzzle_flash_end_tS)
+    return MUZZLE_FLASH_LIGHT;
+  return 0.;
+}
 
 U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
   if(!texture) return;
   if(GetFlatDC("F_SKY1")==texture) return;
-  F64 *intersects=MAlloc((sector->linedef_cnt+1)*8);
+  F64 *intersects=MAlloc(2*(sector->linedef_cnt+1)*8);
   Bool in_sector=GetSectorForCoord(l,cam->x,cam->y)==sector;
   I64 x,y;
   I64 plane=sector->visplane_idx;
@@ -305,6 +317,7 @@ U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *secto
   I64 wx,wy;
   F64 dist,angle;
   F64 cos2;
+  F64 wxf,wyf;
   U8 *already;
   CD2 ray,hit;
   CDoomLinedef*ld;
@@ -367,7 +380,7 @@ already_has:;
 //Reverse sorted
         from=intersects[idx];
         to=intersects[idx+1];
-	dir=-1;
+        dir=-1;
       } else{
 //Forward sorted
         from=intersects[idx];
@@ -375,9 +388,10 @@ already_has:;
         dir=1;
       }
       dist=DIST_SCALE/((ToF64(ToF64(to+from)/2.*2.)-GR_HEIGHT/2)/(cam->h-at));
-      wx=cam->x+(dist/cos2)*cos_table[x];
-      wy=cam->y+(dist/cos2)*sin_table[x];
-      if(GetSectorForCoord(l,wx,wy)!=sector) {
+      wxf=cam->x+(dist/cos2)*cos_table[x];
+      wyf=cam->y+(dist/cos2)*sin_table[x];
+      wx=wxf,wy=wyf;
+      if(GetSectorForCoord(l,wxf,wyf)!=sector) {
         goto next2;
       }
       for(y=from;(dir==1&&y<=to)||(dir==-1&&y>=to);y+=dir) {
@@ -425,10 +439,7 @@ already_has:;
 //wx<<1 multiples by 2,which means any number*2 is even
         floorx=(wx<<1)&127; //In doom flats are 64,(*2 for dither super pixel)
         floory=(wy<<1)&127;
-	if(Server_tS<p->muzzle_flash_end_tS)
-	  color=LookupLighting(texture->body[floorx+floory*128](U16),sector->cur_light_level+MUZZLE_FLASH_LIGHT,dist);
-	else
-          color=LookupLighting(texture->body[floorx+floory*128](U16),sector->cur_light_level,dist);
+        color=LookupLighting(texture->body[floorx+floory*128](U16),sector->cur_light_level+LightOffset,dist);
         *dst=color&0xffff;
         dst(U8*)+=to_dc->width_internal;
         *dst=color>>16;
@@ -463,8 +474,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
     light=MaxI64(light,ld->back->sector->cur_light_level);
   if(ld->back==sd&&ld->front)
     light=MaxI64(light,ld->front->sector->cur_light_level);
-  if(Server_tS<p->muzzle_flash_end_tS)
-    light+=MUZZLE_FLASH_LIGHT;
+  light+=LightOffset;
   CD2 clone_st,clone_en,zero;
   clone_st.x=st->x,clone_st.y=st->y;
   clone_en.x=en->x,clone_en.y=en->y;
@@ -842,10 +852,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *_
 	    from=&trans_pixel;
         }
         dst=&to_dc->body[GR_WIDTH-2-x+y*to_dc->width_internal];
-       if(Server_tS<p->muzzle_flash_end_tS)
-	  dither_px=LookupLighting(*from,light*ray_cast_table_cos[ix/2],dist);
-	else
-	  dither_px=LookupLighting(*from,light,dist);
+	dither_px=LookupLighting(*from,light,dist);
         if(from->u8[0]!=TRANSPARENT)
 	  *dst=dither_px&0xffff,*db_z=dist,db_z[1]=dist;
         dst(U8*)+=to_dc->width_internal;
@@ -900,7 +907,7 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
     if(thing->template==doom_thing_types[58]) { //Spectre
       PlotSpriteIn3DSpace(to_dc,thing->template->height,sprite,cam,&p,thing->height,reflect,TRUE,sec->cur_light_level); //TRUEfor transparent
     } else if(sprite)
-      PlotSpriteIn3DSpace(to_dc,thing->template->height,sprite,cam,&p,thing->height,reflect,,sec->cur_light_level);
+      PlotSpriteIn3DSpace(to_dc,thing->template->height,sprite,cam,&p,thing->height,reflect,,sec->cur_light_level+LightOffset);
   }
 }
 
@@ -2974,6 +2981,10 @@ rem:
 	    if(load->ammo!=orig)
 	      goto rem;
 	    break;
+	  case 2045:
+	    p->light_goggles_time=120*30;
+	    got_msg="Light Amplification Visor";
+	    goto rem;
           case 2026: //Computer map
 	    got_msg="Computer Area Map";
 	    l->has_map=TRUE;
@@ -3146,6 +3157,8 @@ U0 UpdateLevel(CDoomLevel *l) {
     p->rad_suit_time=Clamp(p->rad_suit_time-1/30.,0.,60.);
   if(p&&p->bezerk_time)
     p->bezerk_time=Clamp(p->bezerk_time-1/30.,0.,60.);
+  if(p&&p->light_goggles_time)
+    p->light_goggles_time=Clamp(p->light_goggles_time-1/30.,0.,60.);
 }
 
 

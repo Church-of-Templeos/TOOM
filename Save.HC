@@ -269,6 +269,7 @@ U0 SaveGame(U8 *filename,U8 *title) {
     DocPrint(doc,"%d\n",cur(CDoomLinedef *)->seen);
   }
   DocPrint(doc,"%d\n",l->has_map);
+  DocPrint(doc,"%n\n",p->light_goggles_time);
   DocWrite(doc);  
   DocDel(doc);
   Free(filename);
@@ -700,6 +701,10 @@ skip_thinker:;
       case 9:
         ptr=StrScan(ptr,"%d\n",&i64);
         l->has_map=i64;
+        state++;
+        break;
+      case 10:
+        ptr=StrScan(ptr,"%n\n",&p->light_goggles_time);
         state++;
         break;
       default:

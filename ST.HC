@@ -280,7 +280,7 @@ U0 BlotWithLighting(CDC *to,I64 x,I64 y,CDC *dc,F64 light=255) {
       dst2=dst(U8*)+to->width_internal;
       for(i=0;i!=w;i++) {
         if(0<=x+i*2<to->width) {
-	  lighting=LookupLighting(*src,light,0);
+	  lighting=LookupLighting(*src,light+LightOffset,0);
 	  if(lighting&0xff!=TRANSPARENT) {
 	    *dst=lighting&0xffff;
 	    *dst2=lighting>>16;

@@ -198,7 +198,7 @@ U0 DoomPrint(CDC *dc,I64 x,I64 y,U8 *fmt,...) {
         *StrFirstOcc(lump_name," ")='0';
       ch_dc=GetGrLump(lump_name);
       if(ch_dc) {
-        GrBlot(dc,x,y,ch_dc);
+        GrBlot(dc,x-ch_dc->x*2,y-ch_dc->y*2,ch_dc);
         x+=ch_dc->width;
       } else
 	x+=4*2;
@@ -404,6 +404,16 @@ U0 ST_refresh(CDoomPlayer *p)
 {
   if(p) weapons.state=p->weapon_state;
   ST_refreshBackground(p);
+  if(*p->message) {
+    DoomPrint(doom_scrn,4,5,p->message);
+    if(Server_tS>p->message_end_tS)
+      *p->message=0;
+  }
+}
+
+U0 ST_Message(CDoomPlayer *p,U8 *msg) {
+  StrCpy(p->message,msg);
+  p->message_end_tS=Server_tS+2.5;
 }
 
 U0 InitWidgets()

@@ -19,6 +19,7 @@ CTask *doom_task=Fs;
 #include "Thinker.HC";
 #include "Music.HC";
 #define MUZZLE_FLASH_LIGHT 50
+extern U0 ST_Message(U8*,U8*); //Frist is CDoomPlayer
 extern U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage);
 extern CDoomThing **GetCrushedThingsInSector(CDoomLevel *l,CDoomSector *s);
 U0 TallBlot(CDC *to,I64 x,I64 y,I64 h,CDC *from) {
@@ -90,14 +91,15 @@ class CDoomPlayer:CDoomThing {
 //When you die,the player stares at the thing that killed the player
   CDoomThing *stare_at;
   GunAvail arsenal[8];
-  Bool running,made_a_sound,has_backpack;
+  Bool running,made_a_sound,has_backpack,pad[5];
+  U8 message[STR_LEN];
 //Private
 #define WEAPON_IDLE 0
 #define WEAPON_FIRE 1
 #define WEAPON_REFIRE 2
 #define WEAPON_PAUSE 3
   I64 weapon_state;
-  F64 weapon_cooldown;
+  F64 weapon_cooldown,message_end_tS;
 } *p=NULL;
 
 //IMPORTANT
@@ -2235,7 +2237,7 @@ Bool _TriggerLinedef(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,I64 flags,CDo
   if(ld) {
     if((type=ld->special_type)) {
       if(type->type=='Light') {
-	light=type;
+        light=type;
         switch(light->trigger) {
 	    break;case 'P1':
 light_activate1:
@@ -2249,7 +2251,7 @@ light_activate:
 	      s->cur_light_level=LowestSurrondingLight(s);
 	    else if(light->target==LIGHT_MAX_NIEGHBOR)
 	      s->cur_light_level=HighestSurrondingLight(s);
-            else if(light->target==LIGHT_BLINK) {
+	    else if(light->target==LIGHT_BLINK) {
 	      if(ld->activated) return FALSE; //No need to add another thikner
 	      blink=AddThinker(l,&LightBlinkThinker,"CLightBlinkThinker");
 	      blink->on=FALSE;
@@ -2590,9 +2592,18 @@ activate:
 	    if(!door->monster&&(flags&WACTIVATE_MONSTER))
 	      return FALSE;
 //Check for keys
-	    if(!l->has_red_key&&(door->key&DOOR_LOCK_RED)) return 0;
-	    if(!l->has_blue_key&&(door->key&DOOR_LOCK_BLUE)) return 0;
-	    if(!l->has_yellow_key&&(door->key&DOOR_LOCK_YELLOW)) return 0;
+	    if(!l->has_red_key&&(door->key&DOOR_LOCK_RED)) {
+	      ST_Message(p,"You need a red key to open this door");
+	      return 0;
+	    }
+	    if(!l->has_blue_key&&(door->key&DOOR_LOCK_BLUE)) {
+	      ST_Message(p,"You need a blue key to open this door");
+	      return 0;
+	    }
+	    if(!l->has_yellow_key&&(door->key&DOOR_LOCK_YELLOW)) {
+	      ST_Message(p,"You need a yellow key to open this door");
+	      return 0;
+	    }
 //Do the door action
 	    switch(door->action) {
 	      case DOOR_ACTION_OPEN_WAIT_CLOSE:
@@ -2797,6 +2808,7 @@ U0 CheckPowerupPickup(CDoomLevel *l) {
   Bool change,new_gun=FALSE;
   I64 picked_up_gun=-1;
   I64 orig;
+  U8 *got_msg=NULL;
   for(t=head->next;t!=head;t=next) {
     next=t->next;
     if(SqrI64(2*t->template->radius)>=SqrI64(p->x-t->x)+SqrI64(p->y-t->y)) {
@@ -2805,6 +2817,7 @@ U0 CheckPowerupPickup(CDoomLevel *l) {
 	    new_gun=!p->arsenal[7].available;
 	    p->arsenal[7].available=TRUE;
 	    picked_up_gun=7;
+	    got_msg="You got the BFG9000!  Oh, yes.";
 cell:
 	    load=p->arsenal[6].load;
 	    orig=load->ammo;
@@ -2815,6 +2828,8 @@ cell:
 	    load->ammo=ClampI64(load->ammo,0,maxCells);
 	    if(load->ammo!=orig||new_gun) {
 rem:
+	      if(got_msg)
+		ST_Message(p,got_msg);
 	      p->pickup_amt+=6;
 	      if(t->template->flags&TF_ARTIFACT)
 	        l->stats.have_items++;
@@ -2823,6 +2838,7 @@ rem:
 	    }
 	    break;
 	  case 2002: //Chaingun
+	    got_msg="You got the chaingun!";
 	    new_gun=!p->arsenal[3].available;
 	    load=p->arsenal[3].load;
 	    p->arsenal[3].available=TRUE;
@@ -2837,18 +2853,21 @@ rem:
 	      goto rem;
 	    break;
 	  case 2005: //Chainsaw
+	    got_msg="A chainsaw!  Find some meat!";
 	    new_gun=!p->arsenal[5].available;
 	    picked_up_gun=5;
 	    p->arsenal[5].available=TRUE;
 	    if(new_gun)
 	      goto rem;
 	  case 2004: //Plasma gun
+	    got_msg="You got the plasma gun!";
 	    new_gun=!p->arsenal[6].available;
 	    picked_up_gun=6;
 	    load=p->arsenal[6].load;
 	    p->arsenal[6].available=TRUE;
 	    goto cell;
 	  case 2003: //Rocket luancher
+	    got_msg="You got the rocket launcher!";
 	    picked_up_gun=4;
 	    new_gun=!p->arsenal[4].available;
 	    load=p->arsenal[4].load;
@@ -2864,6 +2883,7 @@ rem:
 	    break;
 	  case 2001: //Shutgun
 	    picked_up_gun=2;
+	    got_msg="You got the shotgun!";
 	    new_gun=!p->arsenal[2].available;
 	    load=p->arsenal[2].load;
 	    p->arsenal[2].available=TRUE;
@@ -2877,6 +2897,7 @@ rem:
 	      goto rem;
 	    break;
 	  case 2008: //4 shells
+	    got_msg="Picked up 4 shotgun shells.";
 	    load=p->arsenal[2].load;
 	    orig=load->ammo;
 	    load->ammo+=4;
@@ -2886,6 +2907,7 @@ rem:
 	    break;
 	  case 2048: //Box of bullets
 	    load=p->arsenal[1].load;
+	    got_msg="Picked up a box of bullets.";
 	    orig=load->ammo;
 	    if(l->skill==0||l->skill==5)
 	      load->ammo+=100;
@@ -2896,6 +2918,7 @@ rem:
 	      goto rem;
 	    break;
 	  case 2046: //Box of rockets
+	    got_msg="Picked up a box of rockets.";
 	    load=p->arsenal[4].load;
 	    orig=load->ammo;
 	    if(l->skill==0||l->skill==5)
@@ -2907,6 +2930,7 @@ rem:
 	      goto rem;
 	    break;
 	  case 2049: //Box of shotfgu
+ 	    got_msg="Picked up a box of shotgun shells.";
 	    load=p->arsenal[2].load;
 	    orig=load->ammo;
 	    if(l->skill==0||l->skill==5)
@@ -2918,6 +2942,7 @@ rem:
 	      goto rem;
 	    break;
 	  case 2007: //clip
+	    got_msg="Picked up a clip.";
 	    load=p->arsenal[1].load;
 	    orig=load->ammo;
 	    if(l->skill==0||l->skill==5)
@@ -2929,8 +2954,10 @@ rem:
 	      goto rem;
 	    break;
 	  case 2047: //Energy cell
+	    got_msg="Picked up an energy cell.";
 	    goto cell;
 	  case 17: //Energy cell pack
+	    got_msg="Picked up an energy cell pack.";
 	    load=p->arsenal[6].load;
 	    orig=load->ammo;
 	    load->ammo+=20;
@@ -2939,6 +2966,7 @@ rem:
 	      goto rem;
 	    break;
 	  case 2010: //Rocket
+	    got_msg="Picked up a rocket.";
 	    load=p->arsenal[4].load;
 	    orig=load->ammo;
 	    load->ammo+=1;
@@ -2947,6 +2975,7 @@ rem:
 	      goto rem;
 	    break;
           case 2026: //Computer map
+	    got_msg="Computer Area Map";
 	    l->has_map=TRUE;
 	    goto rem;
 	  case 8: //Backpack
@@ -2970,76 +2999,93 @@ rem:
 	    //1 rocket
 	    load=p->arsenal[4].load;
 	    load->ammo=ClampI64(load->ammo+1,0,maxRockets);
+	    got_msg="Picked up a backpack full of ammo!";
 	    goto rem;
 	    //Yeah homie,we bout to get some power ups
 	  case 2015:
+	    got_msg="Picked up an armor bonus.";
 	    orig=p->armor;
 	    p->armor=ClampI64(p->armor+1,0,200);
 	    if(orig!=p->armor)
 	      goto rem;
 	    break;
 	  case 2014:
+	    got_msg="Picked up an health bonus.";
 	    orig=p->health;
 	    p->health=ClampI64(p->health+1,0,200);
 	    if(orig!=p->health)
 	      goto rem;
 	    break;
 	  case 83: //Megasphere
+	    got_msg="MegaSphere!";
 	    p->health=200;
 	    p->armor=200;
 	    goto rem;
 	  case 2013: //Supercharge
+	    got_msg="Supercharge!";
 	    orig=p->health;
 	    p->health=ClampI64(p->health+100,0,200);
 	    if(orig!=p->health)
 	      goto rem;
 	    break;
 	  case 2018: //de-facto Armor
+	    got_msg="Picked up the armor.";
 	    if(p->armor>=100)
 	      break;
 	    p->armor=100.;
 	    goto rem;
 	  case 2019: //megarmor
+	    got_msg="Picked up the MegaArmor!";
 	    if(p->armor>=200)
 	      break;
 	    p->armor=200.;
 	    goto rem;
 	  case 2012:
+	    got_msg="Picked up a medikit.";
 	    if(p->health>=100)
 	      break;
 	    p->health=ClampI64(p->health+25,0,100);
 	    goto rem;
 	  case 2011:
+	    got_msg="Picked up a stimpack.";
 	    if(p->health>=100)
 	      break;
 	    p->health=ClampI64(p->health+10,0,100);
 	    goto rem;
 	  case 2023:
+	    got_msg="Berserk!";
 	    p->bezerk_time=30*30; //assumes 30 ticks a motherfuckin second
 	    if(p->health<100.)
 	      p->health=100.;
             SwapWeapon(p,0);
 	    goto rem;
 	  case 2025: //Radiuation suit
+	    got_msg="Radiation Shielding Suit";
 	    p->rad_suit_time=60*30; //assumes 30 ticks a motherfuckin second
 	    goto rem;
 //Keys
 	  case 5: //BLue keycard
+	    got_msg="Picked up a blue keycard.";
 	    l->has_blue_key=TRUE;
 	    goto rem;
 	  case 40: //BLue skull key
+	    got_msg="Picked up a blue skull key.";
 	    l->has_blue_key=TRUE;
 	    goto rem;
 	  case 38: //Red skull key
+	    got_msg="Picked up a red skull key.";
 	    l->has_red_key=TRUE;
 	    goto rem;
 	  case 13: //Red keycard
+	    got_msg="Picked up a red keycard.";
 	    l->has_red_key=TRUE;
 	    goto rem;
 	  case 39: //Yellow skull key
+	    got_msg="Picked up a yellow skull key.";
 	    l->has_yellow_key=TRUE;
 	    goto rem;
 	  case 6: //Yellow keycard
+	    got_msg="Picked up a yellow keycard.";
 	    l->has_yellow_key=TRUE;
 	    goto rem;
       }

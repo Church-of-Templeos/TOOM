@@ -3552,7 +3552,7 @@ U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
   }
   if(t->going_up) {
     tar_dst=s->base_ceil_height;
-    s->ceil_height+=t->base_speed/35.;
+    s->ceil_height+=t->base_speed;
     if(s->ceil_height>=tar_dst) {
       s->ceil_height=tar_dst;
       t->going_up=FALSE;
@@ -3561,7 +3561,7 @@ U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
     tar_dst=s->base_floor_height+8;
 //Slow crushers will slow down by /8
     if(*crushed&&t->base_speed<=DOOR_SPEED_SLOW) {
-      s->ceil_height-=t->base_speed;
+      s->ceil_height-=t->base_speed;
     } else
       s->ceil_height-=t->base_speed;
     if(s->ceil_height<=tar_dst) {

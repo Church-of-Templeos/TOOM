@@ -1033,7 +1033,7 @@ skip_thing:
 	  arr=dside->lower_texture;
 	  MemCpy(name,wside->lower_texture_name,8);
       }
-      Upper8(name);
+      Upper8(name);
       if(!StrNCmp(name,"BLODGR1",5)) {
         arr[0]=TextureName2DC("BLODGR1");
         arr[1]=TextureName2DC("BLODGR2");

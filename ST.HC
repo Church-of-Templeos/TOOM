@@ -272,6 +272,7 @@ U0 BlotWithLighting(CDC *to,I64 x,I64 y,CDC *dc,F64 light=255) {
   I64 w=dc->width>>1,h=dc->height>>1,i,i2;
   U16 *src,*dst,*dst2;
   I32 lighting;
+  x&=~1;
   for(i2=0;i2!=h;i2++) {
     if(to->height>i2*2+y>=0) {
       src=&dc->body[i2*2*dc->width_internal];

@@ -3018,6 +3018,7 @@ rem:
 	    p->bezerk_time=30*30; //assumes 30 ticks a motherfuckin second
 	    if(p->health<100.)
 	      p->health=100.;
+            SwapWeapon(p,0);
 	    goto rem;
 	  case 2025: //Radiuation suit
 	    p->rad_suit_time=60*30; //assumes 30 ticks a motherfuckin second
@@ -3548,6 +3549,7 @@ U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
   if(!s->cur_action_linedef) {
     QueRem(t);
     Free(t);
+    Free(crushed);
     return;
   }
   if(t->going_up) {

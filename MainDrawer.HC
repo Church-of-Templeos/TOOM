@@ -473,7 +473,6 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   en=&clone_en;
   F64 start_angle=FArg(st->x,st->y);
   F64 end_angle=FArg(en->x,en->y),tmp,tyf;
-  F64 margin;
   CD2 ray,hit,*sw;
   I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex,dir,skip;
   CVisplane *vp;
@@ -682,7 +681,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	      }
 	    }
 	    if((skip=IsBlockedByWall(cam,ix,iy+ih2,idist))>2) {
-	      tyf+=2*ratio*(skip-2); //*2 for dither super pixel
+	      tyf+=2*ratio*(skip-2); // *2 for dither super pixel
 	      ih2+=skip-2;
 	      goto skip_p;
 	    }
@@ -3562,9 +3561,9 @@ U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
     tar_dst=s->base_floor_height+8;
 //Slow crushers will slow down by /8
     if(*crushed&&t->base_speed<=DOOR_SPEED_SLOW) {
-      s->ceil_height-=t->base_speed/35.;
+      s->ceil_height-=t->base_speed;
     } else
-      s->ceil_height-=t->base_speed/35.;
+      s->ceil_height-=t->base_speed;
     if(s->ceil_height<=tar_dst) {
       s->ceil_height=tar_dst;
       t->going_up=TRUE;
@@ -3583,6 +3582,7 @@ U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
 U0 AddCrushThinker(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld) {
   if(s->cur_action_linedef) return;
   CCrushThinker *t=AddThinker(l,&CrushThinker,"CCrushThinker");
+  s->cur_action_linedef=ld;
   CDoomCrusher *c=ld->special_type);
   t->base_speed=c->speed;
   t->s=s;

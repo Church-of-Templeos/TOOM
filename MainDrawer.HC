@@ -478,19 +478,25 @@ PopulateTables;
 //floor is 1 for middle
 //floor is 2 for ceil
 //floor is 3 if visplane only
-U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd) {
+U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd,Bool same_side) {
   I64 light=sd->sector->cur_light_level;
   if(ld->front==sd&&ld->back)
     light=MaxI64(light,ld->back->sector->cur_light_level);
   if(ld->back==sd&&ld->front)
     light=MaxI64(light,ld->front->sector->cur_light_level);
   light+=LightOffset;
-  CD2 clone_st,clone_en,zero;
+  CD2 clone_st,clone_en,zero,clone_ld_st,clone_ld_en;
   clone_st.x=st->x,clone_st.y=st->y;
   clone_en.x=en->x,clone_en.y=en->y;
+  clone_ld_st.x=ld->start->x;
+  clone_ld_st.y=ld->start->y;
+  clone_ld_en.x=ld->end->x;
+  clone_ld_en.y=ld->end->y;
   zero.x=0.,zero.y=0.;
   TransformPointToCamera(cam,&clone_st);
   TransformPointToCamera(cam,&clone_en);
+  TransformPointToCamera(cam,&clone_ld_st);
+  TransformPointToCamera(cam,&clone_ld_en);
   st=&clone_st;
   en=&clone_en;
   F64 start_angle=FArg(st->x,st->y);
@@ -559,7 +565,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       if(dist<=0.) dist=1;
       if(cam->wall_depths[ix>>1]<idist)
         goto next;
-      tx=(ToI64(Sqrt(Sqr(hit.x-st->x)+Sqr(hit.y-st->y)))*2+xoff*2)%texture->width;
+      tx=ToI64(Sqrt(Sqr(hit.x-clone_ld_st.x)+Sqr(hit.y-clone_ld_st.y)))*2+xoff*2;
       iy=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-(height+level))+GR_HEIGHT/2;
       ih=(DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-level)+GR_HEIGHT/2)-iy;
       if(ih&1) ih++;
@@ -655,7 +661,10 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    ih2-=2;
 	  }
         } else {
-	  tx=ClampI64(AbsI64(tx),0,texture->width-2);
+          tx%=texture->width;
+	  if(tx<0)
+	     tx+=texture->width;
+	  tx=ClampI64(tx,0,texture->width-2);
 	  tx&=~1;
 	  low_ih=MaxI64(cam->ceil_heights[ix>>1]-iy,0);
 	  ih2=low_ih;
@@ -782,6 +791,7 @@ class CRayJobData:CJobRunnerData {
   I64 level,height,flrh,ceilh,floor;
   CDoomLinedef *ld;
   CDoomSidedef *sd;
+  Bool same_side;
 };
 U0 RayCastJob(CRayJobData *data) {
   RayCastWall(
@@ -792,11 +802,12 @@ U0 RayCastJob(CRayJobData *data) {
 	data->ceilh,
 	data->floor,
 	data->ld,
-	data->sd
+	data->sd,
+	data->same_side
 	);
   Free(data);
 }
-U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd) {
+U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd,Bool same_side) {
   CRayJobData *j=CAlloc(sizeof(CRayJobData),adam_task);
   j->to_dc=to_dc;
   j->texture=texture;
@@ -811,6 +822,7 @@ U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 le
   j->ld=ld;
   j->sd=sd;
   j->fptr=&RayCastJob;
+  j->same_side=same_side;
   RayCastJob(j);
 }
 U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *_p,F64 level,Bool reflect=FALSE,Bool transparent=FALSE,I64 light=255) {
@@ -1040,15 +1052,15 @@ draw_wall:
 	    }
 	    if(!no_draw) {
 	      if(seg->back_side)
-	        QueRayCastJob(to_dc,texture,seg->end,seg->start,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef);
+	        QueRayCastJob(to_dc,texture,seg->end,seg->start,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,TRUE);
 	      else
-	        QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef);
+	        QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,FALSE);
 	      if(wall==3&&opposite&&opposite->sector) {
 	        sector=opposite->sector;
 	        sidedef=opposite;
 	        floor=sector->floor_height;
 	        ceil=sector->ceil_height;
-	        QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,opposite);
+	        QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,opposite,FALSE);
 	      }
 	    }
 	  }

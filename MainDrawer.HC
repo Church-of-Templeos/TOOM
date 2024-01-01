@@ -328,6 +328,7 @@ U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *secto
   F64 dist,angle;
   F64 cos2;
   F64 wxf,wyf;
+  F64 light=sector->cur_light_level+LightOffset;
   U8 *already;
   CD2 ray,hit;
   CDoomLinedef*ld;
@@ -405,6 +406,9 @@ already_has:;
         goto next2;
       }
       for(y=from;(dir==1&&y<=to)||(dir==-1&&y>=to);y+=dir) {
+        already=cam->floor_dc->body+y*cam->floor_dc->width_internal+x;
+        if(*already)
+	  goto next;
         if(y<0) {
 	  y=0-dir;
 	  if(dir==-1)
@@ -420,36 +424,23 @@ already_has:;
         dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at));
         idist=dist;
         db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
-        already=cam->floor_dc->body+y*cam->floor_dc->width_internal+x;
-        if(!floor) {
-	  if(skip=IsBlockedByWall(cam,x*2,y*2,idist)) {
-	    y+=skip>>1-1;
-	    goto next;
-	  }
-        } else {
-	  if(skip=IsBlockedByWallReverse(cam,x*2,y*2,idist)) {
-	    y-=skip>>1+1;
-	    goto next;
-	  }
-        }
-        if(*already)
-	  goto next;
         if(idist>*db_z)
 	  goto next;
+	//Heres the deal. The dither pixels are always aligned to 2 mofo.
+	//So that means I can write an I64 as two I32s into the depth buffer mofo at once
+	idist|=idist<<32;
+        db_z[0](I64)=idist;
+        db_z+=to_dc->width_internal;
+        db_z[0](I64)=idist;
+//End of legendary code
         wx=cam->x+(dist/cos2)*cos_table[x];
         wy=cam->y+(dist/cos2)*sin_table[x];
         dst=&to_dc->body[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
         *already=TRUE;
-        db_z[0]=idist;
-        db_z[1]=idist;
-        db_z+=to_dc->width_internal;
-        db_z[0]=idist;
-        db_z[1]=idist;
-        db_z-=to_dc->width_internal;
 //wx<<1 multiples by 2,which means any number*2 is even
         floorx=(wx<<1)&127; //In doom flats are 64,(*2 for dither super pixel)
         floory=(wy<<1)&127;
-        color=LookupLighting(texture->body[floorx+floory*128](U16),sector->cur_light_level+LightOffset,dist,god_mode);
+        color=LookupLighting(texture->body[floorx+floory*128](U16),light,dist,god_mode);
         *dst=color&0xffff;
         dst(U8*)+=to_dc->width_internal;
         *dst=color>>16;

@@ -273,6 +273,7 @@ U0 BlotWithLighting(CDC *to,I64 x,I64 y,CDC *dc,F64 light=255) {
   U16 *src,*dst,*dst2;
   I32 lighting;
   Bool god_mode=GodModeFilter;
+  light+=LightOffset;
   x&=~1;
   for(i2=0;i2!=h;i2++) {
     if(to->height>i2*2+y>=0) {
@@ -281,7 +282,7 @@ U0 BlotWithLighting(CDC *to,I64 x,I64 y,CDC *dc,F64 light=255) {
       dst2=dst(U8*)+to->width_internal;
       for(i=0;i!=w;i++) {
         if(0<=x+i*2<to->width) {
-	  lighting=LookupLighting(*src,light+LightOffset,0.,god_mode);
+	  lighting=LookupLighting(*src,light,0.,god_mode);
 	  if(lighting&0xff!=TRANSPARENT) {
 	    *dst=lighting&0xffff;
 	    *dst2=lighting>>16;

@@ -1272,20 +1272,6 @@ U0 LoadMonsterInfo() {
   StrCpy(p->spr_base_name,"BAL2");
   UH("kakoboogeridle",p->animation=p->_idle_frames=GenerateCacheFrames(p,"AB"));
   UH("kakoboogerhit",p->_hit_frames=GenerateCacheFrames(p,"CDE"));
-//Cyber demon
-  t=doom_thing_types[0x10];
-  t->pain_time=1/35.*4;
-  t->reaction_time=1/35.*10;
-  t->health=4000.;
-  t->speed=16.;
-  t->mass=1000;
-  t->pain_chance=20./255;
-  UH("cyberhit",t->_idle_frames=GenerateCacheFrames(t,"AB"));
-  UH("cyberchase",t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD"));
-  UH("cybermele",t->_melee_frames=GenerateCacheFrames(t,"EFEFEF"));
-  UH("cuberatk",t->_attack_frames=GenerateCacheFrames(t,"EFEFEF"));
-  UH("cyberhurt",t->_hurt_frames=GenerateCacheFrames(t,"G"));
-  UH("cyberdie",t->_dying_frames=GenerateCacheFrames(t,"HIJKLMNOPP"));
 //Rocket
   UH("rocket",rocket=CAlloc(sizeof CDoomProjectileTemplate));
   p=rocket;
@@ -1437,20 +1423,19 @@ U0 LoadMonsterInfo() {
   t->pain_chance=20./255;
   UH("cyberidle",t->_idle_frames=GenerateCacheFrames(t,"AB"));
   UH("cyberchase",t->_chase_frames=GenerateCacheFrames(t,"AABBCCDD"));
-  UH("cyberattack",t->_attack_frames=GenerateCacheFrames(t,"EFEFEF"));
+  UH("cyberattack",t->_attack_frames=GenerateCacheFrames(t,"EF"));
   UH("cyberhurt",t->_hurt_frames=GenerateCacheFrames(t,"G"));
   UH("cyberdying",t->_dying_frames=GenerateCacheFrames(t,"HIJKLMNOPP"));
   AddState(t->spawn_state="CYBER.STND",10,t->_idle_frames,&Look,"CYBER.STND");
-  AddState(t->see_state="CYBER.RUN1",3,t->_chase_frames,&Hoof,"CYBER.RUN2");
-  AddState("CYBER.RUN2",STATE_UNTIL_ANIM_DONE,t->_chase_frames,&Chase,"CYBER.RUN3");
-  AddState("CYBER.RUN3",STATE_UNTIL_ANIM_DONE,t->_chase_frames,&Chase,"CYBER.RUN4");
-  AddState("CYBER.RUN4",3,t->_chase_frames,&Metal,"CYBER.RUN1");
-  AddState("CYBER.RUN1",STATE_UNTIL_ANIM_DONE,t->_chase_frames,&Chase,"CYBER.RUN4");
+  AddState(t->see_state="CYBER.RUN1",0,t->_chase_frames,&Hoof,"CYBER.RUN2");
+  AddState("CYBER.RUN2",0,t->_chase_frames,&Chase,"CYBER.RUN3");
+  AddState("CYBER.RUN3",0,t->_chase_frames,&Chase,"CYBER.RUN4");
+  AddState("CYBER.RUN4",0,t->_chase_frames,&Metal,"CYBER.RUN1");
   AddState(t->missile_state="CYBER.ATK1",3,t->_chase_frames,&FaceTarget,"CYBER.ATK2");
   AddState("CYBER.ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&CyberAttack,"CYBER.ATK3");
-  AddState("CYBER.ATK3",3,t->_attack_frames,&FaceTarget,"CYBER.ATK4");
+  AddState("CYBER.ATK3",0,t->_attack_frames,&FaceTarget,"CYBER.ATK4");
   AddState("CYBER.ATK4",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&CyberAttack,"CYBER.ATK5");
-  AddState("CYBER.ATK5",3,t->_attack_frames,&FaceTarget,"CYBER.ATK6");
+  AddState("CYBER.ATK5",0,t->_attack_frames,&FaceTarget,"CYBER.ATK6");
   AddState("CYBER.ATK6",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&CyberAttack,"CYBER.RUN1");
   AddState(t->death_state="CYBER.DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
   AddState(t->pain_state="CYBER.PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"CYBER.RUN1");

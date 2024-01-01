@@ -1444,7 +1444,7 @@ U0 LoadMonsterInfo() {
   AddState("CYBER.ATK4",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&CyberAttack,"CYBER.ATK5");
   AddState("CYBER.ATK5",0,t->_attack_frames,&FaceTarget,"CYBER.ATK6");
   AddState("CYBER.ATK6",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&CyberAttack,"CYBER.RUN1");
-  AddState(t->death_state="CYBER.DIE",STATE_NO_REPEAT,t->_dying_frames,&BossDeath,"CYBER.DIE2");
+  AddState(t->death_state="CYBER.DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"CYBER.DIE2");
   AddState("CYBER.DIE2",0,t->_dying_frames,&BossDeath,"ST_NULL");
   AddState(t->pain_state="CYBER.PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"CYBER.RUN1");
 };

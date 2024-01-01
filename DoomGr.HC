@@ -141,8 +141,9 @@ CRGB *LoadPLAYPALFromLump(U8 *lump) {
   doom_palette_dithered=DitherPalette(ret);
   return ret;
 }
+U32 godmode_mat[0x100];
 U32 light_mat[0x100][16];
-U32 LookupLighting(U16 dith,I64 light,F64 distance) {
+U32 LookupLighting(U16 dith,I64 light,F64 distance,Bool god_mode=FALSE) {
 //Make 0x0102 into 0x12
   if(dith&0xff==TRANSPARENT)
     return 0xffffffff;//4 TRANSPARENTs
@@ -152,9 +153,51 @@ U32 LookupLighting(U16 dith,I64 light,F64 distance) {
   else if(light>255)
    light=255;
   dith=(dith&0xf)|(dith>>(8-4));
-//  if(light>=144)
-//    return light_mat[dith][7]; //Assume fullbright due to TempleOS palette
+  if(god_mode)
+    return godmode_mat[dith];
   return light_mat[dith][light>>4]; //>>5 is divide by 16 (256/16==16)
+}
+U0 InitGodmodeTable() {
+  CBGR48 pal[16],dimmed,raw_color;
+  F64 best_dist,cur_dist;
+  GrPaletteGet(pal);
+  static I64 gray[4]={LTGRAY,DKGRAY,BLACK,WHITE};
+  I64 ix,ix2,best_color,c1,c2,iy;
+  for(iy=0;iy!=0x100;iy++) {
+    raw_color.r=ToF64(pal[iy&0xf].r+pal[iy>>4].r)/2.;
+    raw_color.g=ToF64(pal[iy&0xf].g+pal[iy>>4].g)/2.;
+    raw_color.b=ToF64(pal[iy&0xf].b+pal[iy>>4].b)/2.;
+        best_dist=I16_MAX;
+        best_color=0;
+    for(ix=0;ix!=4;ix++) {
+      for(ix2=0;ix2!=4;ix2++) {
+        c1=gray[ix];
+        c2=gray[ix2];
+        dimmed.r=ToF64(pal[c1].r+pal[c2].r)/2.;
+        dimmed.g=ToF64(pal[c1].g+pal[c2].g)/2.;
+        dimmed.b=ToF64(pal[c1].b+pal[c2].b)/2.;
+//"Invert" the colros
+	dimmed.r=U16_MAX-dimmed.r;
+	dimmed.g=U16_MAX-dimmed.g;
+	dimmed.b=U16_MAX-dimmed.b;
+        cur_dist=Sqrt(Sqr(dimmed.r-raw_color.r)+
+	      Sqr(dimmed.g-raw_color.g)+
+	      Sqr(dimmed.b-raw_color.b));
+//Pick the most opposite color as the palette is inverse
+        if(cur_dist<best_dist) {
+	  best_dist=cur_dist;
+	  best_color=c1|c2<<4;
+        }
+      }
+    }
+    ix=iy&0xf;
+    ix2=iy>>4;
+//Swap the pixels as .u16[1] is the 2nd "dither" pixel
+    godmode_mat[ix<<4|ix2].u8[0]=best_color&0xf;
+    godmode_mat[ix<<4|ix2].u8[1]=best_color>>4;
+    godmode_mat[ix<<4|ix2].u8[2]=best_color>>4;
+    godmode_mat[ix<<4|ix2].u8[3]=best_color&0xf;
+  }
 }
 U0 InitLightTable() {
   CBGR48 pal[16],dimmed,raw_color;
@@ -198,3 +241,4 @@ U0 InitLightTable() {
   }
 }
 InitLightTable;
+InitGodmodeTable;

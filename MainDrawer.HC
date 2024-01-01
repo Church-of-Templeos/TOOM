@@ -99,7 +99,7 @@ class CDoomPlayer:CDoomThing {
 #define WEAPON_REFIRE 2
 #define WEAPON_PAUSE 3
   I64 weapon_state;
-  F64 weapon_cooldown,message_end_tS,light_goggles_time;
+  F64 weapon_cooldown,message_end_tS,light_goggles_time,invincible_time;
 } *p=NULL;
 
 //IMPORTANT
@@ -300,11 +300,21 @@ F64 LightOffset() {
   return 0.;
 }
 
+Bool GodModeFilter() {
+  if(!p) return FALSE;
+  if(p->invincible_time>3.)
+     return TRUE;
+  else if(p->invincible_time>0.)
+    return Blink;
+  return FALSE;
+}
+
 U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
   if(!texture) return;
   if(GetFlatDC("F_SKY1")==texture) return;
   F64 *intersects=MAlloc(2*(sector->linedef_cnt+1)*8);
   Bool in_sector=GetSectorForCoord(l,cam->x,cam->y)==sector;
+  Bool god_mode=GodModeFilter;
   I64 x,y;
   I64 plane=sector->visplane_idx;
   I64 floorx,floory;
@@ -439,7 +449,7 @@ already_has:;
 //wx<<1 multiples by 2,which means any number*2 is even
         floorx=(wx<<1)&127; //In doom flats are 64,(*2 for dither super pixel)
         floory=(wy<<1)&127;
-        color=LookupLighting(texture->body[floorx+floory*128](U16),sector->cur_light_level+LightOffset,dist);
+        color=LookupLighting(texture->body[floorx+floory*128](U16),sector->cur_light_level+LightOffset,dist,god_mode);
         *dst=color&0xffff;
         dst(U8*)+=to_dc->width_internal;
         *dst=color>>16;
@@ -494,6 +504,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   F64 dist,ratio;
   Bool repeat=FALSE,onesided=ld->front^^ld->back;
   Bool is_sky=FALSE,is_sky2=FALSE,clipped=FALSE,recompute_ty;
+  Bool god_mode=GodModeFilter;
   I64 low_ih,high_ih;
   CDoomSidedef *opposite;
   U16 *color,*to;
@@ -710,7 +721,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    ty=ClampI64(ty,0,texture->height-2);
 	    ty&=~1;
 	    color=texture->body[tx+ty*texture->width_internal](U16);
-	    dither_px=LookupLighting(color,light,dist);
+	    dither_px=LookupLighting(color,light,dist,god_mode);
 	    to=&to_dc->body[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
 	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
 	    if(*db_z>idist) {
@@ -810,6 +821,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *_
   U16 *from,*dst,black=BLACK|BLACK<<8,trans_pixel=TRANSPARENT|TRANSPARENT<<8;
   U32 dither_px;
   I32 *db_z;
+  Bool god_mode=GodModeFilter;
   copy.x=_p->x,copy.y=_p->y;
   copy2.x=_p->x,copy2.y=_p->y;
   if(!ClipLineToScrenCoords(cam,&copy,&copy2,level))
@@ -852,7 +864,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *_
 	    from=&trans_pixel;
         }
         dst=&to_dc->body[GR_WIDTH-2-x+y*to_dc->width_internal];
-	dither_px=LookupLighting(*from,light,dist);
+	dither_px=LookupLighting(*from,light,dist,god_mode);
         if(from->u8[0]!=TRANSPARENT)
 	  *dst=dither_px&0xffff,*db_z=dist,db_z[1]=dist;
         dst(U8*)+=to_dc->width_internal;
@@ -3027,6 +3039,11 @@ rem:
 	    if(orig!=p->health)
 	      goto rem;
 	    break;
+	  case 2022:
+	    //Invincible
+	    p->invincible_time=30*30;
+	    got_msg="Invulnerability!";
+	    goto rem;
 	  case 83: //Megasphere
 	    got_msg="MegaSphere!";
 	    p->health=200;
@@ -3159,6 +3176,8 @@ U0 UpdateLevel(CDoomLevel *l) {
     p->bezerk_time=Clamp(p->bezerk_time-1/30.,0.,60.);
   if(p&&p->light_goggles_time)
     p->light_goggles_time=Clamp(p->light_goggles_time-1/30.,0.,60.);
+  if(p&&p->invincible_time)
+    p->invincible_time=Clamp(p->invincible_time-1/30.,0.,30.);
 }
 
 

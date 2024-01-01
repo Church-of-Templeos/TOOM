@@ -342,6 +342,8 @@ U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
     target->momy+=thrust*Sin(angle);
   }
   if(p==target) {
+    if(p->invincible_time>0.)
+       return;
     if(p->armor<=100.) {
       damage-=damage*1/2.;
     } else {

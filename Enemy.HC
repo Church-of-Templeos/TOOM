@@ -516,21 +516,30 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *thing=t->self;
   CDoomThing *target=t->target;
   CD2 dummy;
-  I64 drop=COLLISF_ADJUST_FOR_RADIUS;
+  I64 drop=COLLISF_ADJUST_FOR_RADIUS,i;
   if(!(thing->flags&TF_FLOATING))
     drop|=COLLISF_NO_DROP;
-  F64 angle,dist=ToF64(RandU64&0xf),off=(Rand-.5)*pi/8.;
+  F64 angle,dist=ToF64(RandU64&0xf),off,mul,ld_a,x,y;
+  CDoomLinedef *ld;
   if(!target) return;
-  angle=FArg(target->x-thing->x,target->y-thing->y)+off;
+  if(Rand>.5&&CanSeeTarget(l,t))
+    angle=FArg(target->x-thing->x,target->y-thing->y);
+  else
+    angle=thing->angle;
   dummy.x=thing->x;
   dummy.y=thing->y;
-  if(!MoveInLevel(l,&dummy,angle,thing->template->radius,thing->template->radius,thing->height,drop,NULL,thing)) {
-     thing->angle=angle;
-  } else if(!MoveInLevel(l,&dummy,angle-pi,thing->template->radius,thing->template->radius,thing->height,drop,NULL,thing)) {
-     thing->angle=angle-pi;
-  } else {
-//Pushin P path is blocked so random direction
-    thing->angle=(Rand-.5)*2.*2.*pi;
+  ld=ld=MoveInLevel(l,&dummy,angle,thing->template->radius,thing->template->radius,thing->height,drop,NULL,thing);
+  if(!ld) {
+    thing->angle=angle;
+  } else { //Deflect off the wall
+    x=ld->start->x;
+    y=ld->start->y;
+    ld_a=FArg(ld->end->x-x,ld->end->y-y);
+    if((ld->end->x-x)*(thing->y-y)-(ld->end->y-y)*(thing->x-x)>0.)
+      ld_a+=pi/2;
+    else
+      ld_a-=pi/2;
+    thing->angle=ld_a-angle+pi;
   }
   t->steps_to_walk=dist/2;
   thing->x=dummy.x;

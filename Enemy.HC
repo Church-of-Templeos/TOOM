@@ -1,4 +1,4 @@
- //See enemy.c in doom3do
+//See enemy.c in doom3do
 CDoomThingTemplate *imp_fireball;
 CDoomThingTemplate *baron_fireball;
 CDoomThingTemplate *cacodemon_fireball;
@@ -343,7 +343,7 @@ U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
   }
   if(p==target) {
     if(p->invincible_time>0.)
-       return;
+      return;
     if(p->armor<=100.) {
       damage-=damage*1/2.;
     } else {
@@ -356,6 +356,16 @@ U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
   if(p==target)
     p->stare_at=opp;
   if(0.>=target->health) {
+    if(p==target)
+      p->weapon_state=0; //Prevent ending current fireing of weapon
+//If damage<=-spawn_health,we EXPLODE the body
+    if(target->health<=-template->health&&template->gib_state) {
+      target->health=0.;
+      if(thinker&&thinker->signature=='Monster') {
+        SetState(l,thinker,template->gib_state);
+        return;
+      }
+    }
     target->health=0.;
     if(thinker&&thinker->signature=='Monster')
       SetState(l,thinker,template->death_state);
@@ -371,7 +381,7 @@ U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage){
   if(opp&&thinker&&thinker->signature=='Monster') {
     thinker->target=opp;
     if(template->see_state&&thinker->state==template->spawn_state) {
-       SetState(l,thinker,template->see_state);
+      SetState(l,thinker,template->see_state);
     }
   }
 //TODO skull fly
@@ -1061,18 +1071,11 @@ U0 NullState(CDoomLevel *l,CMonsterThinker *t) {
 }
 U0 RadiusAttack(CDoomLevel *l,CDoomThing *dik,F64 boom) {
   CDoomThing *cur,*head=&l->things;
-  CD2 src,dst,dummy;
   F64 angle,dist;
-  src.x=dik->x;
-  src.y=dik->y;
   for(cur=head->next;cur!=head;cur=cur->next) {
-    dist=Sqrt(Sqr(cur->y-src.y)+Sqr(cur->x-src.x));
+    dist=Sqrt(Sqr(cur->y-dik->y)+Sqr(cur->x-dik->x));
     if(dist<boom) {
-      angle=FArg(cur->x-src.x,cur->y-src.y);
-      dummy.x=src.x;
-      dummy.y=src.y;
-      if(!MoveInLevel(l,&dummy,angle,dist,dik->template->radius,dik->height,COLLISF_PROJECTILE))
-	DamageMob(l,cur,dik,dist);
+      DamageMob(l,cur,dik,dist);
     }
   }
 }
@@ -1084,20 +1087,24 @@ U0 BossDeath(CDoomLevel *l,CMonsterThinker *t) {
 //Check if the Drake treacherous twin's are all dead,then we fin ta trigger 666
   CDoomThing *treacherous_twin,*head=&l->things;
   CDoomLinedef dummy;
-  for(
-	treacherous_twin=head->next;
-	head!=treacherous_twin;
-	treacherous_twin=treacherous_twin->next
-  ) {
-    if(treacherous_twin->template==self->template&&treacherous_twin->health>0.)
-	return ;
-  }
+  if(l->map_name[1]=='1') { //Episode 1
+    for(
+	  treacherous_twin=head->next;
+	  head!=treacherous_twin;
+	  treacherous_twin=treacherous_twin->next
+    ) {
+      if(treacherous_twin->template==self->template&&treacherous_twin->health>0.)
+        return ;
+    }
 //Yeah  will pwned em all homie,activate #666 Floor FloorToLowest
-//See Floors.TXT for more info on our dummy thang(37)
-  MemSet(&dummy,0,sizeof CDoomLinedef); //Clear activated
-  dummy.sector_tag=666;
-  dummy.special_type=action_sector_types[37];
-  TriggerLinedef(l,&dummy,-1,p); //-1 for all types
+    //See Floors.TXT for more info on our dummy thang(37)
+    MemSet(&dummy,0,sizeof CDoomLinedef); //Clear activated
+    dummy.sector_tag=666;
+    dummy.special_type=action_sector_types[37];
+    TriggerLinedef(l,&dummy,-1,p); //-1 for all types
+  } else if(l->map_name[1]=='2') { //E2M8 cyberdemon
+    l->ended=TRUE;
+  }
 }
 U0 Hoof(CDoomLevel *l,CMonsterThinker *t) {
   Spawn(&PlaySoundTask,"HOOF","snd",0,Fs);
@@ -1437,7 +1444,8 @@ U0 LoadMonsterInfo() {
   AddState("CYBER.ATK4",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&CyberAttack,"CYBER.ATK5");
   AddState("CYBER.ATK5",0,t->_attack_frames,&FaceTarget,"CYBER.ATK6");
   AddState("CYBER.ATK6",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&CyberAttack,"CYBER.RUN1");
-  AddState(t->death_state="CYBER.DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
+  AddState(t->death_state="CYBER.DIE",STATE_NO_REPEAT,t->_dying_frames,&BossDeath,"CYBER.DIE2");
+  AddState("CYBER.DIE2",0,t->_dying_frames,&BossDeath,"ST_NULL");
   AddState(t->pain_state="CYBER.PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"CYBER.RUN1");
 };
 

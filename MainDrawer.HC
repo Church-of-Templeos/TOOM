@@ -1015,9 +1015,8 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
     else
       sidedef=seg->linedef->back,opposite=seg->linedef->front;
     no_draw=FALSE;
-    if(!sidedef) {
+    if(!sidedef)
       goto skip;
-    }
     sector=sidedef->sector;
     highest_ceil=HighestCeil(seg->linedef,sector);
     for(wall=0;wall!=4;wall++) {
@@ -1082,6 +1081,7 @@ draw_wall:
     }
 skip:;
   }
+  DestroyVector(wall_vect);
 }
 Bool FrontSide(Vector *v,CD2 *p) {
   return v->data[0]*p->y-v->data[1]*p->x>=0.;
@@ -3607,6 +3607,7 @@ ent:;
     Refresh;
   }
 ret:
+  p->weapon_state=0;
   if(l->ended) Intermission(l,l->map_name[1]-'1',l->map_name[3]-'1');
   DCFill;
 //Dont free the player,we will transfer him across the levels mofo
@@ -3627,6 +3628,7 @@ ret:
   init=TRUE;
   goto ent;
 fin_level:
+  p->weapon_state=0;
   in_level=FALSE;
   return;
 }

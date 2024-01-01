@@ -403,7 +403,6 @@ U0 ST_refreshBackground(CDoomPlayer *p)
 
 U0 ST_refresh(CDoomPlayer *p)
 {
-  if(p) weapons.state=p->weapon_state;
   ST_refreshBackground(p);
   if(*p->message) {
     DoomPrint(doom_scrn,4,5,p->message);
@@ -464,7 +463,6 @@ U0 ST_ReadOnce()
     }
 
   }
-  weapons.state=FALSE;
 }
 
 U0 AnimateFire(CDoomPlayer *p)
@@ -481,13 +479,13 @@ U0 AnimateFire(CDoomPlayer *p)
   switch(weaponIndex)
     {
     case 0://punch
-      if(weapons.state) Spawn(&PlaySoundTask,"PUNCH","snd",0,Fs);
+      if(p->weapon_state) Spawn(&PlaySoundTask,"PUNCH","snd",0,Fs);
       anim="BCDCB";
       template="PUNG%c0";
       idle_anim="A";
       break;
     case 1://pistol
-      if(weapons.state) Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
+      if(p->weapon_state) Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
       anim="ABC";
       template="PISG%c0";
       flash_template="PISF%c0";
@@ -496,7 +494,7 @@ U0 AnimateFire(CDoomPlayer *p)
       idle_anim="A";
       break;
     case 2://shotgun
-      if(weapons.state) Spawn(&PlaySoundTask,"SHOTGN","snd",0,Fs);
+      if(p->weapon_state) Spawn(&PlaySoundTask,"SHOTGN","snd",0,Fs);
       anim="AABCDCBAA";
       template="SHTG%c0";
       flash_template="SHTF%c0";
@@ -505,7 +503,7 @@ U0 AnimateFire(CDoomPlayer *p)
       idle_anim="A";
       break;
     case 3://chaingun
-      if(weapons.state) Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
+      if(p->weapon_state) Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
       anim="ABB";
       template="CHGG%c0";
       flash_template="CHGF%c0";
@@ -514,7 +512,7 @@ U0 AnimateFire(CDoomPlayer *p)
       flash_off=0;
       break;
     case 4://missile launcher
-      if(weapons.state) Spawn(&PlaySoundTask,"RLAUNC","snd",0,Fs);      
+      if(p->weapon_state) Spawn(&PlaySoundTask,"RLAUNC","snd",0,Fs);      
       template="MISG%c0";
       anim="BBB";
       flash_template="MISG%c0";
@@ -523,13 +521,13 @@ U0 AnimateFire(CDoomPlayer *p)
       idle_anim="A";
       break;
     case 5://chainsaw
-      if(weapons.state) Spawn(&PlaySoundTask,"SAWFUL","snd",0,Fs);      
+      if(p->weapon_state) Spawn(&PlaySoundTask,"SAWFUL","snd",0,Fs);      
       template="SAWG%c0";
       anim="ABB";
       idle_anim="CD";
       break;
     case 6://plasma gun
-      if(weapons.state) Spawn(&PlaySoundTask,"PLASMA","snd",0,Fs);      
+      if(p->weapon_state) Spawn(&PlaySoundTask,"PLASMA","snd",0,Fs);      
       template="PLSG%c0";
       anim="A";
       pause_anim="B";
@@ -539,7 +537,7 @@ U0 AnimateFire(CDoomPlayer *p)
       idle_anim="A";
       break;
     case 7://BFG
-      if(weapons.state) Spawn(&PlaySoundTask,"BFG","snd",0,Fs);      
+      if(p->weapon_state) Spawn(&PlaySoundTask,"BFG","snd",0,Fs);      
       template="BFGG%c0";
       anim="ABBB";
       flash_template="BFGF%c0";
@@ -548,20 +546,20 @@ U0 AnimateFire(CDoomPlayer *p)
       idle_anim="A";
   }
   weapons.flash_dc=NULL;
-  ostate=weapons.state;
-  if(weapons.state==0) {
+  ostate=p->weapon_state;
+  if(p->weapon_state==0) {
     l=StrLen(idle_anim);
     for(fr=0;fr!=l;fr++) {
       StrPrint(buf,template,idle_anim[fr]);
       weapons.icon_dc=GetGrLump(buf);
       next_frame=.033*5+Server_tS;
       while(next_frame>Server_tS) {
-        if(ostate!=weapons.state)
+        if(ostate!=p->weapon_state)
 	  break;
         Refresh;
       }
     }
-  } else if(weapons.state==1||weapons.state==2) {
+  } else if(p->weapon_state==1||p->weapon_state==2) {
     l=StrLen(anim);
     wait=p->weapon_cooldown/l;
     if(wait>=.030) {
@@ -577,13 +575,13 @@ U0 AnimateFire(CDoomPlayer *p)
         }
         next_frame=wait+Server_tS;
         while(next_frame>Server_tS) {
-	  if(ostate!=weapons.state)
+	  if(ostate!=p->weapon_state)
 	    break;
 	  Refresh;
         }
       }
     }
-  } else if(weapons.state==3) { //PAUSEING
+  } else if(p->weapon_state==3) { //PAUSEING
     l=StrLen(pause_anim);
     wait=p->weapon_cooldown/l;
     if(wait>=.030) {
@@ -592,7 +590,7 @@ U0 AnimateFire(CDoomPlayer *p)
         weapons.icon_dc=GetGrLump(buf);
         next_frame=wait+Server_tS;
         while(next_frame>Server_tS) {
-	  if(ostate!=weapons.state)
+	  if(ostate!=p->weapon_state)
 	    break;
 	  Refresh;
         }

@@ -1158,6 +1158,12 @@ Bool HitsBBox(CDoomCamera *cam,CBoundBoxF64 *bbox) {
   DestroyVector(v2);
   return ret;
 }
+
+//https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
+F64 DistFromLine(CD2 *p,CD2 *l1,CD2 *l2) {
+  return Abs((l2->x-l1->x)*(l1->y-p->y)-(l2->y-l1->y)*(l1->x-p->x))/Sqrt(Sqr(l1->x-l2->x)+Sqr(l1->y-l2->y));
+}
+
 U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
   if(node->signature!='NODE') {
     DrawSubsector(to_dc,cam,node);
@@ -1166,20 +1172,21 @@ U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
   if(node->visited) return;
   node->visited=TRUE;
   F64 left_dist,right_dist;
-  CD2 cam_cord;
-  cam_cord.x=node->x-cam->x;
-  cam_cord.y=node->y-cam->y;
-  Vector *vect=CreateVector(2);
-  SetVector(vect,node->left_child->dx,0);
-  SetVector(vect,node->left_child->dy,1);
-  if(IsFrontSideOfVector2D(vect,&cam_cord)) {
-    DestroyVector(vect);
+  CD2 other;
+//Pick the closer node
+  node->left_child->x;
+  other.x=node->left_child->x+node->left_child->dx;
+  other.y=node->left_child->y+node->left_child->dy;
+  left_dist=DistFromLine(&cam->x,&node->left_child->x,&other);
+  other.x=node->right_child->x+node->right_child->dx;
+  other.y=node->right_child->y+node->right_child->dy;
+  right_dist=DistFromLine(&cam->x,&node->right_child->x,&other);
+  if(left_dist<right_dist) {
     if(HitsBBox(cam,&node->left))
       DrawBSP0(to_dc,cam,node->left_child);
     if(HitsBBox(cam,&node->right))
       DrawBSP0(to_dc,cam,node->right_child);
   } else {
-    DestroyVector(vect);
     if(HitsBBox(cam,&node->right))
       DrawBSP0(to_dc,cam,node->right_child);
     if(HitsBBox(cam,&node->left))

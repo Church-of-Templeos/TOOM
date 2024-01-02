@@ -1,6 +1,7 @@
 #ifndef DOOM_WAD
 #define DOOM_WAD" Whats Poppin"
 #define DEBUG 1
+#include "Set.HC";
 class CWad {
   U8 body[0];
   U8 ident[4];
@@ -242,6 +243,7 @@ class CDoomSector:CQue {
 //I tried everything else but I just cant figure out how to draw the floors
   CDoomLinedef *cur_action_linedef;
   CDoomThing *noise_thing; //Last thing that made a noise
+  CI64Set *things;
   F64 door_height_offset;
   I64 visplane_idx;
   Bool drawn;
@@ -277,6 +279,7 @@ class CDoomLevel {
   I64 block_map_cols,block_map_rows;
   I64 *block_map_offsets;
   I64 skill,episode;
+  CI64Set **block_map_things;
   CDoomSector **block_map_data;
   CDoomLinedef **action_linedefs;
   CLevelStats stats;
@@ -901,6 +904,7 @@ CDC *GetFlatDC(U8 *name) {
   return FramePtr(tmp_name);
 }
 extern U0 LoadLightingThinkers(CDoomLevel *l);
+extern U0 InitPosDataForThing(CDoomLevel *l,CDoomThing *t);
 CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name,I64 skill=1) {
   I64 idx,cnt,x,y,min,max;
   U16 *offs;
@@ -1244,6 +1248,7 @@ skip_thing:
     dsect->cur_light_level=wsect->light_level;
     dsect->special_type=wsect->special_type;
     dsect->tag_number=wsect->tag_number;
+    dsect->things=I64SetNew;
     dsect_list[idx]=dsect;
     if(dsect->special_type==9) //Secret
       level->stats.max_secrets++;
@@ -1285,6 +1290,11 @@ skip_thing:
   UH2("BMO",level->block_map_offsets);
   level->block_map_cols=wbmh->num_cols;
   level->block_map_rows=wbmh->num_rows;
+  level->block_map_things=MAlloc(8*wbmh->num_cols*wbmh->num_rows);
+  x=wbmh->num_cols*wbmh->num_rows;
+  while(--x>=0) {
+    level->block_map_things[x]=I64SetNew;
+  }
   for(x=0;x!=wbmh->num_cols;x++) {
     for(y=0;y!=wbmh->num_rows;y++) {
 //These pooparoos are relatvie the the BLOCKMAP header,so get rid of the header/offsets poop
@@ -1316,6 +1326,9 @@ skip_thing:
   Free(dlinedef_list);
   StrCpy(level->map_name,level_name);
   LoadLightingThinkers(level);
+  for(dthing=level->things.next;dthing!=&level->things;dthing=dthing->next) {
+    InitPosDataForThing(level,dthing);
+  }
   return level;
 }
 

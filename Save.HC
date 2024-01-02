@@ -358,6 +358,11 @@ U0 LoadGame(U8 *filename) {
   if(l) FreeLevel(l);
   l=NULL;
   l=LoadWadLevel(wad,buf,i64);
+  head=&l->things;
+  for(thing=head->next;thing!=head;thing=next) {
+    next=thing->next;
+    ThingDel(l,thing);
+  }
   QueDel(&l->things);
   QueDel(&l->thinkers);
   QueInit(&l->thinkers);
@@ -671,7 +676,7 @@ skip_thinker:;
 	        &sector->ceil_height,
 	        &sector->cur_light_level);
 	  ptr=StrScan(ptr,"%d,%d,%d,%d\n",
-		&i64,
+	        &i64,
 	        &texture_changed,
 	        &sector->special_type,
 	        &texture_src);
@@ -718,13 +723,14 @@ skip_thinker:;
   }
 fin:
   head=&l->things;
-  for(thing=head->next;head!=thing;thing=thing->next)
+  for(thing=head->next;head!=thing;thing=thing->next) {
     thing->thinker=GetNthThinker(l,thing->thinker);
+    InitPosDataForThing(l,thing);
+  }
   for(thing=head->next;head!=thing;thing=next) {
     next=thing->next;
     if(!thing->template){
-      QueRem(thing);
-      Free(thing);
+      ThingDel(l,thing);
     }
   }
   Free(optr);

@@ -19,6 +19,8 @@ CTask *doom_task=Fs;
 #include "Thinker.HC";
 #include "Music.HC";
 #define MUZZLE_FLASH_LIGHT 50
+extern U0 ThingDel(CDoomLevel *l,CDoomThing *t);
+extern U0 TeleportThingToPos(CDoomLevel *l,CDoomThing *t,F64,F64,F64);
 extern U0 ST_Message(U8*,U8*); //Frist is CDoomPlayer
 extern U0 DamageMob(CDoomLevel *l,CDoomThing *target,CDoomThing *opp,F64 damage);
 extern CDoomThing **GetCrushedThingsInSector(CDoomLevel *l,CDoomSector *s);
@@ -81,7 +83,6 @@ class GunAvail{
   I16 baseDamage;
   AmmoType *load;
 };
-
 class CDoomPlayer:CDoomThing { 
 //rad_suit_time is the time remaining(same for bezerk_time) in ticks
   F64 armor,rad_suit_time,bezerk_time,last_attack;
@@ -1793,9 +1794,9 @@ U0 CrushThingsInSector(CDoomLevel *l,CDoomSector *s) {
 	  new->height=thing->height;
 	  new->y=thing->y;
 	  new->angle=thing->angle;
+          InitPosDataForThing(l,new);
 	  QueIns(new,l->things.last);
-	  QueRem(thing);
-	  Free(thing);
+	  ThingDel(l,thing);
       }
   }
   Free(things);
@@ -2145,8 +2146,7 @@ U0 TeleportFogThinker(CDoomLevel *l,CTeleportThinker *t) {
   fog->anim_no_repeat=TRUE;
   frame=ToI64((Server_tS-fog->anim_start_tS)*4);
   if(frame>=StrLen(fog->template->animation)) {
-    QueRem(fog);
-    Free(fog);
+    ThingDel(l,fog);
     QueRem(t);
     Free(t);
   }
@@ -2167,13 +2167,13 @@ U0 TeleportThing(CDoomLevel *l,CDoomTeleporter *tp,I64 sector_tag,CDoomThing *wh
     if(cur->template->type==14) {
        sec=GetSectorForCoord(l,cur->x,cur->y);
        if(sec->tag_number==sector_tag) {
-	 who->x=cur->x;
-	 who->y=cur->y;
+	 TeleportThingToPos(l,who,cur->x,cur->y,cur->height);
 	 if(tp->orient==TP_ORIENT_SET)
 	   who->angle=cur->angle;
 	 if(!tp->silent) {
            Spawn(&PlaySoundTask,"TELEPT","snd",0,Fs);
 	   fog=CAlloc(sizeof CDoomThing);
+           InitPosDataForThing(l,fog);
 	   QueIns(fog,l->things.last);
 	   fog->template=teleport_fog;
 	   fog->x=cur->x;
@@ -2877,8 +2877,7 @@ rem:
 	      p->pickup_amt+=6;
 	      if(t->template->flags&TF_ARTIFACT)
 	        l->stats.have_items++;
-	      QueRem(t);
-	      Free(t);
+	      ThingDel(l,t);
 	    }
 	    break;
 	  case 2002: //Chaingun
@@ -3329,8 +3328,7 @@ U0 InitLevel(CDoomLevel *l) {
         case 2:
         case 3:
         case 4:
-	  QueRem(t);
-	  Free(t);
+	  ThingDel(l,t);
 	  break;
         default:
       }
@@ -3340,6 +3338,14 @@ U0 InitLevel(CDoomLevel *l) {
   InitMonsters(l);
 }
 U0 FreeLevel(CDoomLevel *l) {
+  CDoomSector *s,*head=&l->sectors;
+  I64 idx=l->block_map_cols*l->block_map_rows;
+  while(--idx>=0) {
+    I64SetDel(l->block_map_things[idx]);
+  }
+  for(s=head->next;s!=head;s=s->next) {
+    I64SetDel(s->things);
+  }
   QueDel(&l->things);
   QueDel(&l->sidedefs);
   QueDel(&l->subsectors);
@@ -3700,39 +3706,32 @@ U0 AddCrushThinker(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld) {
 
 
 CDoomThing **GetCrushedThingsInSector(CDoomLevel *l,CDoomSector *s) {
-  I64 cnt=0,x,y;
+  I64 cnt=0,idx;
   F64 gap=s->ceil_height-s->floor_height;
-  CDoomThing *cur,*head=&l->things,**ret=NULL;;
-  CDoomLinedef **lds;
+  CDoomThing *cur,**ret=NULL;;
+  CI64Set *in_sector=s->things;
 again:;
-  for(cur=head->next;cur!=head;cur=cur->next) {
-    if(GetSectorForCoord(l,cur->x,cur->y)==s) {
-      if((cur->height-s->floor_height)+cur->template->height>gap) {
+  for(idx=0;idx!=in_sector->cnt;idx++) {
+    cur=in_sector->body[idx];
+    if((cur->height-s->floor_height)+cur->template->height>gap) {
 have:
-        if(!ret)
-	  cnt++;
-        else
-	  ret[cnt++]=cur;
-      }
-    } else {
-      x=cur->x,y=cur->y;
-      x/=128,y/=128;
-      if(0<=y<=l->block_map_rows&&0<=x<=l->block_map_cols) {
-        lds=l->block_map_data+l->block_map_offsets[y*l->block_map_cols+x];
-        for(;*lds;lds++) {
-	  if(CheckLineWithBox(*lds,&cur->x,cur->template->radius))
-	   goto have;
-        }
-      }
+      if(!ret)
+        cnt++;
+      else
+        ret[cnt++]=cur;
     }
   }
   if(ret) return ret;
   if(!cnt) return CAlloc(8);
-  ret=CAlloc(cnt*8);
+  ret=CAlloc((1+cnt)*8);
   cnt=0;
   goto again;
 }
-
+U0 ThingDel(CDoomLevel *l,CDoomThing *t) {
+  RemovePosDataForThing(l,t);
+  QueRem(t);
+  Free(t);
+}
 #include "Save.HC";
 U64 r;
 CDC *title=GetGrLump("TITLEPIC");

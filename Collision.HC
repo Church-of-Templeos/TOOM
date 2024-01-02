@@ -9,6 +9,7 @@
 #define COLLISF_ADJUST_FOR_RADIUS 0x10
 #define COLLISF_PROJECTILE 0x20
 extern Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=0,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL,CDoomThing **hit=NULL);
+
 //https://stackoverflow.com/questions/14176776/find-out-if-2-lines-intersect
 Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
   return PlaneIntersect(NULL,a,b,ld->start,ld->end);
@@ -110,7 +111,10 @@ Bool CloseToLine(CD2 *tip=NULL,CD2 *p1,CD2 *p2,CD2 *at,F64 radius) {
 }
 
 F64 IntersectDist(CDoomLinedef *ld,CD2 *a,CD2 *b) {
-  return DistFromLine(a,ld->start,ld->end);
+  CD2 hit;
+  if(!PlaneIntersect(&hit,ld->start,ld->end,a,b))
+    return I16_MAX;
+  return Sqrt(Sqr(hit.x-a->x)+Sqr(hit.y-a->y));
 }
 //Ask nroot how this works
 F64 NormalScore(CDoomLinedef *ld,CD2 *point,F64 angle) {
@@ -141,9 +145,29 @@ Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F6
   MoveInLevel(l,point,angle3,score*to_travel,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING|COLLISF_SLIDE,,exclude);
 }
 
+CI64Set *ThingsInRadius(CDoomLevel *l,I64 x,I64 y,F64 radius) {
+  CI64Set *homies=I64SetNew,*bmthings;
+  I64 br=1+radius/128,xo,yo,i,blockx,blocky;
+  blockx=ToI64(x-l->block_map_x_off)/128;
+  blocky=ToI64(y-l->block_map_y_off)/128;
+  for(xo=-br;xo<=br;xo++)
+    for(yo=-br;yo<=br;yo++)
+      if(0<=blockx+xo<l->block_map_cols)
+        if(0<=blocky+yo<l->block_map_rows) {
+	  bmthings=l->block_map_things[
+	        blockx+xo+
+	        (yo+blocky)*l->block_map_cols];
+	  for(i=0;i!=bmthings->cnt;i++)
+	    I64SetAdd(homies,bmthings->body[i]);
+        }
+  return homies;
+}
+
 CDoomThing *HitsAThing(CDoomLevel *l,CD2 *dummy,F64 dummy_radius,CDoomThing *exclude=NULL,CDoomThing *test_for=NULL) {
   F64 ceil_height,bbt_l,bbt_r,bbt_t,bbt_b;
-  CDoomThing *cur,*head=&l->things,*max=NULL;
+  CDoomThing *cur,*max=NULL;
+  I64 idx;
+  CI64Set *poop=NULL;
   F64 min_dist=I16_MAX,dist;
   F64 bbl_t=dummy->y+dummy_radius;
   F64 bbl_b=dummy->y-dummy_radius;
@@ -153,7 +177,9 @@ CDoomThing *HitsAThing(CDoomLevel *l,CD2 *dummy,F64 dummy_radius,CDoomThing *exc
     cur=test_for;
     goto enter;
   }
-  for(cur=head->next;cur!=head;cur=cur->next) {
+  poop=ThingsInRadius(l,dummy->x,dummy->y,dummy_radius);
+  for(idx=0;idx!=poop->cnt;idx++) {
+    cur=poop->body[idx];
 enter:
     bbt_l=cur->x-cur->template->radius;
     bbt_r=cur->x+cur->template->radius;
@@ -176,6 +202,7 @@ enter:
     if(test_for)
       break;
   }
+  if(poop) I64SetDel(poop);
   return max;
 }
 
@@ -388,7 +415,7 @@ fail_walk:
 	        if(lds[0]->special_type) {
 		  if(walked_over_idx<64) {
 		    if(CrosesLine(lds[0],&move1,&move2))  {
-		      tmp=IntersectDist(lds[0],&move1,&move2);
+		      tmp=IntersectDist(lds[0],&move1,&move2);
 		      walked_over_dists[walked_over_idx]=tmp;
 		      walked_over[walked_over_idx++]=*lds;
 		    }
@@ -526,6 +553,48 @@ look_for_hot:
   DestroyVector(vector);
   return best;
 }
+U0 InitPosDataForThing(CDoomLevel *l,CDoomThing *t) {
+  CDoomSector *s=GetSectorForCoord(l,t->x,t->y);
+  I64 x=ToI64(t->x-l->block_map_x_off)/128,y=ToI64(t->y-l->block_map_y_off)/128;
+  if(s)
+    I64SetAdd(s->things,t);
+  if(0<=x<l->block_map_cols)
+    if(0<=y<l->block_map_rows)
+      I64SetAdd(l->block_map_things[y*l->block_map_cols+x],t);
+}
+U0 RemovePosDataForThing(CDoomLevel *l,CDoomThing *t) {
+  CDoomSector *s=GetSectorForCoord(l,t->x,t->y);
+  I64 x=ToI64(t->x-l->block_map_x_off)/128,y=ToI64(t->y-l->block_map_y_off)/128;
+  if(s)
+    I64SetRem(s->things,t);
+  if(0<=x<l->block_map_cols)
+    if(0<=y<l->block_map_rows)
+      I64SetRem(l->block_map_things[y*l->block_map_cols+x],t);
+}
+
+
+U0 TeleportThingToPos(CDoomLevel *l,CDoomThing *t,F64 x,F64 y,F64 height) {
+  RemovePosDataForThing(l,t);
+  t->x=x,t->y=y;
+  t->height=height;
+  InitPosDataForThing(l,t);
+}
+
+//This will update the blockmap/sector data for the thing
+CDoomLinedef *MoveThingFinal(CDoomLevel *l,CDoomThing *t,F64 angle,F64 dist,I64 flags=0,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL,CDoomThing **hit=NULL) {
+//Remove old attributes
+  CDoomLinedef *ld;
+  RemovePosDataForThing(l,t);
+
+  if(t->template)
+    ld=MoveInLevel(l,&t->x,angle,dist,t->template->radius,t->height,flags,walked_over_hot,exclude,hit);
+
+  InitPosDataForThing(l,t);
+
+  return ld;
+}
+
+
 #endif        0                    "      '         !      !   õÿÿÿ   .   ÷ÿÿÿ   ÷ÿÿÿ   ,      ³   ×ÿÿÿ   -   ûÿÿÿ.   ñÿÿÿ;   ñÿÿÿ   ¨   áÿÿÿ¦      º      µ   Üÿÿÿ§   áÿÿÿ   º   ÜÿÿÿÃ   ÓÿÿÿÈ   Ûÿÿÿ   Á   ÒÿÿÿÁ   Äÿÿÿ   Ê   Èÿÿÿ¶   Çÿÿÿ   ¹   ÁÿÿÿÌ   ÅÿÿÿÌ   »ÿÿÿ¶   ¹ÿÿÿº   Áÿÿÿ   êÿÿÿ           k      
 -   8   `   8   
 `   8   `      

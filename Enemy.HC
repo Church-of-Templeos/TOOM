@@ -217,7 +217,7 @@ U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
   QueRem(self);
 //No speeding through targets
   while(dist>0.) {
-    if(ld=MoveInLevel(l,&self->x,self->angle,Min(dist,template->radius),template->radius,self->height,COLLISF_NO_HIT_THING|COLLISF_PROJECTILE,NULL,t->shooter,&hit))
+    if(ld=MoveThingFinal(l,self,self->angle,Min(dist,template->radius),COLLISF_NO_HIT_THING|COLLISF_PROJECTILE,NULL,t->shooter,&hit))
       break;
     dist-=template->radius;
   }
@@ -231,8 +231,7 @@ U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
     if(Server_tS-self->anim_start_tS>=dist) {
       QueRem(t);
       Free(t);
-      QueRem(self);
-      Free(self);
+      ThingDel(l,self);
     }
     return;
   }
@@ -281,8 +280,7 @@ CDoomThing *GetPlayer() {
   return p;
 }
 U0 RemoveMonsterFromMem(CMonsterThinker *t) {
-  QueRem(t->self);
-  Free(t->self);
+  ThingDel(l,t->self);
   QueRem(t);
   Free(t);
 }
@@ -294,20 +292,15 @@ Bool MMove(CDoomLevel *l,CMonsterThinker *m) {
   CFifoI64 *crossed=FifoI64New(16);
   CD2 dummy;
   I64 allow_float=0;
-  dummy.x=self->x,dummy.y=self->y;
   if(!(self->flags&TF_FLOATING))
     allow_float=COLLISF_NO_DROP;
-    lv=MoveInLevel(l,&dummy,
+    lv=MoveThingFinal(l,self,
 	self->angle,
 	self->template(CDoomMonsterTemplate*)->speed*TICK_FPS_SCALE,
-	self->template->radius,
-	self->height,
 	allow_float|COLLISF_NO_HIT_THING|COLLISF_MONSTER|COLLISF_SLIDE|COLLISF_ADJUST_FOR_RADIUS,
 	crossed,
 	self
 	);
-    self->x=dummy.x;
-    self->y=dummy.y;
     if(self->template->flags&TF_FLOATING) {
       if(sec=GetSectorForCoord(l,self->x,self->y)) {
 	if(target&&self->height<target->height-FLOATSPEED) {
@@ -438,8 +431,7 @@ U0 BarrelThinker(CDoomLevel *l,CBarrelThinker *m) {
       if(Server_tS-m->explode_start_tS>=AnimationTime(self->animation)) {
         QueRem(m);
         Free(m);
-        QueRem(self);
-        Free(self);
+        ThingDel(l,self);
       }
     }
   }
@@ -569,7 +561,7 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
     angle=thing->angle;
   dummy.x=thing->x;
   dummy.y=thing->y;
-  ld=ld=MoveInLevel(l,&dummy,angle,thing->template->radius,thing->template->radius,thing->height,drop,NULL,thing);
+  ld=MoveInLevel(l,&dummy,angle,thing->template->radius,thing->template->radius,thing->height,drop,NULL,thing);
   if(!ld) {
     thing->angle=angle;
   } else { //Deflect off the wall
@@ -720,8 +712,7 @@ U0 PuffThinker(CDoomLevel *l,CPuffThinker *puff) {
   if(!s) {
 //wut
     kill_puff:
-    QueRem(self);
-    Free(self);
+    ThingDel(l,self);
     QueRem(puff);
     Free(puff);
     return;
@@ -772,6 +763,7 @@ U0 SpawnBloodPuff(CDoomLevel *l,CD2 *at,F64 h,F64 damage) {
   t=AddThinker(l,&PuffThinker,"CPuffThinker");
   t->spawn_time=Server_tS;
   QueIns(blood,&l->things);
+  InitPosDataForThing(l,blood);
   t->self=blood;
   blood->animation=blood->template->_animation;
 }
@@ -788,6 +780,7 @@ U0 SpawnSmokePuff(CDoomLevel *l,CD2 *at,F64 h,F64 attack_range) {
     smoke->template=smoke_templates[0];
   t=AddThinker(l,&PuffThinker,"CPuffThinker");
   t->spawn_time=Server_tS;
+  InitPosDataForThing(l,smoke);
   QueIns(smoke,&l->things);
   t->self=smoke;
   smoke->animation=smoke->template->_animation;
@@ -929,6 +922,7 @@ U0 SpawnMissile(CDoomLevel *l,CDoomThing *t,CDoomThing *target,U64 type) {
   self->height=t->height+t->template->height/2.;
   self->template=template;
   self->flags=template->flags;
+  InitPosDataForThing(l,self);
   QueIns(self,l->things.next);
   think=AddThinker(l,&MissileThinker,"CMissileThinker");
   think->self=self;
@@ -1069,6 +1063,7 @@ U0 DropItem(CDoomLevel *l,CMonsterThinker *t) {
     new->y=self->y;
     new->height=self->height;
     new->template=doom_thing_types[spawn];
+    InitPosDataForThing(l,new);
     QueIns(new,l->things.last);
     new->flags=new->template->flags;
   }

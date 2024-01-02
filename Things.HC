@@ -22,6 +22,12 @@ class CDoomThingTemplate {
 #define TF_SHOOTABLE 0x20
 #define TF_FLOATING 0x40
 #define TF_MISSILE 0x80
+//runtime flags added by nroot
+#define MF_JUST_ATTACKED (1<<16)
+#define MF_ALLOW_FLOAT (2<<16)
+#define MF_AMBUSH (4<<16)
+#define MF_SKULL_ATTACK (8<<16)
+#define MF_MISSILE (0x10<<16)
   I64 code;
   I64 flags;
 } *doom_thing_types[0x10000];

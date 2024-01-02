@@ -44,11 +44,6 @@ class CBarrelThinker:CDoomThinkerBase {
   CDoomThing *self;
   F64 explode_start_tS; //0 for not started  
 };
-#define MF_JUST_ATTACKED (1<<16)
-#define MF_ALLOW_FLOAT (2<<16)
-#define MF_AMBUSH (4<<16)
-#define MF_SKULL_ATTACK (8<<16)
-#define MF_MISSILE (0x10<<16)
 class CMonsterThinker:CDoomThinkerBase {
   U64 signature;
   CDoomThing *self;

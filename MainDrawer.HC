@@ -1757,6 +1757,49 @@ class CDoorThinker:CDoomThinkerBase {
   Bool opening,closing,waiting;
   Bool reverting;
 };
+//This doesnt do damage
+U0 CrushThingsInSector(CDoomLevel *l,CDoomSector *s) {
+//Crush them at 16 units
+  if(s->ceil_height-s->floor_height>16.)
+    return;
+  CDoomThing *thing,**things=GetCrushedThingsInSector(l,s),*new;
+  I64 idx;
+  for(idx=0;thing=things[idx];idx++) {
+    if(thing->template)
+      switch(thing->template->type) {
+        case 64:
+        case 68:
+        case 3003:
+        case 3005:
+        case 72:
+        case 16:
+        case 3002:
+        case 65:
+        case 69:
+        case 3001:
+        case 3006:
+        case 67:
+        case 71:
+        case 66:
+        case 9:
+        case 58:
+        case 7:
+        case 84:
+        case 3004:
+          Spawn(&PlaySoundTask,"SLOP",,0,Fs);
+	  new=CAlloc(sizeof CDoomThing);
+	  new->template=doom_thing_types[24];
+	  new->x=thing->x;
+	  new->height=thing->height;
+	  new->y=thing->y;
+	  new->angle=thing->angle;
+	  QueIns(new,l->things.last);
+	  QueRem(thing);
+	  Free(thing);
+      }
+  }
+  Free(things);
+}
 U0 DoorThinker(CDoomLevel *l,CDoorThinker *t) {
   CDoomSector *s=t->s;
   CDoomThing **things;
@@ -1832,8 +1875,9 @@ open_again:
       goto open_again;
     } else {
       things=GetCrushedThingsInSector(l,s); //NULL terminated
+      CrushThingsInSector(l,s);
       for(idx=0;things[idx];idx++) {
-        if(things[idx]>0.) {
+        if(things[idx]->health>0.) {
 	  Free(things);
 	  t->target_start=s->ceil_height;
 	  t->wait_time=t->action->wait;
@@ -3626,6 +3670,7 @@ fin_level:
 U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
   F64 tar_dst;
   CDoomSector *s=t->s;
+  CrushThingsInSector(l,s);
   CDoomThing **crushed=GetCrushedThingsInSector(l,s),*T;
   I64 idx;
 //Maybe it was stopped
@@ -3664,6 +3709,7 @@ U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
   Free(crushed);
   s->door_height_offset=s->ceil_height-s->base_floor_height;  
 }
+
 U0 AddCrushThinker(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld) {
   if(s->cur_action_linedef) return;
   CCrushThinker *t=AddThinker(l,&CrushThinker,"CCrushThinker");

@@ -29,7 +29,7 @@ U0 PhysicsOnThing(CDoomLevel *l,CDoomThing *thing) {
     thing->momy=0.;
   if(thing->momx<1.)
     thing->momx=0.;
-  sec=GetHighestSectorInRadius(l,thing->x,thing->y,thing->template->radius);
+  sec=GetHighestSectorInRadius(l,thing->x,thing->y,thing->template->radius);
 //Gravity
   if(!(thing->flags&TF_FLOATING)) {
     if(sec) {

@@ -68,47 +68,6 @@ CDoomSector *GetHighestSectorInRadius(CDoomLevel *l,F64 x,F64 y,F64 radius) {
         }
   return highest;
 }
-//Sort of from here
-//https://www.sevenson.com.au/programming/sat/
-Bool CloseToLine(CD2 *tip=NULL,CD2 *p1,CD2 *p2,CD2 *at,F64 radius) {
-  I64 idx;
-  F64 magnitude,ax,ay,p1min,p1max,dot,p2min,p2max,a;
-  magnitude=Sqrt(Sqr(p2->x-p1->x)+Sqr(p2->y-p1->y));
-  ax=p2->x-p1->x;
-  ay=p2->y-p1->y;
-  if(magnitude>0.) {
-    ax*=1/magnitude;
-    ay*=1/magnitude;
-  }
-
-  p1min=ax*at->x+ay*at->y;
-  p1max=p1min;
-
-  dot=ax*p1->x+ay*p1->y;
-  p2min=dot;
-  p2max=dot;
-
-  dot=ax*p2->x+ay*p2->y;
-  p2min=Min(p2min,dot);
-  p2max=Max(p2max,dot);
-
-//Check for overlap
-//https://stackoverflow.com/questions/3269434/whats-the-most-efficient-way-to-test-if-two-ranges-overlap
-  if(Max(p2min-radius,p1min)<=Min(p2max+radius,p1max)) {
-    if(DistFromLine(at,p1,p2)<radius) {
-      if(tip) {
-	magnitude=p1min-p2min;
-	a=FArg(p2->x-p1->x,p2->y-p1->y);
-	tip->x=p1->x+FCos(a)*magnitude;
-	tip->y=p1->y+FSin(a)*magnitude;
-	tip->x+=FCos(a+pi/2)*radius;
-	tip->y+=FSin(a+pi/2)*radius;
-      }
-      return TRUE;
-    }
-  }
-  return FALSE;
-}
 
 F64 IntersectDist(CDoomLinedef *ld,CD2 *a,CD2 *b) {
   CD2 hit;
@@ -206,6 +165,69 @@ enter:
   return max;
 }
 
+
+CDoomLinedef *ClosestHit(CDoomLevel *l,F64 x,F64 y,F64 angle,F64 max,Bool (*pred)(CDoomLinedef *ld,F64 x,F64 y,U8 *user_data),U8 *user_data) {
+  F64 dist2=0,tmp;
+  I64 blockx,blocky,box,boy;
+  CD2 dummy,dummy2;
+  F64 sin=Sin(angle),cos=Cos(angle),best_hit;
+  CDoomLinedef *best_ld,**lds,*ld;
+  dummy.x=x,dummy.y=y;
+  dummy2.x=cos*I16_MAX+x;
+  dummy2.y=sin*I16_MAX+y;
+  do {
+    dist2+=128;
+    blocky=(y+sin*dist2-l->block_map_y_off)/128.;
+    blockx=(x+cos*dist2-l->block_map_x_off)/128.;
+    best_ld=NULL;
+    best_hit=I16_MAX;
+    for(box=-1;box<=1;box++)
+      for(boy=-1;boy<=1;boy++) {
+        if(!(0<=box+blockx<l->block_map_cols))
+	  goto skip;
+        if(!(0<=boy+blocky<l->block_map_rows))
+	  goto skip;
+        lds=l->block_map_data+l->block_map_offsets[
+	      (blockx+box)+
+	      (blocky+boy)*l->block_map_cols];
+        while(ld=*(lds++)) {
+	  tmp=IntersectDist(ld,&dummy,&dummy2);
+	  if(tmp<=max) {
+	    if(best_hit>tmp) {
+	      if((*pred)(ld,cos*tmp+x,sin*tmp+y,user_data)) {
+	        best_hit=tmp;
+	        best_ld=ld;
+	      }
+	    }
+	  }
+        }
+skip:;
+      }
+    if(best_ld)
+      break;
+  } while(dist2<max);
+  return best_ld;
+}
+
+
+class LineOfSightUserData {
+  F64 sx,sy;
+  F64 vslope,start_h;
+};
+Bool LineOfSightPredicate(CDoomLinedef *ld,F64 x,F64 y,LineOfSightUserData *ud) {
+  F64 dist=Sqrt(Sqr(x-ud->sx)+Sqr(y-ud->sy));
+  CDoomSector *f,*b;
+  F64 ceil,floor,at;
+  if(ld->front^^ld->back) return TRUE;
+  b=ld->back->sector;
+  f=ld->front->sector;
+  floor=Max(b->floor_height,
+        f->floor_height);
+  ceil=Min(b->ceil_height,
+        f->ceil_height);
+  at=dist*ud->vslope+ud->start_h;
+  return !(floor<=at<=ceil);
+}
 //Make sure no walls in way of the Glizzy shot
 
 
@@ -221,59 +243,18 @@ $SP,"<1>",BI=1$
 
 //Returns apporixmate (wall) hit distance,or -1. if the shoot Pushin-P Pwned the target
 F64 ValidateLineOfSightShot(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 source_h,F64 target_h) {
-  CD2 dummy;
-  Bool hit_wall=FALSE;
-  I64 blockx,blocky;
-  CDoomLinedef **lds;
-  F64 dist2=0.,sin=Sin(angle),cos=Cos(angle);
-  F64 diff;
   F64 vslope=(target_h-source_h)/dist;
-  F64 ceil_height,floor_height;
-  dummy.x=at->x,dummy.y=at->y;
-  while(dist2<=dist) {
-    blocky=(dummy.y-l->block_map_y_off)/128;
-    blockx=(dummy.x-l->block_map_x_off)/128;
-    if(dist2+8<=dist) {
-      dist2+=8.; //Smallest radius??>
-      source_h+=8.*vslope;
-      dummy.x+=8.*cos;   
-      dummy.y+=8.*sin;
-    } else {
-      diff=dist-dist2;
-      source_h+=diff*vslope;
-      dummy.x+=diff*cos;   
-      dummy.y+=diff*sin;
-      dist2=dist+.1;
-    }
-    if(0<=blockx<l->block_map_cols)
-      if(0<=blocky<l->block_map_rows) {
-        lds=l->block_map_data+l->block_map_offsets[
-	      blockx+
-	      blocky*l->block_map_cols];
-        for(;*lds;lds++) {
-	  if(lds[0]->front^^lds[0]->back) {
-	    ceil_height=I16_MAX;
-	    floor_height=I16_MAX;
-	  } else {
-	    floor_height=Max(lds[0]->back->sector->floor_height,
-		  lds[0]->front->sector->floor_height);
-	    ceil_height=Min(lds[0]->back->sector->ceil_height,
-		  lds[0]->front->sector->ceil_height);
-	  }
-	  if(!(floor_height<=source_h<=ceil_height))
-	    while(CrosesLine(*lds,at,&dummy)&&dist2>0.) {
-	      hit_wall=TRUE;
-//get a more "precise" wall hit positon,homie
-	      dummy.x=at->x+dist2*cos;
-	      dummy.y=at->y+dist2*sin;
-	      dist2-=1.;;
-
-	    } 
-	  if(hit_wall) {
-	    return Min(dist2,dist);
-	  }
-        }
-      }
+  CD2 dummy;
+  LineOfSightUserData ud;
+  ud.sx=at->x;
+  ud.sy=at->y;
+  ud.vslope=vslope;
+  ud.start_h=source_h;
+  CDoomLinedef *hit=ClosestHit(l,at->x,at->y,angle,dist,&LineOfSightPredicate,&ud);
+  if(hit) {
+    dummy.x=at->x+Cos(angle)*I16_MAX;
+    dummy.y=at->y+Sin(angle)*I16_MAX;
+    return IntersectDist(hit,at,&dummy);
   }
   return -1.;
 }
@@ -340,7 +321,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
   CD2 orig,towards;
   F64 dist2=0,sin=Sin(angle),cos=Cos(angle),cap=dist;
   F64 floor_height=0,ceil_height,odist=dist,best_dist,best_angle;
-  F64 min_dist=I16_MAX,wall_angle,slope,off,tmp,max_dist,step;
+  F64 min_dist=dist,wall_angle,slope,off,tmp,max_dist,step;
   F64 last_good=0.;
   CDoomLinedef *best=NULL;
   CDoomLinedef *walls[64],*walked_over[64];
@@ -393,7 +374,7 @@ fail_walk:
 		  walls[wall_idx++]=*lds;
 	        if(CrosesLine(lds[0],&move1,&move_fat)) {
 		  tmp=IntersectDist(lds[0],&move1,&move2);
-		  if(tmp<min_dist) {
+		  if(tmp<=min_dist) {
 		    best=lds[0];
 		    min_dist=tmp;
 		    cap=dist2;
@@ -415,9 +396,11 @@ fail_walk:
 	        if(lds[0]->special_type) {
 		  if(walked_over_idx<64) {
 		    if(CrosesLine(lds[0],&move1,&move2))  {
-		      tmp=IntersectDist(lds[0],&move1,&move2);
-		      walked_over_dists[walked_over_idx]=tmp;
-		      walked_over[walked_over_idx++]=*lds;
+		      tmp=IntersectDist(lds[0],&move1,&move2);
+		      if(tmp<=dist) {
+		        walked_over_dists[walked_over_idx]=tmp;
+		        walked_over[walked_over_idx++]=*lds;
+		      }
 		    }
 		  }
 	        }
@@ -434,7 +417,7 @@ skip:;
         flags&=~COLLISF_SLIDE;
         break;
       }
-    dist2+=radius/2;
+    dist2+=128;
     cur_pos.x=move1.x+cos*dist2;
     cur_pos.y=move1.y+sin*dist2;
     blockx=(dist2*cos+move1.x-l->block_map_x_off)/128;

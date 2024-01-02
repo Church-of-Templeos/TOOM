@@ -3717,7 +3717,7 @@ again:;
 have:
       if(!ret)
         cnt++;
-      else
+      else
         ret[cnt++]=cur;
     }
   }

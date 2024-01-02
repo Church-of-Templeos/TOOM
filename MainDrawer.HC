@@ -2846,15 +2846,16 @@ extern U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range
 #include "Enemy.HC";
 #include "Physics.HC";
 U0 CheckPowerupPickup(CDoomLevel *l) {
-  CDoomThing *t,*head=&l->things,*next;
+  CDoomThing *t;
   AmmoType *load;
   GunAvail *avail;
   Bool change,new_gun=FALSE;
+  CI64Set *things=ThingsInRadius(l,p->x,p->y,p->template->radius);
   I64 picked_up_gun=-1;
-  I64 orig;
+  I64 orig,idx;
   U8 *got_msg=NULL;
-  for(t=head->next;t!=head;t=next) {
-    next=t->next;
+  for(idx=0;idx!=things->cnt;idx++) {
+    t=things->body[idx];
     if(SqrI64(2*t->template->radius)>=SqrI64(p->x-t->x)+SqrI64(p->y-t->y)) {
       switch(t->template->type) {
 	  case 2006: //BFG
@@ -3145,6 +3146,7 @@ rem:
   }
   if(picked_up_gun!=-1&&new_gun)
     SwapWeapon(p,picked_up_gun);
+  I64SetDel(things);
 }
 
 Bool PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0) {

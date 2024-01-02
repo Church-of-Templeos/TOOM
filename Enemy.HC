@@ -88,13 +88,24 @@ U0 Sound(CMonsterThinker *t,U64 type) {
 	    Spawn(&PlaySoundTask,"BGSIT2","snd",0,Fs);
 	    break;
         }
-	return;
+        return;
+      case 3002: //Pinky
+      case 58: //invisible pinky
+        Spawn(&PlaySoundTask,"SGTSIT","snd",0,Fs);
+        break;
+      case 3003: //Baron of hell
+        Spawn(&PlaySoundTask,"BRSSIT","snd",0,Fs);
+        break;
     }
   if(type=='Pain') {
     switch(t->self->template->type) {
+      case 3006: //Skull fucker
+      case 3003: //Baron of hell
+      case 3002: //pinky
+      case 58: //invisible pinky
       case 16: //Cyber demon
         Spawn(&PlaySoundTask,"DMPAIN","snd",0,Fs);
-	break;
+        break;
       case 9: //Shotgunna
       case 3004: //Zombie
       case 3001: //Imp
@@ -104,9 +115,19 @@ U0 Sound(CMonsterThinker *t,U64 type) {
   }
   if(type=='Die') {
     switch(t->self->template->type) {
+      case 3006:// Skull poo poo brain
+        Spawn(&PlaySoundTask,"FIRXPL","snd",0,Fs);
+        break;
+      case 3002: //Pinky
+      case 58: //invisible pinky
+        Spawn(&PlaySoundTask,"SGTDTH","snd",0,Fs);
+        break;
+      case 3003://baron of hell
+        Spawn(&PlaySoundTask,"BRSDTH","snd",0,Fs);
+        break;
       case 16:
-	Spawn(&PlaySoundTask,"CYBDTH","snd",0,Fs);
-	break;
+        Spawn(&PlaySoundTask,"CYBDTH","snd",0,Fs);
+        break;
       case 9: //Shotgunna
       case 3004: //Zombie
         switch(Rand*2.99) {
@@ -136,21 +157,26 @@ U0 Sound(CMonsterThinker *t,U64 type) {
     switch(t->self->template->type) {
       case 3004: //Zombie
       case 3001: //Imp
+      case 9: //shotgunner
         Spawn(&PlaySoundTask,"POSLOP","snd",0,Fs);
         break;
     }
   }
   if(type=='Attack') {
     switch(t->self->template->type) {
+      case 3006: //Creppy ass flying skull
+        Spawn(&PlaySoundTask,"SKLATK","snd",0,Fs);
+        break;
       case 16:
         Spawn(&PlaySoundTask,"RLAUNC","snd",0,Fs);
         break;
       case 9: //Fuckin Shotgun asshole
         Spawn(&PlaySoundTask,"SHOTGN","snd",0,Fs);
         break;
+      case 3003://Baron of hell
       case 3001:  //Imp
         Spawn(&PlaySoundTask,"FIRSHT","snd",0,Fs);
-	break;
+        break;
       case 3004: //Zombie
         Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
         break;
@@ -158,6 +184,14 @@ U0 Sound(CMonsterThinker *t,U64 type) {
   }
   if(type=='Melee') {
     switch(t->self->template->type) {
+      case 3006: //Creppy ass flying skull
+        Spawn(&PlaySoundTask,"SKLATK","snd",0,Fs);
+        break;
+      case 3002://Pinky
+      case 58: //invisible pinky
+        Spawn(&PlaySoundTask,"SGTATK","snd",0,Fs);
+        break;
+      case 3003:// Baron of hell
       case 3001:  //Imp
         Spawn(&PlaySoundTask,"CLAW","snd",0,Fs);
         break;

@@ -2234,28 +2234,6 @@ class CCrushThinker:CDoomThinkerBase {
   Bool going_up;
 };
 //NULL terminated
-CDoomThing **GetCrushedThingsInSector(CDoomLevel *l,CDoomSector *s) {
-  I64 cnt=0;
-  F64 gap=s->ceil_height-s->floor_height;
-  CDoomThing *cur,*head=&l->things,**ret=NULL;;
-again:;
-  for(cur=head->next;cur!=head;cur=cur->next) {
-    if(GetSectorForCoord(l,cur->x,cur->y)==s) {
-      if((cur->height-s->floor_height)+cur->template->height>gap) {
-	if(!ret)
-          cnt++;
-	else
-	  ret[cnt++]=cur;
-       }
-    }
-  }
-  if(ret) return ret;
-  if(!cnt) return CAlloc(8);
-  ret=CAlloc(cnt*8);
-  cnt=0;
-  goto again;
-}
-
 class CLightBlinkThinker:CDoomThinkerBase {
   CDoomSector *s;
   F64 begin_at_tS;
@@ -3720,6 +3698,40 @@ U0 AddCrushThinker(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld) {
   t->going_up=FALSE;
 }
 
+
+CDoomThing **GetCrushedThingsInSector(CDoomLevel *l,CDoomSector *s) {
+  I64 cnt=0,x,y;
+  F64 gap=s->ceil_height-s->floor_height;
+  CDoomThing *cur,*head=&l->things,**ret=NULL;;
+  CDoomLinedef **lds;
+again:;
+  for(cur=head->next;cur!=head;cur=cur->next) {
+    if(GetSectorForCoord(l,cur->x,cur->y)==s) {
+      if((cur->height-s->floor_height)+cur->template->height>gap) {
+have:
+        if(!ret)
+	  cnt++;
+        else
+	  ret[cnt++]=cur;
+      }
+    } else {
+      x=cur->x,y=cur->y;
+      x/=128,y/=128;
+      if(0<=y<=l->block_map_rows&&0<=x<=l->block_map_cols) {
+        lds=l->block_map_data+l->block_map_offsets[y*l->block_map_cols+x];
+        for(;*lds;lds++) {
+	  if(CheckLineWithBox(*lds,&cur->x,cur->template->radius))
+	   goto have;
+        }
+      }
+    }
+  }
+  if(ret) return ret;
+  if(!cnt) return CAlloc(8);
+  ret=CAlloc(cnt*8);
+  cnt=0;
+  goto again;
+}
 
 #include "Save.HC";
 U64 r;

@@ -993,6 +993,7 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
   Vector *wall_vect=CreateVector(2);
   CD2 cam_cord;
   I64 miss_cnt=0;
+  I64 aframe=Server_tS*4;
   F64 floor,ceil,highest_ceil;
   for(seg_idx=0;seg_idx!=ss->cnt;seg_idx++) {
     seg=&ss->first[seg_idx];
@@ -1012,10 +1013,16 @@ U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
     sector=sidedef->sector;
     highest_ceil=HighestCeil(seg->linedef,sector);
     for(wall=0;wall!=4;wall++) {
-      if(wall==0&&(texture=GetLowerTexture(sidedef))) {
+      if(wall==0) {
         floor=Min(sector->floor_height,FloorRaise(seg->linedef,sector));
         ceil=Max(sector->floor_height,FloorRaise(seg->linedef,sector));
+//In orthodox doom,"missing" textures just render as if the floor/ceil was there
+        if(texture=GetLowerTexture(sidedef)) {
+        } else {
+	  texture=sector->floor_dc[aframe%FrameCnt(sector->floor_dc)];
+        }
 draw_wall:
+        if(floor!=ceil) {
 	  start_floor.x=seg->start->x;
 	  start_floor.y=seg->start->y;
 	  end_floor.x=seg->end->x;
@@ -1024,39 +1031,44 @@ draw_wall:
 	  start_ceil.y=seg->start->y;
 	  end_ceil.x=seg->end->x;
 	  end_ceil.y=seg->end->y;
-        fail_cnt=0;
-        if(!ClipLineToScrenCoords(cam,&start_floor,&end_floor,floor))
-	  fail_cnt++;
-        if(!ClipLineToScrenCoords(cam,&start_ceil,&end_ceil,ceil))
-	  fail_cnt++;
-        h=Abs(start_floor.y-start_ceil.y);
-        h2=Abs(end_ceil.y-end_floor.y);
-        if(ToI64(h)&&ToI64(h2)) {
-	  if(fail_cnt!=2) {
-	    if(!sector->drawn) {
-	      sector->drawn=TRUE;
-	      InsertVisplane(cam,sector);
-	    }
-	    if(opposite&&opposite->sector&&!opposite->sector->drawn) {
-	      opposite->sector->drawn=TRUE;
-	      InsertVisplane(cam,opposite->sector);
-	    }
-	    if(!no_draw) {
-	      if(seg->back_side)
-	        QueRayCastJob(to_dc,texture,seg->end,seg->start,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,TRUE);
-	      else
-	        QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,FALSE);
-	      if(wall==3&&opposite&&opposite->sector) {
-	        sector=opposite->sector;
-	        sidedef=opposite;
-	        floor=sector->floor_height;
-	        ceil=sector->ceil_height;
-	        QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,opposite,FALSE);
+	  fail_cnt=0;
+	  if(!ClipLineToScrenCoords(cam,&start_floor,&end_floor,floor))
+	    fail_cnt++;
+	  if(!ClipLineToScrenCoords(cam,&start_ceil,&end_ceil,ceil))
+	    fail_cnt++;
+	  h=Abs(start_floor.y-start_ceil.y);
+	  h2=Abs(end_ceil.y-end_floor.y);
+	  if(ToI64(h)&&ToI64(h2)) {
+	    if(fail_cnt!=2) {
+	      if(!sector->drawn) {
+	        sector->drawn=TRUE;
+	        InsertVisplane(cam,sector);
+	      }
+	      if(opposite&&opposite->sector&&!opposite->sector->drawn) {
+	        opposite->sector->drawn=TRUE;
+	        InsertVisplane(cam,opposite->sector);
+	      }
+	      if(!no_draw) {
+	        if(seg->back_side)
+		  QueRayCastJob(to_dc,texture,seg->end,seg->start,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,TRUE);
+	        else
+		  QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,FALSE);
+	        if(wall==3&&opposite&&opposite->sector) {
+		  sector=opposite->sector;
+		  sidedef=opposite;
+		  floor=sector->floor_height;
+		  ceil=sector->ceil_height;
+		  QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,opposite,FALSE);
+	        }
 	      }
 	    }
 	  }
         }
-      } else if(wall==2&&(texture=GetUpperTexture(sidedef))) {
+      } else if(wall==2) {
+        if(texture=GetUpperTexture(sidedef)) {
+        } else {
+	  texture=sector->ceil_dc[aframe%FrameCnt(sector->ceil_dc)];
+        }
         floor=Min(sector->ceil_height,CeilDepress(seg->linedef,sector));
         ceil=Max(sector->ceil_height,CeilDepress(seg->linedef,sector));
         goto draw_wall;

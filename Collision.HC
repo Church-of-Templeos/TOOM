@@ -368,7 +368,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
 		      lds[0]->front->sector->ceil_height);
 	      }
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-	      if(floor_height-STEP_HEIGHT>cur_height||ceil_height-32.<=cur_height||floor_height==ceil_height) {
+	      if(floor_height-STEP_HEIGHT>cur_height||cur_height+32>=ceil_height||floor_height==ceil_height) {
 fail_walk:
 	        if(wall_idx<64)
 		  walls[wall_idx++]=*lds;
@@ -409,19 +409,25 @@ fail_walk:
 skip:;
 	  }
 
-	  //Things take less precednece than walls
-    if(flags&COLLISF_NO_HIT_THING)
+    dist2+=128;
+    cur_pos.x=move1.x+cos*dist2;
+    cur_pos.y=move1.y+sin*dist2;
+    blockx=(dist2*cos+move1.x-l->block_map_x_off)/128;
+    blocky=(dist2*sin+move1.y-l->block_map_y_off)/128;
+  }
+  if(flags&COLLISF_NO_HIT_THING) {
+    off=0.;
+    do {
+      cur_pos.x=move1.x+cos*off;
+      cur_pos.y=move1.y+sin*off;
       if(hit_thing=HitsAThing(l,&cur_pos,radius,exclude))  {
 //NOSLIDING agianst things
         if(_hit_thing) *_hit_thing=hit_thing;
         flags&=~COLLISF_SLIDE;
         break;
       }
-    dist2+=128;
-    cur_pos.x=move1.x+cos*dist2;
-    cur_pos.y=move1.y+sin*dist2;
-    blockx=(dist2*cos+move1.x-l->block_map_x_off)/128;
-    blocky=(dist2*sin+move1.y-l->block_map_y_off)/128;
+      off+=radius;
+    } while(off<cap+radius);
   }
   if(best) {
     dist=0.;
@@ -526,7 +532,8 @@ look_for_hot:
   }
 //Final test,ensure the final destination is within step distance
   if(s=GetSectorForCoord(l,result->x,result->y)) {
-    if(s->floor_height>cur_height+STEP_HEIGHT) {
+    if(s->floor_height>cur_height+STEP_HEIGHT||
+	s->ceil_height-s->floor_height<32.) {
       dist=0;
       result->x=move1.x;
       result->y=move1.y;

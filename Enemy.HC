@@ -206,9 +206,23 @@ class CMissileThinker:CDoomThinkerBase {
   F64 state_start_tS;
   Bool hit;
 };
+U0 RadiusAttack(CDoomLevel *l,CDoomThing *dik,F64 boom) {
+  CI64Set *in_rad=ThingsInRadius(l,dik->x,dik->y,boom);
+  CDoomThing *cur;
+  I64 idx;
+  F64 angle,dist;
+  for(idx=0;idx!=in_rad->cnt;idx++) {
+    cur=in_rad->body[idx];
+    dist=Sqrt(Sqr(cur->y-dik->y)+Sqr(cur->x-dik->x));
+    if(dist<boom) {
+      DamageMob(l,cur,dik,dist);
+    }
+  }
+  I64SetDel(in_rad);
+}
 
 U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
-  CDoomThing *self=t->self,*hit,*head=&l->things;
+  CDoomThing *self=t->self,*hit;
   CDoomProjectileTemplate *template=self->template;
   F64 dist=template->speed,splash;
   CDoomLinedef *ld=NULL;  
@@ -216,7 +230,7 @@ U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
   //Exlucude the shooter,remove missile from the Que to avoid checking for it
   QueRem(self);
 //No speeding through targets
-  while(dist>0.) {
+  while(dist>0.&&!t->hit) {
     if(ld=MoveThingFinal(l,self,self->angle,Min(dist,template->radius),COLLISF_NO_HIT_THING|COLLISF_PROJECTILE,NULL,t->shooter,&hit))
       break;
     dist-=template->radius;
@@ -236,7 +250,7 @@ U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
     return;
   }
   if(hit) {
-    if(!(hit->flags&TF_SHOOTABLE)||hit==t->shooter)
+    if(hit==t->shooter)
       goto next;
     DamageMob(l,hit,t->shooter,template->direct*(RandU16&7+1));
 explode:
@@ -246,13 +260,7 @@ explode:
     self->animation=template->_hit_frames;
     splash=template->splash;
 //Splash damae
-    for(hit=head->next;hit!=head;hit=hit->next) {
-      if(hit->flags&TF_SHOOTABLE) {
-        dist=Sqrt(Sqr(hit->x-self->x)+Sqr(hit->y-self->y));
-        if(dist<splash)
-	  DamageMob(l,hit,self,splash-dist);
-      }
-    }
+    RadiusAttack(l,self,splash);
     switch(self->template->type) {
       case 33:
         Spawn(&PlaySoundTask,"BAREXP","snd",0,Fs);
@@ -1020,7 +1028,7 @@ U0 BarronOfHellAttack(CDoomLevel *l,CMonsterThinker *t) {
   }
 }
 
-#define SKULL_ATTACK_SPEED (40.*30/3)
+#define SKULL_ATTACK_SPEED (40.*30/7)
 U0 SkullAttack(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *dest=t->target;
   CDoomThing *self=t->self;
@@ -1092,16 +1100,6 @@ U0 NullState(CDoomLevel *l,CMonsterThinker *t) {
   //Remove the thinker but not the thing
   QueRem(t);
   Free(t);
-}
-U0 RadiusAttack(CDoomLevel *l,CDoomThing *dik,F64 boom) {
-  CDoomThing *cur,*head=&l->things;
-  F64 angle,dist;
-  for(cur=head->next;cur!=head;cur=cur->next) {
-    dist=Sqrt(Sqr(cur->y-dik->y)+Sqr(cur->x-dik->x));
-    if(dist<boom) {
-      DamageMob(l,cur,dik,dist);
-    }
-  }
 }
 U0 Explode(CDoomLevel *l,CMonsterThinker *t) {
   RadiusAttack(l,t->target,128);

@@ -1345,14 +1345,14 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   for(idx2=0;idx2!=cam->visplane_cnt;idx2++) {
     sector=sorted[idx2]->sector;
     if(sector->floor_dc)
-      if(sector->floor_height<cam->h)
+      if(sector->floor_height<cam->h&&sector->ceil_height!=sector->floor_height)
         DrawTexturedFlat(l,to_dc,cam,sector,sector->floor_height,sector->floor_dc[af%FrameCnt(sector->floor_dc)],TRUE);
   }
   QSortI64(sorted,cam->visplane_cnt,&CeilSort);
   for(idx2=0;idx2!=cam->visplane_cnt;idx2++) {
     sector=sorted[idx2]->sector;
     if(sector->ceil_dc) {
-      if(sector->ceil_height>cam->h)
+      if(sector->ceil_height>cam->h&&sector->ceil_height!=sector->floor_height)
         DrawTexturedFlat(l,to_dc,cam,sector,sector->ceil_height,sector->ceil_dc[af%FrameCnt(sector->ceil_dc)],FALSE);
     }
   }

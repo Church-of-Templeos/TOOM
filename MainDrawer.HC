@@ -1773,7 +1773,7 @@ U0 CrushThingsInSector(CDoomLevel *l,CDoomSector *s) {
   CDoomThing *thing,**things=GetCrushedThingsInSector(l,s),*new;
   I64 idx;
   for(idx=0;thing=things[idx];idx++) {
-    if(thing->template)
+    if(thing->template&&thing->health<=0.)
       switch(thing->template->type) {
         case 64:
         case 68:
@@ -1795,15 +1795,8 @@ U0 CrushThingsInSector(CDoomLevel *l,CDoomSector *s) {
         case 84:
         case 3004:
           Spawn(&PlaySoundTask,"SLOP",,0,Fs);
-	  new=CAlloc(sizeof CDoomThing);
-	  new->template=doom_thing_types[24];
-	  new->x=thing->x;
-	  new->height=thing->height;
-	  new->y=thing->y;
-	  new->angle=thing->angle;
-          InitPosDataForThing(l,new);
-	  QueIns(new,l->things.last);
-	  ThingDel(l,thing);
+	  thing->template=doom_thing_types[24];
+	  thing->animation=NULL; //Will be set automatically(quit current animation)
       }
   }
   Free(things);
@@ -1882,8 +1875,8 @@ open_again:
       t->wait_time=t->action->wait;
       goto open_again;
     } else {
-      things=GetCrushedThingsInSector(l,s); //NULL terminated
       CrushThingsInSector(l,s);
+      things=GetCrushedThingsInSector(l,s); //NULL terminated
       for(idx=0;things[idx];idx++) {
         if(things[idx]->health>0.) {
 	  Free(things);
@@ -3695,8 +3688,10 @@ U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
 //About 4 times damages a second
   if(ToI64(tS*32)&0x7==0) {
     for(idx=0;T=crushed[idx];idx++) {
-      DamageMob(l,T,NULL,5);
-      SpawnBloodPuff(l,&T->x,T->height,5);
+      if(T->health>0.) {
+        DamageMob(l,T,NULL,5);
+        SpawnBloodPuff(l,&T->x,T->height,5);
+      }
     }
   }
   Free(crushed);

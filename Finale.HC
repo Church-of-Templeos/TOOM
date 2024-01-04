@@ -140,3 +140,52 @@ U0 Finale(CDC *dc,I64 ep) {
   }
   DCFill;
 }
+U0 BunnyScroll(CDC *dc) {
+  F64 st=Server_tS;
+  U8 buf[STR_LEN];
+  CDC *p1=GetGrLump("PFUB2");
+  CDC *p2=GetGrLump("PFUB1");
+  CDC *lump; 
+  I64 scrolled,finale_cnt,stage,ascii;
+  while(TRUE) {
+    finale_cnt=(Server_tS-st)*30.;
+    scrolled=(finale_cnt-230)/2;
+    if(scrolled>320)
+      scrolled=320;
+    if(scrolled<0)
+      scrolled=0;
+    GrBlot(dc,scrolled*2-p1->x*2-320*2,-p1->y*2,p1);
+    GrBlot(dc,scrolled*2-p2->x*2,-p2->y*2,p2);
+    if(!paused&&ScanKey(&ascii)) {
+      if(ascii==CH_ESC)
+	paused=TRUE;
+      //Refresh to regen keys
+      Refresh;
+    }
+    if(paused)
+      if(!MainMenu)
+        Unpause;
+    if(finale_cnt<1130)
+      goto skip;
+    if(finale_cnt<1180) {
+      lump=GetGrLump("END0");
+      GrBlot(dc,(GR_WIDTH-13*8*2)/2-lump->x*2,(GR_HEIGHT-8*8*2)/2-lump->y*2,lump);
+      goto skip;
+    }
+    stage=(finale_cnt-1180)/5;
+    if(stage>6)
+      stage=6;
+/*    if(finale)
+{
+S_StartSound (NULL, sfx_pistol);
+laststage = stage;
+}*/
+    StrPrint(buf,"END%d",stage);
+    lump=GetGrLump(buf);
+    GrBlot(dc,(GR_WIDTH-13*8*2)/2-lump->x*2,(GR_HEIGHT-8*8*2)/2-lump->y*2,lump);
+skip:;
+    Refresh;
+  }
+  DCFill;
+
+}

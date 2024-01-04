@@ -4,6 +4,8 @@ CDoomThingTemplate *baron_fireball;
 CDoomThingTemplate *cacodemon_fireball;
 CDoomThingTemplate *rocket;
 CDoomThingTemplate *plasma_ball;
+CDoomThingTemplate *bfg_ball;
+CDoomThingTemplate *bfg_scanner_hit;
 #define TICK_FPS_SCALE (1/3.) //Ticks_per_sec/fps
 #define TICK_TIME (1/10.)
 
@@ -557,7 +559,7 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *thing=t->self;
   CDoomThing *target=t->target;
   CD2 dummy;
-  I64 drop=COLLISF_ADJUST_FOR_RADIUS,i;
+  I64 drop=COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING,i;
   if(!(thing->flags&TF_FLOATING))
     drop|=COLLISF_NO_DROP;
   F64 angle,dist=ToF64(RandU64&0xf),off,mul,ld_a,x,y;
@@ -793,7 +795,11 @@ U0 SpawnSmokePuff(CDoomLevel *l,CD2 *at,F64 h,F64 attack_range) {
   t->self=smoke;
   smoke->animation=smoke->template->_animation;
 } 
-U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 angle,F64 damage,Bool melee=FALSE) {
+#define LA_TYPE_NORMAL 0
+#define LA_TYPE_MELEE 1
+#define LA_TYPE_INVISIBLE 2
+
+CDoomThing *LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 angle,F64 damage,I64 melee=0) {
   CDoomThing *hit=ShotSmacksAHomie(l,&self->x,angle,range,self->height+self->template->height-2,self);
   CDoomLinedef *ld;
   CD2 puff_pos,dummy;
@@ -803,10 +809,10 @@ U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range,F64 an
     target=hit;
 hit_target:
     dist2=Sqrt(Sqr(self->x-target->x)+Sqr(self->y-target->y));
-    if(melee&&dist2>range)
-      return;
+    if(melee==LA_TYPE_MELEE&&dist2>range)
+      return NULL;
 //I will make some distance between the blood-puff and the target to avoid z-clipping
-    //Angle from hit->self 
+      //Angle from hit->self 
     angle2=FArg(self->x-hit->x,self->y-hit->y);
 //Spawn a BLOOD PUFF,and I AINT talkin marshmellow
     dst_h=target->height+target->template->height/2;
@@ -818,14 +824,17 @@ hit_target:
     else
       SpawnBloodPuff(l,&puff_pos,dst_h,damage);
     DamageMob(l,target,self,damage);
+    return target;
   } else if(target) {
 //Spawn a smoke puff as we missed
     src_h=self->height+self->template->height/2;
     dst_h=target->height+target->template->height/2;
     dist2=Sqrt(Sqr(self->x-target->x)+Sqr(self->y-target->y));
     dist=ValidateLineOfSightShot(l,&self->x,angle,dist2,src_h,dst_h); 
-    if(melee&&dist2>range)
-      return;
+    if(melee==LA_TYPE_INVISIBLE)
+      return NULL;
+    if(melee==LA_TYPE_MELEE&&dist2>range)
+      return NULL;
     if(dist>0.) {
       angle2=FArg(target->x-self->x,target->y-self->y);
       dst_h=Lerp(dist/dist2,src_h,dst_h); //Good enough?
@@ -844,8 +853,10 @@ defacto:
 //Make shot right in front of us
     src_h=self->height+self->template->height/2;
     dist=ValidateLineOfSightShot(l,&self->x,angle,range,src_h,src_h); 
-    if(melee&&dist>range)
-      return;
+    if(melee==LA_TYPE_INVISIBLE)
+      return NULL;
+    if(melee==LA_TYPE_MELEE&&dist>range)
+      return NULL;
     if(dist>=5.) {
       dist-=5.;
       puff_pos.x=self->x+dist*Cos(angle);
@@ -864,6 +875,7 @@ defacto:
     if(ld)
       TriggerLinedef(l,ld,WACTIVATE_SHOOT|WACTIVATE_MONSTER,self);
   }
+  return NULL;
 }
 U0 PosAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 angle,damage;
@@ -917,6 +929,8 @@ U0 SpawnMissile(CDoomLevel *l,CDoomThing *t,CDoomThing *target,U64 type) {
     template=baron_fireball;
   } else if(type=='Plasma') {
     template=plasma_ball;
+  } else if(type=='BFG') {
+    template=bfg_ball;
   } else
     throw('Missile');
   self=CAlloc(sizeof CDoomThing);
@@ -1208,6 +1222,20 @@ U0 LoadMonsterInfo() {
   AddState(t->pain_state="IMP.S_POSS_PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"IMP.S_POSS_RUN");
   AddState(t->death_state="IMP.S_POSS_DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"ST_NULL");
   AddState(t->gib_state="IMP.S_POSS_GIB",STATE_NO_REPEAT,t->_gib_frames,&XFall,"ST_NULL");
+//BFG blast
+  UH("bfgball",bfg_ball=CAlloc(sizeof CDoomProjectileTemplate));
+  p=bfg_ball;
+  p->type=35;
+  p->flags=TF_FLOATING;
+  p->radius=13.;
+  p->height=8.;
+  p->direct=100; //5 min,40 max
+  p->direct_max=800;
+  p->speed=875./30;
+  StrCpy(p->spr_base_name,"BFS1");
+  UH("bfgidle",p->animation=p->_idle_frames=GenerateCacheFrames(p,"AB"));
+  StrCpy(p->spr_base_name,"PLE1"); //Eploding sprite
+  UH("bfghit",p->_hit_frames=GenerateCacheFrames(p,"ABCDEF"));
 //Plasma shot
   UH("plasma",plasma_ball=CAlloc(sizeof CDoomProjectileTemplate));
   p=plasma_ball;
@@ -1469,6 +1497,64 @@ U0 LoadMonsterInfo() {
   AddState(t->death_state="CYBER.DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"CYBER.DIE2");
   AddState("CYBER.DIE2",0,t->_dying_frames,&BossDeath,"ST_NULL");
   AddState(t->pain_state="CYBER.PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"CYBER.RUN1");
+//BFG scaner hit
+  UH("bfgfizzle",bfg_scanner_hit=CAlloc(sizeof CDoomThingTemplate));
+  p=bfg_scanner_hit;
+  p->flags=TF_FLOATING;
+  p->radius=13.;
+  StrCpy(p->spr_base_name,"BFE2");
+  UH("bfgfizzlean",p->_animation=GenerateCacheFrames(p,"ABCD"));
 };
 
 LoadMonsterInfo;
+class CBFGScannerThinker:CDoomThinkerBase {
+  CDoomThing *who_fired;
+  F64 start_at;
+  F64 angle;
+};
+class CBFGPuffThinker:CDoomThinkerBase {
+  CDoomThing *self;
+  F64 start_tS;
+};
+U0 BFGPuffThinker(CDoomLevel *l,CBFGPuffThinker *puff) {
+  CDoomThing *self=puff->self;
+  if(Server_tS-puff->start_tS>=AnimationTime(self->animation)) {
+    ThingDel(l,self);
+    QueRem(puff);
+    Free(puff);
+  }
+}
+U0 BFGThinker(CDoomLevel *l,CBFGScannerThinker *bfg) {
+  if(bfg->start_at>Server_tS)
+    return;
+  CDoomThing *hit;
+  CDoomThing *fizzle;
+  CBFGPuffThinker *puff;
+  I64 scan;
+  F64 angle=bfg->angle-pi/180.*45/2.;
+  for(scan=0;scan!=40;scan++) {
+    if(hit=LineAttack(l,bfg->who_fired,NULL,1024,angle,Rand*(87-49)+49,LA_TYPE_INVISIBLE)) {
+      fizzle=CAlloc(sizeof CDoomThing);
+      fizzle->x=hit->x;
+      fizzle->y=hit->y;
+      fizzle->height=hit->height+hit->template->height/2.;
+      fizzle->anim_no_repeat=TRUE;
+      fizzle->template=bfg_scanner_hit;
+      QueIns(fizzle,l->things.last);
+      puff=AddThinker(l,&BFGPuffThinker,"CBFGPuffThinker");
+      puff->self=fizzle;
+      puff->start_tS=Server_tS;
+      InitPosDataForThing(l,fizzle);
+      fizzle->anim_start_tS=Server_tS;
+    }
+    angle+=pi/180.*45/40.;
+  }
+  QueRem(bfg);
+  Free(bfg);
+}
+U0 AddBFGTracers(CDoomLevel *l,CDoomPlayer *p) {
+  CBFGScannerThinker *t=AddThinker(l,&BFGThinker,"CBFGScannerThinker");
+  t->who_fired=p;
+  t->start_at=Server_tS+16.*1/30.;
+  t->angle=p->angle;
+}

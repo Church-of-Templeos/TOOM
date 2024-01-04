@@ -606,6 +606,7 @@ U0 SwapWeapon(CDoomPlayer *p,I64 weapon)
     return;
   weaponIndex = weapon;
 }
+extern U0 AddBFGTracers(CDoomLevel*,CDoomThing*);
 U0 ST_Fire(CDoomPlayer *p)
 {
   switch(weaponIndex) {
@@ -652,9 +653,11 @@ U0 ST_Fire(CDoomPlayer *p)
         break;
       case 7: //Big poopin gun
 //TODO tracer
-        if(p->arsenal[weaponIndex].load->ammo>0) {
-	  if(PlayerAttack(52.5,100,800,200*64.,'BFG'))
-	    --p->arsenal[weaponIndex].load->ammo;
+        if(p->arsenal[weaponIndex].load->ammo>=20) {
+	  if(PlayerAttack(52.5,100,800,200*64.,'BFG')) {
+            AddBFGTracers(l,p);
+	    p->arsenal[weaponIndex].load->ammo-=20;
+	  }
         }
         break;
     end:

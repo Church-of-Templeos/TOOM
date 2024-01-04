@@ -231,6 +231,13 @@ U0 SaveGame(U8 *filename,U8 *title) {
       DocPrint(doc,"%n\n",cur(CLightBlinkThinker*)->begin_at_tS);
       DocPrint(doc,"%n\n",cur(CLightBlinkThinker*)->change_tS);
       DocPrint(doc,"%d\n",cur(CLightBlinkThinker*)->on);
+    } else if(!StrCmp("CBFGScannerThinker",cur(CDoomThinker*)->cls_name)) {
+      DocPrint(doc,"%d\n",GetThingIndex(l,cur(CBFGScannerThinker*)->who_fired));
+      DocPrint(doc,"%n\n",cur(CBFGScannerThinker*)->start_at);
+      DocPrint(doc,"%n\n",cur(CBFGScannerThinker*)->angle);
+    } else if(!StrCmp("CBFGPuffThinker",cur(CDoomThinker*)->cls_name)) {
+      DocPrint(doc,"%d\n",GetThingIndex(l,cur(CBFGPuffThinker*)->self));
+      DocPrint(doc,"%n\n",cur(CBFGPuffThinker*)->start_tS);
     } else {
 //Do Nothing
     }
@@ -621,6 +628,17 @@ U0 LoadGame(U8 *filename) {
 	    ptr=StrScan(ptr,"%n\n",&thinker(CLightBlinkThinker*)->change_tS);
 	    ptr=StrScan(ptr,"%d\n",&i64);
 	    thinker(CLightBlinkThinker*)->on=i64;
+	  } else if(!StrCmp("CBFGScannerThinker",thinker(CDoomThinker*)->cls_name)) {
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker->doom.fun_ptr=&BFGThinker;
+	    thinker(CBFGScannerThinker*)->who_fired=GetNthThing(l,i64);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CBFGScannerThinker*)->start_at);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CBFGScannerThinker*)->angle);
+	  } else if(!StrCmp("CBFGPuffThinker",thinker(CDoomThinker*)->cls_name)) {
+	    thinker->doom.fun_ptr=&BFGPuffThinker;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CBFGPuffThinker*)->self=GetNthThing(l,i64);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CBFGPuffThinker*)->start_tS);
 	  }else {
 	    PrintI("fuk",thinker);
 	    next=thinker->doom.next;

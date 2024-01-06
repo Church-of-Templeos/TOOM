@@ -1618,14 +1618,14 @@ U0 CeilThinker(CDoomLevel *l,CCeilThinker *t) {
   }
   F64 dir=Sign(t->target_end-t->target_start);
   s->ceil_height=dir*t->speed*TIME_SCALE*(Server_tS-t->start_tS)+t->target_start;
-  if(t->going_up&&s->ceil_height>t->target_end) {
+  if(t->going_up&&s->ceil_height>=t->target_end) {
     s->ceil_height=t->target_end;
     t->going_up=FALSE;
     s->cur_action_linedef=NULL;
     Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
     QueRem(t);
     Free(t);
-  } else if(t->going_down&&s->ceil_height<t->target_end) {
+  } else if(t->going_down&&s->ceil_height<=t->target_end) {
     s->ceil_height=t->target_end;
     t->going_down=FALSE;
     s->cur_action_linedef=NULL;
@@ -1831,7 +1831,8 @@ U0 DoorThinker(CDoomLevel *l,CDoorThinker *t) {
     dir=Sign(t->target_end-t->target_start);
     if(!t->waiting) 
       s->ceil_height=dir*t->speed*TIME_SCALE*(Server_tS-t->start_tS)+t->target_start;
-    if(OutsideOfRange(s->ceil_height,t->target_start,t->target_end)||t->waiting) {
+//if dir is 0,we are done
+    if(dir==0||OutsideOfRange(s->ceil_height,t->target_start,t->target_end)||t->waiting) {
       s->ceil_height=ceil;
 //-1 for never close/open again
       if(t->wait_time>=0.) {
@@ -1858,7 +1859,8 @@ U0 DoorThinker(CDoomLevel *l,CDoorThinker *t) {
     t->target_end=s->floor_height;
     dir=Sign(t->target_end-t->target_start);
     s->ceil_height=dir*t->speed*TIME_SCALE*(Server_tS-t->start_tS)+t->target_start;
-    if(OutsideOfRange(s->ceil_height,t->target_start,t->target_end)||t->waiting) {
+//if dir is 0,we are done
+    if(dir==0.||OutsideOfRange(s->ceil_height,t->target_start,t->target_end)||t->waiting) {
       s->ceil_height=s->base_floor_height;
 //-1 for never close/open again
       if(t->wait_time>=0.) {
@@ -1899,6 +1901,10 @@ open_again:
       }
       Free(things);
     }
+  } else {
+        s->cur_action_linedef=NULL;
+        QueRem(t);
+        Free(t);
   }
   s->door_height_offset=s->ceil_height-s->base_floor_height;  
 }
@@ -3500,15 +3506,16 @@ ent:;
     DCDel(old),DCDel(new);
     Unpause;
   }
+//Reset the animation task for newly loaded player
+  if(Fs->animate_task)
+    Kill(Fs->animate_task,FALSE);
+  Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
 //Return to parent instance  of PlayLevel(if recursivly called)
   //But be sure to initailize the level and player
   if(in_level) return;
   in_level=TRUE;
   I64 a,b;
   U64 mr;
-  if(Fs->animate_task)
-    Kill(Fs->animate_task,FALSE);
-  Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
   Unpause;
   while(!l->ended) {
     if(screen_melt) {

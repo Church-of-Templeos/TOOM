@@ -757,6 +757,5 @@ fin:
   new=DCCopy(old); //Same dimension
   screen_melt=TRUE;
   Unpause(level_time);
-  if(!in_level)
-    PlayLevel(FALSE);
+  PlayLevel(FALSE);
 }

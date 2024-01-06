@@ -541,13 +541,14 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   }
   repeat=TRUE;
   ix=GR_WIDTH/2.+start_angle/(cam->fov/2.)*GR_WIDTH/2.;
-  ix&=~1;
   ex=GR_WIDTH/2.+end_angle/(cam->fov/2.)*GR_WIDTH/2.;
+  ix&=~1;
   ex&=~1;
-  if(ix<ex)
+  if(ix<ex) {
     dir=2;
-  else
+  }else {
     dir=-2;
+  }
   for(;ix!=ex;ix+=dir) {
     ray.x=I16_MAX*ray_cast_table_cos[ix/2];
     ray.y=I16_MAX*ray_cast_table_sin[ix/2]; 
@@ -653,9 +654,9 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    ih2-=2;
 	  }
         } else {
-          tx%=texture->width;
+	  tx%=texture->width;
 	  if(tx<0)
-	     tx+=texture->width;
+	    tx+=texture->width;
 	  tx=ClampI64(tx,0,texture->width-2);
 	  tx&=~1;
 	  low_ih=MaxI64(cam->ceil_heights[ix>>1]-iy,0);

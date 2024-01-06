@@ -63,7 +63,6 @@ CDoomSector *GetHighestSectorInRadius(CDoomLevel *l,F64 x,F64 y,F64 radius) {
 	      } else if(ld->back&&ld->back->sector->floor_height>highest->floor_height) {
 	        highest=ld->back->sector;
 	      }
-	    break;
 	  }
         }
   return highest;
@@ -78,21 +77,14 @@ F64 IntersectDist(CDoomLinedef *ld,CD2 *a,CD2 *b) {
 //Ask nroot how this works
 F64 NormalScore(CDoomLinedef *ld,CD2 *point,F64 angle) {
   CD2 rel_point;
-  F64 angle2,angle3,score;
-  Vector *v=CreateVector(2);
-  v->data[0]=ld->end->x-ld->start->x;
-  v->data[1]=ld->end->y-ld->start->y;
+  F64 angle2,angle3,score,dx,dy;
+  dx=ld->end->x-ld->start->x;
+  dy=ld->end->y-ld->start->y;
   rel_point.x=point->x-ld->start->x;
   rel_point.y=point->y-ld->start->y;
-  angle3=FArg(v->data[0],v->data[1]);
-  if(IsFrontSideOfVector2D(v,&rel_point)) {
-    angle2=angle3-angle;
-    score=FCos(angle2);
-  } else  {
-    angle2=angle3-angle;
-    score=-FCos(angle2);
-  }
-  DestroyVector(v);
+  angle3=FArg(dx,dy);
+  angle2=angle3-angle;
+  score=FCos(angle2);
   return score;
 }
 Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F64 cur_h,F64 to_travel,CDoomThing *exclude) {
@@ -305,7 +297,16 @@ next:;
   return closest;
 }
 
-
+//Acounts for the steps on stairs for a step
+class CMoveStep {
+  CDoomLinedef *ld;
+  F64 dist;
+};
+I64 MoveStepCmp(CMoveStep *a,CMoveStep *b) {
+  if(a->dist>b->dist) return 1;
+  if(a->dist<b->dist) return -1;
+  return 0;
+}
 //walked_over_hot is "hot" linedefs that have a walkover action on them
 CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=COLLISF_SLIDE,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL,CDoomThing **_hit_thing=NULL) {
   if(dist<0) {
@@ -315,6 +316,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
   if(_hit_thing) _hit_thing[0]=NULL;
   Vector *vector;
   Bool hit=FALSE;
+  CI64Set *walls_in_way=I64SetNew,*fail_walls=I64SetNew;
   I64 blockx=(at->x-l->block_map_x_off)/128,i,try_cnt;
   I64 blocky=(at->y-l->block_map_y_off)/128,o,wall_idx;
   CD2 move1,move2,dummy,*result=at,push_back,cur_pos,move_fat;
@@ -350,6 +352,8 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
 		  (blockx+xoff)+
 		  (blocky+yoff)*l->block_map_cols];
 	    for(lds=l->block_map_data+o;*lds;lds++,i++) {
+	      if(wall_idx<64)
+	        walls[wall_idx++]=*lds;
 	      if(lds[0]->flags&WAD_LINEDEFF_WALL&&!(flags&COLLISF_PROJECTILE))
 	        goto fail_walk;
 	      if(lds[0]->flags&WAD_LINEDEFF_WALL_MONSTER&&flags&COLLISF_MONSTER)
@@ -367,11 +371,15 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
 	        ceil_height=Min(lds[0]->back->sector->ceil_height,
 		      lds[0]->front->sector->ceil_height);
 	      }
+	      if(CrosesLine(lds[0],&move1,&move_fat)) {
+	        tmp=IntersectDist(lds[0],&move1,&move2);
+	        if(tmp<=min_dist)
+		  I64SetAdd(walls_in_way,lds[0]);
+	      }
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-	      if(floor_height-STEP_HEIGHT>cur_height||cur_height+32>=ceil_height||floor_height==ceil_height) {
+	      if(32>ceil_height-floor_height||floor_height==ceil_height) {
 fail_walk:
-	        if(wall_idx<64)
-		  walls[wall_idx++]=*lds;
+		I64SetAdd(fail_walls,lds[0]);
 	        if(CrosesLine(lds[0],&move1,&move_fat)) {
 		  tmp=IntersectDist(lds[0],&move1,&move2);
 		  if(tmp<=min_dist) {
@@ -415,6 +423,62 @@ skip:;
     blockx=(dist2*cos+move1.x-l->block_map_x_off)/128;
     blocky=(dist2*sin+move1.y-l->block_map_y_off)/128;
   }
+
+  //Ensure the final destination is within step distance(for each step)
+  if(!(flags&(COLLISF_MONSTER|COLLISF_NO_DROP))) {
+    CMoveStep *steps=CAlloc(walls_in_way->cnt*sizeof(CMoveStep));
+    o=0;
+    for(i=0;i!=walls_in_way->cnt;i++) {
+      wall=walls_in_way->body[i];
+      tmp=IntersectDist(wall,&move1,&move_fat);
+      steps[o].ld=wall;
+      steps[o].dist=tmp;
+      o++;
+    }
+    QSort(steps,o,sizeof(CMoveStep),&MoveStepCmp);
+    last_good=cur_height;
+    for(i=0;i!=o;i++) {
+      wall=steps[i].ld;
+      if(wall->front^^wall->back) {
+        floor_height=I16_MAX;
+        ceil_height=I16_MAX;
+      } else {
+        floor_height=Max(wall->back->sector->floor_height,
+	      wall->front->sector->floor_height);
+        ceil_height=Min(wall->back->sector->ceil_height,
+	      wall->front->sector->ceil_height);
+      }
+      if(last_good+STEP_HEIGHT<floor_height||ceil_height-floor_height<32.) {
+fail_walk2:
+        best=wall;
+        cap=Max(steps[i].dist-radius,0.);
+        break;
+      }
+      last_good=floor_height;
+      cur_height=floor_height;
+    }
+    Free(steps);
+  }
+
+  //Filter out walls by by the "new" cur_height
+  o=0;
+  for(i=0;i!=wall_idx;i++) {
+    wall=walls[i];
+    if(wall->front^^wall->back) {
+      floor_height=I16_MAX;
+      ceil_height=I16_MAX;
+    } else {
+      floor_height=Max(wall->back->sector->floor_height,
+	    wall->front->sector->floor_height);
+      ceil_height=Min(wall->back->sector->ceil_height,
+	    wall->front->sector->ceil_height);
+    }
+    if(cur_height+STEP_HEIGHT<floor_height||ceil_height-floor_height<32.) {
+      I64SetAdd(fail_walls,wall);
+    }
+  }
+  wall_idx=o;
+
   if(flags&COLLISF_NO_HIT_THING) {
     off=0.;
     do {
@@ -463,9 +527,9 @@ fin:
   while(dist>0.) {
     cur_pos.x=move1.x+cos*dist;
     cur_pos.y=move1.y+sin*dist;
-    for(i=0;i!=wall_idx;i++)
-      if(CheckLineWithBox(walls[i],&cur_pos,radius)) {
-        best=walls[i];
+    for(i=0;i!=fail_walls->cnt;i++)
+      if(CheckLineWithBox(fail_walls->body[i],&cur_pos,radius)) {
+        best=fail_walls->body[i];
         goto found;
       }
     if(HitsAThing(l,&cur_pos,radius,exclude))
@@ -497,10 +561,10 @@ pass:
 
     wall2=NULL;
     cap=I16_MAX;
-    for(i=0;i!=wall_idx;i++) {
-      wall=walls[i];
-      if(CheckLineWithBox(walls[i],&cur_pos,radius)) {
-        tmp=NormalScore(walls[i],&cur_pos,angle);
+    for(i=0;i!=fail_walls->cnt;i++) {
+      wall=fail_walls->body[i];
+      if(CheckLineWithBox(wall,&cur_pos,radius)) {
+        tmp=NormalScore(wall,&cur_pos,angle);
         if(Abs(tmp)<Abs(cap)) {
 	  cap=tmp;
 	  wall2=wall;
@@ -530,9 +594,12 @@ look_for_hot:
         }
       }
   }
-//Final test,ensure the final destination is within step distance
+
+
+//Final test,if COLLISF_NO_DROP,make sure we dont drop
+  if(flags&COLLISF_NO_DROP)
   if(s=GetSectorForCoord(l,result->x,result->y)) {
-    if(s->floor_height>cur_height+STEP_HEIGHT||
+    if(s->floor_height<cur_height-STEP_HEIGHT||
 	s->ceil_height-s->floor_height<32.) {
       dist=0;
       result->x=move1.x;
@@ -540,6 +607,8 @@ look_for_hot:
     }
   }
 
+  I64SetDel(fail_walls);
+  I64SetDel(walls_in_way);
   DestroyVector(vector);
   return best;
 }

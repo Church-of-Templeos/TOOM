@@ -3353,8 +3353,13 @@ U0 InitLevel(CDoomLevel *l) {
 	  break;
         default:
       }
-    if(s=GetSectorForCoord(l,t->x,t->y))
-      t->height=s->floor_height;
+    if(s=GetSectorForCoord(l,t->x,t->y)) {
+//Non-monster floating things hang from the ceiling
+      if(t->template->flags&TF_FLOATING&&!(t->template->flags&TF_SHOOTABLE)) {
+        t->height=s->ceil_height-t->template->height;
+      } else
+        t->height=s->floor_height;
+    }
   }
   InitMonsters(l);
 }

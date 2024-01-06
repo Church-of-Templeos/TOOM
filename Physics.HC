@@ -75,43 +75,6 @@ U0 PhysicsOnThing(CDoomLevel *l,CDoomThing *thing) {
       }
     }
   }
-//Check for crusher  action linedef
-/*  if(sec&&sec->cur_action_linedef) {
-    if(special=sec->cur_action_linedef->special_type) {
-      if(IsCrushed(sec,thing)) {
-        if(special->type=='Door') {
-	  if(sec->closing) {
-	    if(thing->health<=0.) {
-//TODO crush bodies at the bottom
-	    } else {
-	      sec->start_tS=tS;
-	      sec->target_start=sec->ceil_height;
-	      sec->opening=TRUE;
-	    }
-	  }
-        } else if(special->type=='Ceil') {
-//Cielings dont kill homies normally,they halt until the homie dies
-	  if(thing->health<=0.) {
-//TODO crush bodies at the bottom
-	  } else  {
-	    sec->start_tS=tS;
-	    sec->paused=TRUE;
-	  }
-        } else if(special->type=='Floor'||special->type=='Lift') {
-//go down if something is in the way
-	  if(thing->health<=0.) {
-//TODO crush bodies at the bottom
-	  } else  {
-//TODO damage homies(if crush)?
-	    sec->start_tS=tS;
-	    sec->target_start=sec->floor_height;
-	    sec->going_down=TRUE;
-	    sec->going_up=FALSE;
-	  }
-        }
-      }
-    }
-  }*/
 }
 U0 EchoSound(CDoomLevel *l,CDoomThing *thing,CDoomSector *s,F64 len) {
   I64 cnt=s->linedef_cnt,i;

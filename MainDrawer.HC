@@ -2844,7 +2844,8 @@ U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags,CDoomThing *who) {
   I64 trig=FALSE;
   if(!ld->special_type) return;
 //Push operators on the linedef that called it
-  if(ld->special_type(CDoomDoor*)->trigger.u8[0]=='P') {
+  if(ld->back&&ld->special_type(CDoomDoor*)->trigger.u8[0]=='P') {
+
     ld->back->sector->bumped_into=TRUE;
     trig|=_TriggerLinedef(l,ld->back->sector,ld,flags,who);
   } else
@@ -3238,7 +3239,7 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
   Vector *ldv;
    dummy.x=where->x;
   dummy.y=where->y;
-  ld=MoveInLevel(l,&dummy,angle,1,64,1,height,0);
+  ld=MoveInLevel(l,&dummy,angle,64,1,1,height,0);
   if(ld) {
     if(ld->front^^ld->back) {
       which_texture=1;

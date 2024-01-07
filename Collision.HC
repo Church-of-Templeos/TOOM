@@ -560,12 +560,12 @@ pass:
 
 
     wall2=NULL;
-    cap=I16_MAX;
+    cap=0;
     for(i=0;i!=fail_walls->cnt;i++) {
       wall=fail_walls->body[i];
       if(CheckLineWithBox(wall,&cur_pos,radius)) {
         tmp=NormalScore(wall,&cur_pos,angle);
-        if(Abs(tmp)<Abs(cap)) {
+        if(Abs(tmp)>Abs(cap)) {
 	  cap=tmp;
 	  wall2=wall;
         }

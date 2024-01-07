@@ -1639,6 +1639,7 @@ U0 AddCeilThinker(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld,CDoomCeil *ceil)
   if(s->cur_action_linedef) return;
   F64 dst=GetTargetCeilHeight(s,ceil->target);  
   CCeilThinker *t=AddThinker(l,&CeilThinker,"CCeilThinker");
+  t->s=s;
   t->target_start=s->floor_height;
   t->target_end=dst;
   t->start_tS=Server_tS;
@@ -2156,6 +2157,14 @@ loop:
 nxt:;
   }
 }
+
+static CDoomThingTemplate *teleport_fog=NULL;
+UH("telefog",teleport_fog=CAlloc(sizeof CDoomThingTemplate));
+teleport_fog->spr_base_name[0](U32)='TFOG';
+teleport_fog->radius=20;
+teleport_fog->animation="ABABCDEFGHIJ";
+UH("telefoganim",teleport_fog->_animation=GenerateCacheFrames(teleport_fog,teleport_fog->animation));
+
 class CTeleportThinker:CDoomThinkerBase {
   CDoomThing *fog;
 };
@@ -2173,14 +2182,6 @@ U0 TeleportFogThinker(CDoomLevel *l,CTeleportThinker *t) {
 U0 TeleportThing(CDoomLevel *l,CDoomTeleporter *tp,I64 sector_tag,CDoomThing *who) {
   CDoomThing *cur,*fog;
   CDoomSector *sec;
-  static CDoomThingTemplate *teleport_fog=NULL;
-  if(!teleport_fog) {
-     UH("telefog",teleport_fog=CAlloc(sizeof CDoomThingTemplate));
-     teleport_fog->spr_base_name[0](U32)='TFOG';
-     teleport_fog->radius=20;
-     teleport_fog->animation="ABABCDEFGHIJ";
-     UH("telefoganim",teleport_fog->_animation=GenerateCacheFrames(teleport_fog,teleport_fog->animation));
-  }
   for(cur=l->things.next;cur!=&l->things;cur=cur->next) {
 //https://doomwiki.org/wiki/Teleporter
     if(cur->template->type==14) {

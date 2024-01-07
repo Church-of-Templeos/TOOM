@@ -1,6 +1,6 @@
 
 
- U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 dir=1,F64 angle=0) {
+U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 dir=1,F64 angle=0) {
   F64 speed=dir;
   if(p->running) speed*=30*.60;
   else speed*=20*.60;

@@ -571,7 +571,7 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
     angle=thing->angle;
   dummy.x=thing->x;
   dummy.y=thing->y;
-  ld=MoveInLevel(l,&dummy,angle,thing->template->radius,thing->template->radius,thing->height,drop,NULL,thing);
+  ld=MoveInLevel(l,&dummy,angle,thing->template->height,thing->template->radius,thing->template->radius,thing->height,drop,NULL,thing);
   if(!ld) {
     thing->angle=angle;
   } else { //Deflect off the wall
@@ -871,7 +871,7 @@ defacto:
 //Check to see if we hit a shootable wall
     dummy.x=self->x;
     dummy.y=self->y;
-    ld=MoveInLevel(l,&dummy,angle,dist+8,8.,self->height,COLLISF_PROJECTILE);
+    ld=MoveInLevel(l,&dummy,angle,dist+8,8.,16.,self->height,COLLISF_PROJECTILE);
     if(ld)
       TriggerLinedef(l,ld,WACTIVATE_SHOOT|WACTIVATE_MONSTER,self);
   }

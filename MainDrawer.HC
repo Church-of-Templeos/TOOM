@@ -3238,7 +3238,7 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
   Vector *ldv;
    dummy.x=where->x;
   dummy.y=where->y;
-  ld=MoveInLevel(l,&dummy,angle,64.,1.,height,0);
+  ld=MoveInLevel(l,&dummy,angle,1,64,1,height,0);
   if(ld) {
     if(ld->front^^ld->back) {
       which_texture=1;
@@ -3322,7 +3322,7 @@ U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
   if(p->health<=0.) {
     cam->h=Clamp(cam->h-12*1/30.,p->height+8,p->height+32);
   } else 
-    cam->h=p->height+32;
+    cam->h=p->height+41;
   cam->x=p->x;
   cam->y=p->y;
   if(p->stare_at&&p->health<=0.) {

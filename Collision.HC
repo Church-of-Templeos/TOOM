@@ -8,7 +8,7 @@
 #define COLLISF_MONSTER 8
 #define COLLISF_ADJUST_FOR_RADIUS 0x10
 #define COLLISF_PROJECTILE 0x20
-extern Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=0,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL,CDoomThing **hit=NULL);
+extern Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 tallness,F64 radius=64.,F64 cur_height=0.,I64 flags=0,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL,CDoomThing **hit=NULL);
 
 //https://stackoverflow.com/questions/14176776/find-out-if-2-lines-intersect
 Bool CrosesLine(CDoomLinedef *ld,CD2 *a,CD2 *b) {
@@ -87,13 +87,13 @@ F64 NormalScore(CDoomLinedef *ld,CD2 *point,F64 angle) {
   score=FCos(angle2);
   return score;
 }
-Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 radius,F64 cur_h,F64 to_travel,CDoomThing *exclude) {
+Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 tallness,F64 radius,F64 cur_h,F64 to_travel,CDoomThing *exclude) {
   I64 i;
   CD2 closest_point,side,rel_point;
   F64 score;
   F64 angle3=FArg(ld->end->x-ld->start->x,ld->end->y-ld->start->y);
   score=NormalScore(ld,point,angle);
-  MoveInLevel(l,point,angle3,score*to_travel,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING|COLLISF_SLIDE,,exclude);
+  MoveInLevel(l,point,angle3,score*to_travel,radius,tallness,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING|COLLISF_SLIDE,,exclude);
 }
 
 CI64Set *ThingsInRadius(CDoomLevel *l,I64 x,I64 y,F64 radius) {
@@ -308,7 +308,7 @@ I64 MoveStepCmp(CMoveStep *a,CMoveStep *b) {
   return 0;
 }
 //walked_over_hot is "hot" linedefs that have a walkover action on them
-CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64.,F64 cur_height=0.,I64 flags=COLLISF_SLIDE,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL,CDoomThing **_hit_thing=NULL) {
+CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 tallness,F64 radius=64.,F64 cur_height=0.,I64 flags=COLLISF_SLIDE,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL,CDoomThing **_hit_thing=NULL) {
   if(dist<0) {
     dist=-dist;
     angle+=pi;
@@ -377,7 +377,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 radius=64
 		  I64SetAdd(walls_in_way,lds[0]);
 	      }
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-	      if(32>ceil_height-floor_height||floor_height==ceil_height) {
+	      if(tallness>ceil_height-floor_height||floor_height==ceil_height) {
 fail_walk:
 		I64SetAdd(fail_walls,lds[0]);
 	        if(CrosesLine(lds[0],&move1,&move_fat)) {
@@ -448,7 +448,7 @@ skip:;
         ceil_height=Min(wall->back->sector->ceil_height,
 	      wall->front->sector->ceil_height);
       }
-      if(last_good+STEP_HEIGHT<floor_height||ceil_height-floor_height<32.) {
+      if(last_good+STEP_HEIGHT<floor_height||ceil_height-floor_height<tallness) {
 fail_walk2:
         best=wall;
         cap=Max(steps[i].dist-radius,0.);
@@ -578,7 +578,7 @@ pass:
         portion=odist;
       recur_depth++;
       if(portion>.1)
-        SlideWalk(l,wall2,result,angle,radius,cur_height,portion*(1/(.5+recur_depth)),exclude);
+        SlideWalk(l,wall2,result,angle,tallness,radius,cur_height,portion*(1/(.5+recur_depth)),exclude);
       --recur_depth;
     }
   }
@@ -646,7 +646,7 @@ CDoomLinedef *MoveThingFinal(CDoomLevel *l,CDoomThing *t,F64 angle,F64 dist,I64 
   RemovePosDataForThing(l,t);
 
   if(t->template)
-    ld=MoveInLevel(l,&t->x,angle,dist,t->template->radius,t->height,flags,walked_over_hot,exclude,hit);
+    ld=MoveInLevel(l,&t->x,angle,dist,t->template->height,t->template->radius,t->height,flags,walked_over_hot,exclude,hit);
 
   InitPosDataForThing(l,t);
 

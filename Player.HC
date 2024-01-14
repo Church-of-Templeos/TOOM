@@ -103,19 +103,20 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
 }
 
 CDoomThing *PlayerPickTarget(CDoomLevel *l,CDoomPlayer *p) {
+//best_diff is cosine of angle diference,MORE same == higher value
   CDoomThing *cur,*head=&l->things,*best=NULL;
-  F64 dist,angle,margin=22*(pi/180),has,h2,a2,best_dist=I32_MAX;
+  F64 dist,angle,margin=22*(pi/180),has,h2,a2,best_diff=0;
   h2=p->template->height/2;
   for(cur=head->next;head!=cur;cur=cur->next) 
     if(cur->flags&TF_SHOOTABLE&&cur!=p) {
       dist=Sqrt(Sqr(cur->x-p->x)+Sqr(cur->y-p->y));
-      if(dist<=16.*64&&dist<best_dist) {
+      if(dist<=16.*64) {
 	a2=FArg(cur->x-p->x,cur->y-p->y);
         angle=(a2-p->angle)%(2*pi);
         if(-margin<=angle<=margin) {
-	  has=ValidateLineOfSightShot(l,&p->x,a2,dist+1,p->height+h2,cur->height+cur->template->height/2);
-	  if(has>=dist||has<0.) {
-	    best_dist=dist;
+	  has=Abs(Cos(a2-p->angle));
+	  if(has>best_diff&&ValidateLineOfSightShot(l,&p->x,a2,dist+1,p->height+h2,cur->height+cur->template->height/2)<0.) {
+	    best_diff=has;
 	    best=cur;
 	  }
         }

@@ -3171,7 +3171,7 @@ rem:
 }
 
 Bool PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0) {
-  F64 cooldown=60./shots_per_minute;
+  F64 cooldown=60./shots_per_minute,oa;
   p->weapon_cooldown=cooldown;
   if(Server_tS<p->last_attack+p->weapon_cooldown) return FALSE;
   if(!p->weapon_state) {
@@ -3183,14 +3183,13 @@ Bool PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U
   F64 damage=Rand*(max_damage-min_damage)+min_damage;
   I64 idx;
 //Use mouse angle as real angle,then restore
-  r=p->angle;
+  oa=p->angle;
 //Views in TOOM are reversed
   p->angle+=((GR_WIDTH-cursor_x)-GR_WIDTH/2)/ToF64(GR_WIDTH/2)*cam.fov/2;
   angle=p->angle;
   CDoomThing *target=PlayerPickTarget(l,p);
   if(target)
     angle=FArg(target->x-p->x,target->y-p->y);
-  p->angle=r;
 //Account for mouse aim
   if(!rocket_type) {
     if(weaponIndex==2) {//Shotgun
@@ -3209,6 +3208,7 @@ Bool PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U
   }
   if(weaponIndex!=0&&weaponIndex!=5)
     p->muzzle_flash_end_tS=Server_tS+1/10.;
+  p->angle=oa;
   return TRUE;
 }
 

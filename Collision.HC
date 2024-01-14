@@ -34,7 +34,7 @@ Bool CheckLineWithBox(CDoomLinedef *ld,CD2 *at,F64 radius) {
 	CrosesLine(ld,&tr,&br)||
 	CrosesLine(ld,&br,&bl)||
 	CrosesLine(ld,&tl,&bl)) {
-    return DistFromLine(at,ld->start,ld->end)-.1<radius;
+    return TRUE;
   }
   return FALSE;
 }
@@ -136,10 +136,10 @@ enter:
     bbt_r=cur->x+cur->template->radius;
     bbt_b=cur->y-cur->template->radius;
     bbt_t=cur->y+cur->template->radius;
-    if(bbl_r<bbt_l
-	  ||bbl_l>bbt_r
-	  ||bbl_t<bbt_b
-	  ||bbl_b>bbt_t)
+    if(bbl_r<=bbt_l
+	  ||bbl_l>=bbt_r
+	  ||bbl_t<=bbt_b
+	  ||bbl_b>=bbt_t)
       ; //Fail
     else  {
       if(exclude!=cur&&cur->flags&(TF_OBSTACLE|TF_SHOOTABLE)) {
@@ -379,7 +379,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 tallness,
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
 	      if(tallness>ceil_height-floor_height||floor_height==ceil_height) {
 fail_walk:
-		I64SetAdd(fail_walls,lds[0]);
+	        I64SetAdd(fail_walls,lds[0]);
 	        if(CrosesLine(lds[0],&move1,&move_fat)) {
 		  tmp=IntersectDist(lds[0],&move1,&move2);
 		  if(tmp<=min_dist) {
@@ -485,9 +485,7 @@ fail_walk2:
       cur_pos.x=move1.x+cos*off;
       cur_pos.y=move1.y+sin*off;
       if(hit_thing=HitsAThing(l,&cur_pos,radius,exclude))  {
-//NOSLIDING agianst things
         if(_hit_thing) *_hit_thing=hit_thing;
-        flags&=~COLLISF_SLIDE;
         break;
       }
       off+=radius;
@@ -499,21 +497,40 @@ fail_walk2:
     result->y=move1.y;
   } else if(hit_thing) {
 //Make a dummy linedef that will block the things from transgrsseing
-    static CDoomLinedef dummy_ld;
-    static CDoomSidedef dummy_sd;
-    static CD2 dummy_ld_s,dummy_ld_e;
-    MemSet(&dummy_ld,0,sizeof CDoomLinedef);
-    dummy_ld.flags=3; //Block moonsters and players
-    dummy_ld_s.x=hit_thing->x-Cos(angle+pi/4)*hit_thing->template->radius;
-    dummy_ld_s.y=hit_thing->y-Sin(angle+pi/4)*hit_thing->template->radius;
-    dummy_ld_e.x=hit_thing->x+Cos(angle+pi/4)*hit_thing->template->radius;
-    dummy_ld_e.y=hit_thing->y+Sin(angle+pi/4)*hit_thing->template->radius;
-    dummy_ld.start=&dummy_ld_s;
-    dummy_ld.end=&dummy_ld_e;
-    dummy_ld.front=&dummy_sd; //Make a 1 sided(solid) sidedef
-    best=&dummy_ld;
+    //Make it on the North,West,East or South side,
+    //do it "around the clock" and dist the cloestest side
+    //
+    static CDoomLinedef dummy_ld[4];
+    static CDoomSidedef dummy_sd[4];
+    static CD2 dummy_ld_s[4],dummy_ld_e[4];
+    MemSet(&dummy_ld,0,4*sizeof CDoomLinedef);
+    MemSet(&dummy_sd,0,4*sizeof CDoomSidedef);
+    min_dist=I16_MAX;
+    xoff=0;
+    for(try_wall=0;try_wall!=4;try_wall++) {
+      off=2*pi/4*try_wall;
+      dummy_ld[try_wall].start=&dummy_ld_s[try_wall];
+      dummy_ld[try_wall].end=&dummy_ld_e[try_wall];
+      dummy_ld[try_wall].front=&dummy_sd; //Make a 1 sided(solid) sidedef
+      dummy_ld[try_wall].flags=3; //Block moonsters and players
+      dummy_ld_s[try_wall].x=hit_thing->x+Cos(off-pi/4)*hit_thing->template->radius;
+      dummy_ld_s[try_wall].y=hit_thing->y+Sin(off-pi/4)*hit_thing->template->radius;
+      dummy_ld_e[try_wall].x=hit_thing->x+Cos(off+pi/4)*hit_thing->template->radius;
+      dummy_ld_e[try_wall].y=hit_thing->y+Sin(off+pi/4)*hit_thing->template->radius;
+      if(CheckLineWithBox(&dummy_ld,&cur_pos,radius)) {
+        dist=DistFromLine(&move1,&dummy_ld_s,&dummy_ld_e);
+        if(dist<min_dist) {
+	  min_dist=dist;
+	  xoff=try_wall;
+        }
+      }
+    }
+    off=2*pi/4*xoff;
+    best=&dummy_ld[xoff];
     min_dist=0;
     dist=0.;
+//IMPORTANT,set cap for correction
+    cap=Sqrt(Sqr(cur_pos.x-move1.x)+Sqr(cur_pos.y-move1.y));
     result->x=move1.x;
     result->y=move1.y;
   } else if(dist-radius>=1.) {
@@ -532,8 +549,9 @@ fin:
         best=fail_walls->body[i];
         goto found;
       }
-    if(HitsAThing(l,&cur_pos,radius,exclude))
+    if(HitsAThing(l,&cur_pos,radius,exclude)) {
       goto found;
+    }
     result->x=cur_pos.x;
     result->y=cur_pos.y;
     goto pass;
@@ -563,7 +581,18 @@ pass:
     cap=0;
     for(i=0;i!=fail_walls->cnt;i++) {
       wall=fail_walls->body[i];
-      if(CheckLineWithBox(wall,&cur_pos,radius)) {
+      if(CheckLineWithBox(wall,&cur_pos,radius+1.5)) {
+        tmp=NormalScore(wall,&cur_pos,angle);
+        if(Abs(tmp)>Abs(cap)) {
+	  cap=tmp;
+	  wall2=wall;
+        }
+      }
+    }
+//Make sure to slide against thing "walls"
+    if(hit_thing) {
+      for(i=0;i!=4;i++) {
+        wall=&dummy_ld[i];
         tmp=NormalScore(wall,&cur_pos,angle);
         if(Abs(tmp)>Abs(cap)) {
 	  cap=tmp;
@@ -596,16 +625,16 @@ look_for_hot:
   }
 
 
-//Final test,if COLLISF_NO_DROP,make sure we dont drop
+  //Final test,if COLLISF_NO_DROP,make sure we dont drop
   if(flags&COLLISF_NO_DROP)
-  if(s=GetSectorForCoord(l,result->x,result->y)) {
-    if(s->floor_height<cur_height-STEP_HEIGHT||
-	s->ceil_height-s->floor_height<32.) {
-      dist=0;
-      result->x=move1.x;
-      result->y=move1.y;
+    if(s=GetSectorForCoord(l,result->x,result->y)) {
+      if(s->floor_height<cur_height-STEP_HEIGHT||
+	    s->ceil_height-s->floor_height<32.) {
+        dist=0;
+        result->x=move1.x;
+        result->y=move1.y;
+      }
     }
-  }
 
   I64SetDel(fail_walls);
   I64SetDel(walls_in_way);

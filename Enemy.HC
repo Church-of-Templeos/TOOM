@@ -635,8 +635,7 @@ U0 Chase(CDoomLevel *l,CMonsterThinker *t) {
   }
   if(t->self->flags&MF_JUST_ATTACKED) {
     t->self->flags&=~MF_JUST_ATTACKED;
-    NewChaseDir(l,t);
-    return;
+    goto skip_attack;
   }
   if(t->self->template(CDoomMonsterTemplate*)->melee_state&&CheckMeleeRange(l,t)) {
     SetState(l,t,t->self->template(CDoomMonsterTemplate*)->melee_state);
@@ -646,6 +645,7 @@ U0 Chase(CDoomLevel *l,CMonsterThinker *t) {
     SetState(l,t,t->self->template(CDoomMonsterTemplate*)->missile_state);
     return;
   }
+skip_attack:
   if(t->steps_to_walk) {
     --t->steps_to_walk;
   }
@@ -880,7 +880,6 @@ defacto:
 U0 PosAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 angle,damage;
   if(t->target) {
-    if(t->self->flags&MF_JUST_ATTACKED) return;
     FaceTarget(l,t);
     t->self->flags|=MF_JUST_ATTACKED;
     Sound(t,'Attack');
@@ -894,7 +893,6 @@ U0 SPosAttack(CDoomLevel *l,CMonsterThinker *t) {
   F64 bangle,angle,damage;
   I64 i;
   if(t->target) {
-    if(t->self->flags&MF_JUST_ATTACKED) return;
     Sound(t,'Attack');
     FaceTarget(l,t);
     t->self->flags|=MF_JUST_ATTACKED;
@@ -1138,7 +1136,7 @@ U0 BossDeath(CDoomLevel *l,CMonsterThinker *t) {
     dummy.sector_tag=666;
     dummy.special_type=action_sector_types[37];
     TriggerLinedef(l,&dummy,-1,p); //-1 for all types
-  } else if(l->map_name[1]=='2') { //E2M8 cyberdemon
+  } else if(l->map_name[1]=='2'||l->map_name[1]=='3') { //E2M8 cyberdemon,E2M8 spiderdemon
     l->ended=TRUE;
   }
 }
@@ -1425,7 +1423,6 @@ U0 LoadMonsterInfo() {
   UH("specatk",t->_attack_frames=GenerateCacheFrames(t,"EFG"));
   UH("spechurt",t->_hurt_frames=GenerateCacheFrames(t,"HH"));
   UH("specdie",t->_dying_frames=GenerateCacheFrames(t,"IJKLMN"));
-//TODO fix
   AddState(t->spawn_state="TRANS.S_POSS_STND",10,t->_idle_frames,&Look,"TRANS.S_POSS_STND");
   AddState(t->see_state="TRANS.S_POSS_RUN",0,t->_chase_frames,&Chase,"TRANS.S_POSS_RUN");
   AddState(t->melee_state="TRANS.S_POSS_ATK1",t->reaction_time*4,t->_idle_frames,&FaceTarget,"TRANS.S_POSS_ATK2");
@@ -1448,6 +1445,16 @@ U0 LoadMonsterInfo() {
   UH("spidatk",t->_attack_frames=GenerateCacheFrames(t,"GHHH"));
   UH("spidhurt",t->_hurt_frames=GenerateCacheFrames(t,"II"));
   UH("spiddie",t->_dying_frames=GenerateCacheFrames(t,"JKLMNOPQRSS"));
+  AddState(t->spawn_state="SPIDER_LOOK",10/35.,t->_idle_frames,&Look,"SPIDER_LOOK");
+  AddState(t->see_state="SPIDER.RUN1",3/35.,t->_chase_frames,&Metal,"SPIDER.RUN2");
+  AddState("SPIDER.RUN2",9/35.,t->_chase_frames,&Chase,"SPIDER.RUN1");
+  AddState(t->missile_state="SPIDER.ATK1",3/35.,t->_attack_frames,&FaceTarget,"SPIDER.ATK2");
+  AddState("SPIDER.ATK2",4/35.,t->_attack_frames,&SPosAttack,"SPIDER.ATK3");
+  AddState("SPIDER.ATK3",4/35.,t->_attack_frames,&SPosAttack,"SPIDER.ATK4");
+  AddState("SPIDER.ATK4",1/35.,t->_attack_frames,&SpidRefire,"SPIDER.ATK1");
+  AddState(t->death_state="SPIDER.DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"SPIDER.DIE2");
+  AddState("SPIDER.DIE2",0,t->_dying_frames,&BossDeath,"ST_NULL");
+
 //Zombieman
   t=doom_thing_types[0xbbc];
   t->reaction_time=1/35.*8;
@@ -1463,7 +1470,7 @@ U0 LoadMonsterInfo() {
   UH("zomhurt",t->_hurt_frames=GenerateCacheFrames(t,"GG"));
   UH("zomdie",t->_dying_frames=GenerateCacheFrames(t,"HIJKL"));
   UH("zomdxdie",t->_gib_frames=GenerateCacheFrames(t,"MNOPQRSTU"));
-  AddState(t->spawn_state="ZOMBIE.S_POSS_STND",10,t->_idle_frames,&Look,"ZOMBIE.S_POSS_STND");
+  AddState(t->spawn_state="ZOMBIE.S_POSS_STND",10/35.,t->_idle_frames,&Look,"ZOMBIE.S_POSS_STND");
   AddState(t->see_state="ZOMBIE.S_POSS_RUN",0,t->_chase_frames,&Chase,"ZOMBIE.S_POSS_RUN");
   AddState(t->missile_state="ZOMBIE.S_POSS_ATK1",0,t->_idle_frames,&FaceTarget,"ZOMBIE.S_POSS_ATK2");
   AddState("ZOMBIE.S_POSS_ATK2",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&PosAttack,"ZOMBIE.S_POSS_RUN");
@@ -1483,7 +1490,7 @@ U0 LoadMonsterInfo() {
   UH("cyberattack",t->_attack_frames=GenerateCacheFrames(t,"EF"));
   UH("cyberhurt",t->_hurt_frames=GenerateCacheFrames(t,"G"));
   UH("cyberdying",t->_dying_frames=GenerateCacheFrames(t,"HIJKLMNOPP"));
-  AddState(t->spawn_state="CYBER.STND",10,t->_idle_frames,&Look,"CYBER.STND");
+  AddState(t->spawn_state="CYBER.STND",10/35.,t->_idle_frames,&Look,"CYBER.STND");
   AddState(t->see_state="CYBER.RUN1",0,t->_chase_frames,&Hoof,"CYBER.RUN2");
   AddState("CYBER.RUN2",0,t->_chase_frames,&Chase,"CYBER.RUN3");
   AddState("CYBER.RUN3",0,t->_chase_frames,&Chase,"CYBER.RUN4");

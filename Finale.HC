@@ -73,13 +73,13 @@
 
 #define TEXT_SPEED 5
 #define TEXT_WAIT 3
-
+extern Bool BunnyScroll(CDC *dc);
 U0 Finale(CDC *dc,I64 ep) {
   U8 *str,buf[TEXT_COLS*TEXT_ROWS+1];
   CDC *flat;
   I64 ch,cnt,coff,ascii;
   I64 i,i2;
-  F64 start_tS=Server_tS;
+  F64 start_tS;
   F64 wait_start_tS=0;
   switch(ep) {
     case 1:
@@ -91,6 +91,7 @@ U0 Finale(CDC *dc,I64 ep) {
       flat=GetFlatDC("SFLR6_1");
       break;
     case 3:
+      BunnyScroll(dc);
       str=E3TEXT;
       flat=GetFlatDC("MFLR8_4");
       break;
@@ -99,7 +100,7 @@ U0 Finale(CDC *dc,I64 ep) {
       flat=GetFlatDC("MFLR8_3");
       break;
   }
-
+  start_tS=Server_tS;
   MemSet(buf,0,TEXT_COLS*TEXT_ROWS+1);
   cnt=StrLen(str);
   coff=0;
@@ -140,7 +141,7 @@ U0 Finale(CDC *dc,I64 ep) {
   }
   DCFill;
 }
-U0 BunnyScroll(CDC *dc) {
+Bool BunnyScroll(CDC *dc) {
   F64 st=Server_tS;
   U8 buf[STR_LEN];
   CDC *p1=GetGrLump("PFUB2");
@@ -173,13 +174,10 @@ U0 BunnyScroll(CDC *dc) {
       goto skip;
     }
     stage=(finale_cnt-1180)/5;
+    if(stage>9)
+      break;
     if(stage>6)
       stage=6;
-/*    if(finale)
-{
-S_StartSound (NULL, sfx_pistol);
-laststage = stage;
-}*/
     StrPrint(buf,"END%d",stage);
     lump=GetGrLump(buf);
     GrBlot(dc,(GR_WIDTH-13*8*2)/2-lump->x*2,(GR_HEIGHT-8*8*2)/2-lump->y*2,lump);
@@ -187,5 +185,6 @@ skip:;
     Refresh;
   }
   DCFill;
+  return FALSE;
 
 }

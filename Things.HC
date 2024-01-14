@@ -145,7 +145,7 @@ skip:
   Free(o);
 }
 CDC *_GetThingFaceSprite(CDoomThingTemplate *template,F64 angle,U8 ani_frame='A',Bool *reflect=NULL) {
-  I64 face=1,try_face;
+  I64 face=1,try_face,tf2;
   F64 gap_inc=2.*pi/8.,gap;
   CDC *ret=NULL;
   angle=Wrap(angle,0);
@@ -170,21 +170,24 @@ CDC *_GetThingFaceSprite(CDoomThingTemplate *template,F64 angle,U8 ani_frame='A'
     return ret;
 //TROO[frame][rotaionface][frame][reflected_face]
   buttplate[6]=ani_frame;
-  for(try_face=0;try_face!=9;try_face++) {
-    buttplate[7]=try_face+'0';
-    if(ret=SpriteName2DC(buttplate)) {
-       if(reflect) *reflect=TRUE;
-       return ret;
+  for(tf2=0;tf2!=9;tf2++)
+    for(try_face=0;try_face!=9;try_face++) {
+      buttplate[5]=tf2+'0';
+      buttplate[7]=try_face+'0';
+      if(ret=SpriteName2DC(buttplate)) {
+        if(reflect) *reflect=TRUE;
+        return ret;
+      }
     }
-  }
 //Try opposite order
-  buttplate[7]='0'+face;
-  for(try_face=0;try_face!=9;try_face++) {
-    buttplate[5]=try_face+'0';
-    if(ret=SpriteName2DC(buttplate)) {
-       return ret;
+  for(tf2=0;tf2!=9;tf2++)
+    for(try_face=0;try_face!=9;try_face++) {
+      buttplate[5]=try_face+'0';
+      buttplate[7]=tf2+'0';
+      if(ret=SpriteName2DC(buttplate)) {
+        return ret;
+      }
     }
-  }
   return NULL; 
 }
 static CDoomAnimationFrame *GenerateCacheFrames(CDoomThingTemplate *t,U8 *frames) {

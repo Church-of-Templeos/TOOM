@@ -516,7 +516,7 @@ U0 AnimateFire(CDoomPlayer *p)
       if(p->weapon_state) Spawn(&PlaySoundTask,"RLAUNC","snd",0,Fs);      
       template="MISG%c0";
       anim="BBB";
-      flash_template="MISG%c0";
+      flash_template="MISF%c0";
       flash_anim="ABCD";
       flash_off=0;
       idle_anim="A";

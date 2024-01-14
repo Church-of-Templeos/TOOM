@@ -1,4 +1,4 @@
-#ifndef DOOM_MAIN
+ #ifndef DOOM_MAIN
 #define DOOM_MAIN "Doom" 
 #exe {Cd(__DIR__);};;
 #ifndef PrintI 

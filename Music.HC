@@ -173,7 +173,7 @@ enter:
       goto enter;
     }
     if(!music.mute)
-    Snd(cur->freq);
+      Snd(cur->freq);
     Sleep(cur->time*JIFFY_FREQ);
     cur++;
   }

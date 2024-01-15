@@ -6,7 +6,7 @@ CDoomThingTemplate *rocket;
 CDoomThingTemplate *plasma_ball;
 CDoomThingTemplate *bfg_ball;
 CDoomThingTemplate *bfg_scanner_hit;
-#define TICK_FPS_SCALE (1/3.) //Ticks_per_sec/fps
+#define TICK_FPS_SCALE (1/30./3.) //Ticks_per_sec/fps
 #define TICK_TIME (1/10.)
 
 #define MISSILE_RANGE (64*32)
@@ -301,13 +301,15 @@ Bool MMove(CDoomLevel *l,CMonsterThinker *m) {
   CDoomLinedef *lv;
   CFifoI64 *crossed=FifoI64New(16);
   CD2 dummy;
+dummy.x=self->x;
+dummy.y=self->y;
   I64 allow_float=0;
   if(!(self->flags&TF_FLOATING))
     allow_float=COLLISF_NO_DROP;
     lv=MoveThingFinal(l,self,
 	self->angle,
 	self->template(CDoomMonsterTemplate*)->speed*TICK_FPS_SCALE,
-	allow_float|COLLISF_NO_HIT_THING|COLLISF_MONSTER|COLLISF_SLIDE|COLLISF_ADJUST_FOR_RADIUS,
+	allow_float|COLLISF_NO_HIT_THING|COLLISF_MONSTER|COLLISF_ADJUST_FOR_RADIUS|COLLISF_SLIDE,
 	crossed,
 	self
 	);
@@ -559,7 +561,7 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *thing=t->self;
   CDoomThing *target=t->target;
   CD2 dummy;
-  I64 drop=COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING,i;
+  I64 drop=COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING|COLLISF_MONSTER,i;
   if(!(thing->flags&TF_FLOATING))
     drop|=COLLISF_NO_DROP;
   F64 angle,dist=ToF64(RandU64&0xf),off,mul,ld_a,x,y;

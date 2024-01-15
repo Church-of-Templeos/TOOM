@@ -873,7 +873,7 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   if(!thing->animation) return; //???
   I64 anim_frame=(Server_tS-thing->anim_start_tS)*4,frame_cnt,face;
   if(anim_frame<0) anim_frame=0;
-  F64 angle,gap;
+  F64 angle,gap,diff;
   CDoomSector *sec;
   CDC *sprite;
   CD2 p;
@@ -888,12 +888,12 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
     anim_frame%=frame_cnt;
   angle=cam->angle;
   angle-=thing->angle;
-  angle=Wrap(angle+pi);
-  if(angle<0.)
-    angle+=2.*pi;
+  angle+=pi;
   face=1;
-  for(gap=-2.*pi/8./2;gap<2*pi;gap+=2.*pi/8.) {
-    if(gap<=angle<=gap+2.*pi/8.)
+  for(gap=0.;gap<2*pi;gap+=2.*pi/8.) {
+    diff=(angle-gap+3*pi)%(2*pi)-pi;
+//https://stackoverflow.com/questions/12234574/calculating-if-an-angle-is-between-two-angles
+    if(-2*pi/8./2<=diff<=2*pi/8./2)
       break;
     face++;
   }
@@ -1368,72 +1368,6 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
 }
 
 
-
-U0 SongTask(I64)
-{//Original Song by Robert Prince
-  Fs->task_end_cb=&SndTaskEndCB;
-  MusicSettingsRst;
-  //Play("ttt");
-  //     Play("4eDEqFFetEEFqDeCDDEetCGF");
-  //   Play("4eDEqFFetEEFqDeCDDEetCGF");
-  //   Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
-   //  Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
- 
-    // Play("4eDEqFFetEEFqDeCDDEetCGF");
-    // Play("4eDEqFFetEEFqDeCDDEetCGF");
-    // Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
-    // Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
- Play("ttt");
-  while (TRUE) {
-    I64 i =3;
-    while(i!=0)
-      {
-      Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
-      Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#");   
-      i--;
-    }
-    Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
-    Play("1AA2A1AA2G1AAtt3BA2F#3BDCB2F#3BCDEDCB2F#..");
-
-    Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
-    Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#");   
-    Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
-    Play("1AA2A1AA2G1AAtt3ECACECEAECECEA..");
-
-    Play("1DD2D1DD2C1DDA#1DDG#DDAA#");
-    Play("1DD2D1DD2C1DDA#1DDG#G#G#G#");
-    Play("1DD2D1DD2C1DDA#1DDG#DDAA#");
-    Play("1DD2D1DD2C1DDtt4AGFAFDFADAFAFAFAFD.."); 
-
-
-    Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
-    Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#D#");    
-    Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
-    Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#D#");
-
-    Play("1F#F#2F#1F#F#2E1F#F#2D1F#F#2C1F#F#2C#D");
-    Play("1EE2E1EE2D1EE2C1D#D1A#A#A#A#");
-
-    Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
-    Play("1AA2A1AA2G1AA2tt3AC2EC3A2E3CACA2EC3ACEA..");
-
-    Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
-    Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#D#");    
-    Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
-
-    Play("1AA2A1AA2G1AAtt2G#FEB3B2G#ED3DB2G#E3EDB2G#..");
-    Play("1AA2C1AA2B1AAG#AAGAAG2A");
-    Play("1AA2C1AA2B1AAEAAF#F#F#F#");
-
-    Play("1F#F#3C1F#F#3B1F#F#3A1F#F#2F#1F#F#2F#A");
-    Play("1EE3B1EE3A1EE2G#1D#D2EEEE");
-
-    Play("1AA2C1AA2B1AAG#AAGAAG2A");
-    Play("1AA2C1AA2B1AAtt3DB2G#EDB1G#E3E3DB2G#EDB..");
-    Play("1G#2A");
-  }
-}
-/*
 U0 SongTask(U8 *title) {
   CWadDirectory *wad_dir=wad->body+wad->directory_ptr;
   U8 lump_name[9],*m;
@@ -1443,8 +1377,8 @@ U0 SongTask(U8 *title) {
   Fs->task_end_cb=&SndTaskEndCB;
   PlayMusicTask(m);
 }
-*/
 
+CTask *music_task=NULL;
 
 
 F64 GetTargetLiftHeight(CDoomSector *floor,I64 type,Bool going_up=TRUE) {
@@ -3462,6 +3396,9 @@ U0 PlayLevel(Bool init=TRUE) {
   CDoomThing *t,*head;
   U8 *next_lvl;
   CDC *new,*old;
+  if(music_task)
+    Kill(music_task,FALSE);
+//  music_task=Spawn(&SongTask,l->map_name,"Song",0,Fs);
 ent:;
   CDoomLevel *l2;
   if(init) {
@@ -3553,8 +3490,7 @@ ent:;
 
 
       if(p->health>0.) {
-        if(Bt(kbd.down_bitmap,SC_CURSOR_UP)||Bt(kbd.down_bitmap,Char2ScanCode('w')))
-	  {
+        if(Bt(kbd.down_bitmap,SC_CURSOR_UP)||Bt(kbd.down_bitmap,Char2ScanCode('w'))) {
 	  p->running=Bt(kbd.down_bitmap,SC_SHIFT);
 	  PlayerMove(l,p,1);
 	  UpdateCameraFromPlayer(&cam,p);

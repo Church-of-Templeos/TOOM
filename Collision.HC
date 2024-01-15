@@ -377,6 +377,8 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 tallness,
 		  I64SetAdd(walls_in_way,lds[0]);
 	      }
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
+	      if(flags&COLLISF_NO_DROP&&cur_height-STEP_HEIGHT>floor_height)
+		goto fail_walk;
 	      if(tallness>ceil_height-floor_height||floor_height==ceil_height) {
 fail_walk:
 	        I64SetAdd(fail_walls,lds[0]);
@@ -389,17 +391,6 @@ fail_walk:
 		  }
 	        }
 	      } else {
-//If we must not fall off the wall,we gunna check if we not fallin off a walk
-	        if(flags&COLLISF_NO_DROP&&(lds[0]->back&&lds[0]->front)) {
-		  dummy.x=cur_pos.x-lds[0]->start->x;
-		  dummy.y=cur_pos.y-lds[0]->start->y;
-		  if(IsFrontSideOfVector2D(vector,&dummy)) {
-		    floor_height=lds[0]->back->sector->floor_height;
-		  } else
-		    floor_height=lds[0]->front->sector->floor_height;
-		  if(floor_height+STEP_HEIGHT<cur_height)
-		    goto fail_walk;
-	        }
 //W1/WR
 	        if(lds[0]->special_type) {
 		  if(walked_over_idx<64) {
@@ -633,6 +624,9 @@ look_for_hot:
         dist=0;
         result->x=move1.x;
         result->y=move1.y;
+//Pick a dumby fail wall
+	if(fail_walls->cnt)
+	  best=fail_walls->body[0];
       }
     }
 

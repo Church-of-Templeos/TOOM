@@ -258,6 +258,7 @@ U0 DrawSaveLoadBorder(CDC *to,I64 x,I64 y) {
 }
 
 I64 LoadSaveInteract(CDC *to,Bool save) {
+//THIS IS NOT ANORMAL MENU,so reset active_menu_item WHEN YOU ARE DONE
   I64 i,x=80*2,y=54*2;
   I64 a,b;
   U8 *fptr,buf[STR_LEN],*buf_ptr=buf;
@@ -310,13 +311,16 @@ press:
 	      goto lenter_name;
 	    } else {
 	      StrPrint(buf,"/ToomSave/SAVE%d.SAVE",active_menu_item);
+              active_menu_item=0;
 	      if(FileFind(buf)) {
 		LoadGame(buf);
 	      }
 	      return -1;
 	    }
-	  } else if(a==CH_ESC)
+	  } else if(a==CH_ESC) {
+	    active_menu_item=0;
 	    return -1;
+	  }
       }
     }
   } else {
@@ -331,10 +335,12 @@ lenter_name:;
 	  StrPrint(buf,"/ToomSave/SAVE%d.SAVE",active_menu_item);
 	  poll_again=TRUE;
 	  SaveGame(buf,save_name);
+	  active_menu_item=0;
 	  return -1;
         } else if(a==CH_ESC) {
 	  enter_name=FALSE;
 	  poll_again=TRUE; //We modiefed the tiles[x] here
+	  active_menu_item=0;
 	  return -1;
         } else if(Bt(char_bmp_displayable,a)) {
 	  if(StrLen(save_name)<24)

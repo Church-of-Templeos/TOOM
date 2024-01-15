@@ -501,7 +501,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   CWallCommand *wall_cmd;
   F64 dist,ratio;
   Bool repeat=FALSE,onesided=ld->front^^ld->back;
-  Bool is_sky=FALSE,is_sky2=FALSE,clipped=FALSE,recompute_ty;
+  Bool is_sky=FALSE,clipped=FALSE,recompute_ty,is_sky2=FALSE;
   Bool god_mode=GodModeFilter;
   I64 low_ih,high_ih;
   CDoomSidedef *opposite;
@@ -520,11 +520,15 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
     opposite=ld->back;
   else
     opposite=ld->front;
-  if(opposite)
-    is_sky=opposite->sector->ceil_dc[0]==GetFlatDC("F_SKY1")&&floor==2;
-  if(is_sky) return;
   if(onesided)
     is_sky2=sd->sector->ceil_dc[0]==GetFlatDC("F_SKY1");
+  else
+    is_sky2=sd->sector->ceil_dc[0]==GetFlatDC("F_SKY1")&&floor>=1;
+//Upper walls arent drawn between 2 sky sectors
+//is_sky will trigger no drawing wall 
+  if(floor==2&&opposite->sector->ceil_dc[0]==GetFlatDC("F_SKY1")) {
+    return;
+  }
   start_angle=Wrap(start_angle);
   end_angle=Wrap(end_angle);
 //Angles are strange so i will just assume whole range if out of bound
@@ -618,13 +622,13 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  cam->floor_depths[ix/2]=idist;
         }
         ih2+=2;
-        if(is_sky2&&!is_sky) {//Fill in upper pixels Z-buf distance with distnce for sky
-	  ty=ClampI64(iy,GR_HEIGHT-2,0);
-	  while(ty>=0) {
-	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+ty*to_dc->width_internal];
-	    to=&to_dc->body[GR_WIDTH-2-ix+ty*to_dc->width_internal];
+        if(is_sky2) {
+	  ih2=ClampI64(ih2+iy,0,GR_HEIGHT-2);
+	  while(ih2>=0) {
+	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+ih2*to_dc->width_internal];
+	    to=&to_dc->body[GR_WIDTH-2-ix+ih2*to_dc->width_internal];
 	    if(*db_z>idist) {
-	      db_z[0]=idist+1; //+1 so walls are drawn before the sky
+	      db_z[0]=idist+1;
 	      db_z[1]=idist+1;
 	      *to=TRANSPARENT|TRANSPARENT<<8;
 	      db_z+=to_dc->width_internal;
@@ -633,27 +637,10 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	      db_z[1]=idist+1;
 	      *to=TRANSPARENT|TRANSPARENT<<8;
 	    }
-	    ty-=2;
-	  }
-        }
-        if(is_sky) {
-	  ih2=ClampI64(ih2+iy,0,GR_HEIGHT-2);
-	  while(ih2>=0) {
-	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+ih2*to_dc->width_internal];
-	    to=&to_dc->body[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
-	    if(*db_z>idist) {
-	      db_z[0]=idist;
-	      db_z[1]=idist;
-	      *to=TRANSPARENT|TRANSPARENT<<8;
-	      db_z+=to_dc->width_internal;
-	      to(U8*)+=to_dc->width_internal;
-	      db_z[0]=idist;
-	      db_z[1]=idist;
-	      *to=TRANSPARENT|TRANSPARENT<<8;
-	    }
 	    ih2-=2;
 	  }
-        } else {
+        }
+        {
 	  tx%=texture->width;
 	  if(tx<0)
 	    tx+=texture->width;
@@ -740,7 +727,6 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    }
 skip_p:;
 	  }
-        }
         if(wall_cmd->start<wall_cmd->end&&(texture->flags&DCF_NO_TRANSPARENTS)) {
 	  if(tx=cam->wall_command_cnts[ix>>1]) {
 	    if(cam->wall_command_cnts[tx-1]!=*wall_cmd) { //CWallCommand is I64
@@ -749,10 +735,10 @@ skip_p:;
 	  } else
 	    cam->wall_command_cnts[ix>>1]++;
         }
+        }
       }
       if(texture->flags&DCF_NO_TRANSPARENTS) {
         if(!is_sky) {
-	  if(0) {
 set_floor_height:
 	    if(floor==0)  {
 	      cam->floor_heights[ix/2]=ClampI64(iy,0,GR_HEIGHT);
@@ -765,9 +751,6 @@ set_floor_height:
 	      cam->ceil_heights[ix/2]=ClampI64(iy+ih,0,GR_HEIGHT);
 	    }
 	    cam->floor_depths[ix/2]=idist;
-	  } else if(cam->floor_depths[ix/2]>=idist) {
-	    goto set_floor_height;
-	  }
 	  if(floor==1) 
 	    if(cam->wall_depths[ix/2]>idist)
 	      cam->wall_depths[ix/2]=idist;

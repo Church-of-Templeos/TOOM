@@ -106,7 +106,7 @@ class CDoomPlayer:CDoomThing {
 //IMPORTANT
 CacheAnimationFrames;
 
-I64 cursor_x = ms.pos.x, cursor_tx = ms.pos.x;
+I64 cursor_x = ms.pos.x, cursor_tx = ms.pos.x, cursor_z = ms.pos.z, cursor_tz = ms.pos.z;
 
 class CVisplane {
   I64 color;
@@ -3484,15 +3484,32 @@ ent:;
       //mouse camera pan.
       cursor_x=ms.pos.x;
       if(cursor_tx!=cursor_x)
-        {
+      {
         if(cursor_x<1)
-	  {
+	{
 	  cursor_x=1;
         }
         cursor_x=ms.pos.x;   
         cursor_tx = cursor_x;
         weapons.x_off=cursor_x-GR_WIDTH/2;
       }
+
+      //weapon switch.
+      cursor_z=ms.pos.z;
+      if(cursor_tz!=cursor_z)
+      {
+        if(cursor_z>0)
+	{
+	  AddWeaponIndex(TRUE);
+        }
+        else
+        { 
+	  AddWeaponIndex(FALSE); 
+        }   
+        cursor_tz = cursor_z;
+      }
+
+
 #define SCRN_MARGIN 200
       #define SCRN_TURN_RATE (pi/1.5/30.)
       if(SCRN_MARGIN>cursor_x) {

@@ -36,6 +36,8 @@ I32 maxShells = 50;
 I32 maxRockets = 50;
 I32 maxCells = 300;
 
+
+
 /*
 **
 ** 	CLASSES
@@ -43,6 +45,28 @@ I32 maxCells = 300;
 */
 
 
+I16 GetWeaponIndex()
+{
+  return weaponIndex;
+}
+
+U0 AddWeaponIndex(Bool pos)
+{
+ if(pos)
+ {
+  if(p->arsenal[weaponIndex+1].available)
+  {
+   weaponIndex++;
+  }
+ }
+ else
+ {
+  if(p->arsenal[weaponIndex-1].available)
+  {
+   weaponIndex--;
+  }
+ }
+}
 
 // Multiple Icon widget
 class MultiIcon

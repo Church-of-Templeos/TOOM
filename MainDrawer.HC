@@ -886,10 +886,10 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
     anim_frame=MinI64(frame_cnt-1,anim_frame);
   else
     anim_frame%=frame_cnt;
-  angle=cam->angle;
-  angle-=thing->angle;
+  angle=thing->angle;
+  angle-=cam->angle;
   angle+=pi;
-  face=1;
+  face=1;   
   for(gap=0.;gap<2*pi;gap+=2.*pi/8.) {
     diff=(angle-gap+3*pi)%(2*pi)-pi;
 //https://stackoverflow.com/questions/12234574/calculating-if-an-angle-is-between-two-angles
@@ -3131,8 +3131,8 @@ Bool PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U
 
 U0 UpdateLevel(CDoomLevel *l) {
   CDoomSector *sector,*head=&l->sectors;
-  Physics(l);
   UpdateThinkers(l);
+  Physics(l);
   CheckPowerupPickup(l);
   if(p&&p->rad_suit_time)
     p->rad_suit_time=Clamp(p->rad_suit_time-1/30.,0.,60.);
@@ -3569,8 +3569,9 @@ ent:;
       }
     }
 
-    if(!paused)
+    if(!paused) {
       UpdateLevel(l);
+    }
     Refresh;
   }
 ret:

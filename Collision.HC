@@ -34,7 +34,7 @@ Bool CheckLineWithBox(CDoomLinedef *ld,CD2 *at,F64 radius) {
 	CrosesLine(ld,&tr,&br)||
 	CrosesLine(ld,&br,&bl)||
 	CrosesLine(ld,&tl,&bl)) {
-    return TRUE;
+    return radius>=DistFromLine(at,ld->start,ld->end);
   }
   return FALSE;
 }
@@ -378,7 +378,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 tallness,
 	      }
 //https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
 	      if(flags&COLLISF_NO_DROP&&cur_height-STEP_HEIGHT>floor_height)
-		goto fail_walk;
+	        goto fail_walk;
 	      if(tallness>ceil_height-floor_height||floor_height==ceil_height) {
 fail_walk:
 	        I64SetAdd(fail_walls,lds[0]);
@@ -415,41 +415,38 @@ skip:;
     blocky=(dist2*sin+move1.y-l->block_map_y_off)/128;
   }
 
-  //Ensure the final destination is within step distance(for each step)
-  if(!(flags&(COLLISF_MONSTER|COLLISF_NO_DROP))) {
-    CMoveStep *steps=CAlloc(walls_in_way->cnt*sizeof(CMoveStep));
-    o=0;
-    for(i=0;i!=walls_in_way->cnt;i++) {
-      wall=walls_in_way->body[i];
-      tmp=IntersectDist(wall,&move1,&move_fat);
-      steps[o].ld=wall;
-      steps[o].dist=tmp;
-      o++;
-    }
-    QSort(steps,o,sizeof(CMoveStep),&MoveStepCmp);
-    last_good=cur_height;
-    for(i=0;i!=o;i++) {
-      wall=steps[i].ld;
-      if(wall->front^^wall->back) {
-        floor_height=I16_MAX;
-        ceil_height=I16_MAX;
-      } else {
-        floor_height=Max(wall->back->sector->floor_height,
-	      wall->front->sector->floor_height);
-        ceil_height=Min(wall->back->sector->ceil_height,
-	      wall->front->sector->ceil_height);
-      }
-      if(last_good+STEP_HEIGHT<floor_height||ceil_height-floor_height<tallness) {
-fail_walk2:
-        best=wall;
-        cap=Max(steps[i].dist-radius,0.);
-        break;
-      }
-      last_good=floor_height;
-      cur_height=floor_height;
-    }
-    Free(steps);
+  CMoveStep *steps=CAlloc(walls_in_way->cnt*sizeof(CMoveStep));
+  o=0;
+  for(i=0;i!=walls_in_way->cnt;i++) {
+    wall=walls_in_way->body[i];
+    tmp=IntersectDist(wall,&move1,&move_fat);
+    steps[o].ld=wall;
+    steps[o].dist=tmp;
+    o++;
   }
+  QSort(steps,o,sizeof(CMoveStep),&MoveStepCmp);
+  last_good=cur_height;
+  for(i=0;i!=o;i++) {
+    wall=steps[i].ld;
+    if(wall->front^^wall->back) {
+      floor_height=I16_MAX;
+      ceil_height=I16_MAX;
+    } else {
+      floor_height=Max(wall->back->sector->floor_height,
+	    wall->front->sector->floor_height);
+      ceil_height=Min(wall->back->sector->ceil_height,
+	    wall->front->sector->ceil_height);
+    }
+    if(last_good+STEP_HEIGHT<floor_height||ceil_height-floor_height<tallness) {
+fail_walk2:
+      best=wall;
+      cap=Max(steps[i].dist-radius,0.);
+      break;
+    }
+    last_good=floor_height;
+    cur_height=floor_height;
+  }
+  Free(steps);
 
   //Filter out walls by by the "new" cur_height
   o=0;
@@ -464,7 +461,7 @@ fail_walk2:
       ceil_height=Min(wall->back->sector->ceil_height,
 	    wall->front->sector->ceil_height);
     }
-    if(cur_height+STEP_HEIGHT<floor_height||ceil_height-floor_height<32.) {
+    if(cur_height+STEP_HEIGHT<floor_height) {
       I64SetAdd(fail_walls,wall);
     }
   }
@@ -619,17 +616,17 @@ look_for_hot:
   //Final test,if COLLISF_NO_DROP,make sure we dont drop
   if(flags&COLLISF_NO_DROP)
     if(s=GetSectorForCoord(l,result->x,result->y)) {
-      if(s->floor_height<cur_height-STEP_HEIGHT||
-	    s->ceil_height-s->floor_height<32.) {
+      if(s->floor_height<cur_height-STEP_HEIGHT) {
         dist=0;
         result->x=move1.x;
         result->y=move1.y;
 //Pick a dumby fail wall
-	if(fail_walls->cnt)
+        if(fail_walls->cnt&&!best)
 	  best=fail_walls->body[0];
       }
     }
 
+    abs_end:
   I64SetDel(fail_walls);
   I64SetDel(walls_in_way);
   DestroyVector(vector);

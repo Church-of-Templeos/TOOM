@@ -300,28 +300,25 @@ Bool MMove(CDoomLevel *l,CMonsterThinker *m) {
   CDoomSector *sec;
   CDoomLinedef *lv;
   CFifoI64 *crossed=FifoI64New(16);
-  CD2 dummy;
-dummy.x=self->x;
-dummy.y=self->y;
   I64 allow_float=0;
   if(!(self->flags&TF_FLOATING))
     allow_float=COLLISF_NO_DROP;
-    lv=MoveThingFinal(l,self,
-	self->angle,
-	self->template(CDoomMonsterTemplate*)->speed*TICK_FPS_SCALE,
-	allow_float|COLLISF_NO_HIT_THING|COLLISF_MONSTER|COLLISF_ADJUST_FOR_RADIUS|COLLISF_SLIDE,
-	crossed,
-	self
-	);
-    if(self->template->flags&TF_FLOATING) {
-      if(sec=GetSectorForCoord(l,self->x,self->y)) {
-	if(target&&self->height<target->height-FLOATSPEED) {
-	  self->height=Clamp(self->height+FLOATSPEED,sec->floor_height,sec->ceil_height);
-	} else if(target&&self->height>FLOATSPEED+target->height){
-	  self->height=Clamp(self->height-FLOATSPEED,sec->floor_height,sec->ceil_height);
-	}
+  lv=MoveThingFinal(l,self,
+        self->angle,
+        self->template(CDoomMonsterTemplate*)->speed*TICK_FPS_SCALE,
+        allow_float|COLLISF_NO_HIT_THING|COLLISF_MONSTER|COLLISF_ADJUST_FOR_RADIUS|COLLISF_SLIDE,
+        crossed,
+        self
+        );
+  if(self->template->flags&TF_FLOATING) {
+    if(sec=GetSectorForCoord(l,self->x,self->y)) {
+      if(target&&self->height<target->height-FLOATSPEED) {
+        self->height=Clamp(self->height+FLOATSPEED,sec->floor_height,sec->ceil_height);
+      } else if(target&&self->height>FLOATSPEED+target->height){
+        self->height=Clamp(self->height-FLOATSPEED,sec->floor_height,sec->ceil_height);
       }
     }
+  }
 //If we hit a line,try opening the door ?
   if(lv) {
     TriggerLinedef(l,lv,WACTIVATE_MONSTER|WACTIVATE_PUSH,self);
@@ -564,16 +561,16 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
   I64 drop=COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING|COLLISF_MONSTER,i;
   if(!(thing->flags&TF_FLOATING))
     drop|=COLLISF_NO_DROP;
-  F64 angle,dist=ToF64(RandU64&0xf),off,mul,ld_a,x,y;
+  F64 angle,dist=ToF64(RandU64&0xf),off,mul,ld_a,x,y,th=thing->template->height;
   CDoomLinedef *ld;
   if(!target) return;
-  if(Rand>.5&&CanSeeTarget(l,t))
+  if(Rand>.75&&CanSeeTarget(l,t)&&0)
     angle=FArg(target->x-thing->x,target->y-thing->y);
   else
     angle=thing->angle;
   dummy.x=thing->x;
   dummy.y=thing->y;
-  ld=MoveInLevel(l,&dummy,angle,thing->template->height,thing->template->radius,thing->template->radius,thing->height,drop,NULL,thing);
+  ld=MoveInLevel(l,&dummy,angle,thing->template->radius,th,thing->template->radius,thing->height,drop,NULL,thing);
   if(!ld) {
     thing->angle=angle;
   } else { //Deflect off the wall
@@ -585,6 +582,18 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
     else
       ld_a-=pi/2;
     thing->angle=ld_a-angle+pi;
+    ld=MoveInLevel(l,&dummy,angle,thing->template->radius,th,thing->template->radius,thing->height,drop,NULL,thing);
+//Cant deflect,try circle
+    if(ld) {
+      thing->angle+=Rand*2*pi/8.;
+      for(off=0;off<2*pi;off+=2*pi/8) {
+	thing->angle+=2*pi/8;
+        ld=MoveInLevel(l,&dummy,angle,thing->template->radius,th,thing->template->radius,thing->height,drop,NULL,thing);
+	if(!ld)
+	   break;
+      }
+    }
+
   }
   t->steps_to_walk=dist/2;
   thing->x=dummy.x;

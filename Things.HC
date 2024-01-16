@@ -144,17 +144,10 @@ skip:
   }
   Free(o);
 }
-CDC *_GetThingFaceSprite(CDoomThingTemplate *template,F64 angle,U8 ani_frame='A',Bool *reflect=NULL) {
-  I64 face=1,try_face,tf2;
-  F64 gap_inc=2.*pi/8.,gap;
+CDC *_GetThingFaceSprite(CDoomThingTemplate *template,I64 face,U8 ani_frame='A',Bool *reflect=NULL) {
+  I64 try_face,tf2;
   CDC *ret=NULL;
-  angle=Wrap(angle,0);
   if(reflect) *reflect=FALSE;
-  for(gap=-gap_inc/2;gap<=2*pi;gap+=gap_inc) {
-    if(gap<=angle<=gap+gap_inc)
-      break;
-    face++;
-  }
   U8 buttplate[9];
   buttplate[8]=0;
   MemCpy(buttplate,template->spr_base_name,4);
@@ -170,49 +163,48 @@ CDC *_GetThingFaceSprite(CDoomThingTemplate *template,F64 angle,U8 ani_frame='A'
     return ret;
 //TROO[frame][rotaionface][frame][reflected_face]
   buttplate[6]=ani_frame;
-  for(tf2=0;tf2!=9;tf2++)
-    for(try_face=0;try_face!=9;try_face++) {
-      buttplate[5]=tf2+'0';
-      buttplate[7]=try_face+'0';
-      if(ret=SpriteName2DC(buttplate)) {
-        if(reflect) *reflect=TRUE;
-        return ret;
-      }
+  for(tf2=0;tf2!=9;tf2++) {
+    buttplate[5]=tf2+'0';
+    buttplate[7]=face+'0';
+    if(ret=SpriteName2DC(buttplate)) {
+      if(reflect) *reflect=TRUE;
+      return ret;
     }
+  }
 //Try opposite order
-  for(tf2=0;tf2!=9;tf2++)
-    for(try_face=0;try_face!=9;try_face++) {
-      buttplate[5]=try_face+'0';
-      buttplate[7]=tf2+'0';
-      if(ret=SpriteName2DC(buttplate)) {
-        return ret;
-      }
+  for(tf2=0;tf2!=9;tf2++) {
+    buttplate[5]=face+'0';
+    buttplate[7]=tf2+'0';
+    if(ret=SpriteName2DC(buttplate)) {
+      return ret;
     }
+  }
   return NULL; 
 }
 static CDoomAnimationFrame *GenerateCacheFrames(CDoomThingTemplate *t,U8 *frames) {
   if(!frames) return NULL;
   I64 cnt=StrLen(frames);
   CDoomAnimationFrame *ret=CAlloc(sizeof(CDoomAnimationFrame)*(cnt+1));
-  F64 angle;
   CDC *last_dc;
   Bool last_reflect;
-  I64 face,idx,idx2;
+  I64 face,idx,idx2,idx3;
   for(idx=0,idx2=0;idx2!=cnt;idx2++)  {
     if(!Bt(char_bmp_alpha,frames[idx2]))
       goto skip;
     ret[idx].chr=frames[idx2];
-    for(angle=0,face=0;angle<=2*pi+.1&&face<8;angle+=2*pi/8.,face++) {
-      last_dc=_GetThingFaceSprite(t,angle,frames[idx2],&ret[idx].reflect[face]);
-      ret[idx].faces[face]=last_dc;
+    for(face=1;face<=8;face++) {
+      last_dc=_GetThingFaceSprite(t,face,frames[idx2],&ret[idx].reflect[face-1]);
+      ret[idx].faces[face-1]=last_dc;
     }
     //Fill in "missing" faces
-    for(face=1;face!=8;face++) {
-      if(ret[idx].faces[face]) {
-	last_dc=ret[idx].faces[face];
-	last_reflect=ret[idx].reflect[face];
-      } else
-        ret[idx].faces[face]=last_dc,ret[idx].reflect[face]=last_reflect;
+    for(idx3=0;idx3!=2;idx3++)
+    for(face=1;face<=8;face++) {
+      if(ret[idx].faces[face-1]) {
+	last_dc=ret[idx].faces[face-1];
+	last_reflect=ret[idx].reflect[face-1];
+      } else {
+        ret[idx].faces[face-1]=last_dc,ret[idx].reflect[face-1]=last_reflect;
+      }
     }
     idx++;
 skip:;

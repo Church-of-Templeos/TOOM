@@ -380,9 +380,11 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 tallness,
 	        if(tmp<=min_dist)
 		  I64SetAdd(walls_in_way,lds[0]);
 	      }
-//https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
 	      if(flags&COLLISF_NO_DROP&&cur_height-STEP_HEIGHT>floor_height)
 	        goto fail_walk;
+//Check for bumping on side of ceiling
+	      if(cur_height+tallness>ceil_height)
+		goto fail_walk;
 	      if(tallness>ceil_height-floor_height||floor_height==ceil_height) {
 fail_walk:
 	        I64SetAdd(fail_walls,lds[0]);

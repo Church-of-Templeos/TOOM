@@ -238,11 +238,12 @@ U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
     dist-=template->radius;
   }
   QueIns(self,&l->things);
-  self->height+=t->vslope*template->speed;
   CDoomSector *s=GetSectorForCoord(l,self->x,self->y);
   if(!t->hit) {
     self->animation=template->_idle_frames;
+    self->height+=t->vslope*template->speed;
   } else {
+    self->momx=0,self->momy=0;
     dist=AnimationTime(template->_hit_frames);
     if(Server_tS-self->anim_start_tS>=dist) {
       QueRem(t);
@@ -564,7 +565,7 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
   F64 angle,dist=ToF64(RandU64&0xf),off,mul,ld_a,x,y,th=thing->template->height;
   CDoomLinedef *ld;
   if(!target) return;
-  if(Rand>.75&&CanSeeTarget(l,t)&&0)
+  if(Rand>.75&&CanSeeTarget(l,t))
     angle=FArg(target->x-thing->x,target->y-thing->y);
   else
     angle=thing->angle;

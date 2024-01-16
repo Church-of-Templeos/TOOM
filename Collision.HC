@@ -366,10 +366,14 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 tallness,
 	        ceil_height=I16_MAX;
 	        floor_height=I16_MAX;
 	      } else {
-	        floor_height=Max(lds[0]->back->sector->floor_height,
-		      lds[0]->front->sector->floor_height);
-	        ceil_height=Min(lds[0]->back->sector->ceil_height,
-		      lds[0]->front->sector->ceil_height);
+//Use opposite side as we are crossing the life
+	        if(IsFrontSideOfVector2D(vector,&dummy)) {
+		  floor_height=lds[0]->back->sector->floor_height;
+		  ceil_height=lds[0]->back->sector->ceil_height;
+	        } else {
+		  floor_height=lds[0]->front->sector->floor_height;
+		  ceil_height=lds[0]->front->sector->ceil_height;
+		}
 	      }
 	      if(CrosesLine(lds[0],&move1,&move_fat)) {
 	        tmp=IntersectDist(lds[0],&move1,&move2);

@@ -2682,7 +2682,7 @@ CDC *AltSwitchTexture(U8 *txt,Bool on=FALSE,Bool *res_txtr_is_on=NULL) {
         };
   U8 buf[STR_LEN];
   I64 idx=40;
-  while(idx--) {
+  while(--idx>=0) {
     StrCpy(buf,switch_textures[idx]);
     if(!TextureName2DC(buf))
       goto skip;
@@ -2707,6 +2707,8 @@ class CButtonThinker:CDoomThinkerBase {
   CDoomSector *s;
   F64 switch_tS;
   I64 which_part;
+  U8 active_state;
+  U8 done_state;
   Bool repeat;
 };
 
@@ -2715,16 +2717,16 @@ U0 ButtonThinker(CDoomLevel *l,CButtonThinker *t) {
   Bool repeat=t->repeat;
   F64 reset_time=t->switch_tS;
   I64 which_texture=t->which_part;
-  U8 on_off_idx='2'; 
+  U8 on_off_idx=t->active_state; 
   CDC *dc;
   if(!repeat) {
-    on_off_idx='2';
+    on_off_idx=t->done_state;
     Free(t);
     QueRem(t);
     goto set_and_ret;
   }
   if(reset_time>Server_tS) {
-    on_off_idx='2';
+    on_off_idx=t->active_state;
 set_and_ret:
     switch(which_texture) {
       case 2: 
@@ -2743,7 +2745,7 @@ set_and_ret:
     }
     return;
   }
-  on_off_idx='1';
+  on_off_idx=t->done_state;
   Free(t);
   QueRem(t);
   Spawn(&PlaySoundTask,"SWTCHX","snd",0,Fs);
@@ -2755,9 +2757,16 @@ U0 AddButtonThinker(CDoomLevel *l,CDoomSidedef *s,I64 which_part,Bool repeat=TRU
   t->repeat=repeat;
   t->switch_tS=Server_tS+2.;
   t->which_part=which_part;
+  if(on) {
+    t->active_state='2';
+    t->done_state='1';
+  } else {
+    t->active_state='1';
+    t->done_state='2';
+  }
 }
 
-U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags,CDoomThing *who) {
+Bool TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags,CDoomThing *who) {
   CDoomSector *sector,*head=&l->sectors;
   I64 trig=FALSE;
   if(!ld->special_type) return;
@@ -2773,6 +2782,7 @@ U0 TriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags,CDoomThing *who) {
     }
   if(!ld->activated)
     ld->activated=trig;
+  return trig;
 }
 
 
@@ -3149,13 +3159,13 @@ U0 UpdateLevel(CDoomLevel *l) {
 U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
   CD2 dummy;
   F64 floor,floor2,ceil,ceil2;
-  I64 which_texture=0;
+  I64 which_texture=0,idx,activated;
   Bool repeat=FALSE,passed=FALSE,is_on;
   U64 trigger;
   CDoomLinedef *ld;
   CDoomSidedef *sd;
   Vector *ldv;
-   dummy.x=where->x;
+  dummy.x=where->x;
   dummy.y=where->y;
   ld=MoveInLevel(l,&dummy,angle,64,1,1,height,0);
   if(ld) {
@@ -3187,36 +3197,39 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
       else which_texture=2;
       DestroyVector(ldv);
     }    
-    switch(which_texture) {
-      case 2:
-        if(ld->special_type&&AltSwitchTexture(sd->upper_texture[0],,&is_on)) {
+    for(idx=0;idx!=2;idx++)
+      switch(which_texture) {
+        case 2:
+	  if(ld->special_type&&AltSwitchTexture(sd->upper_texture[0],idx,&is_on)) {
 pass:
-	  if(ld->special_type->type=='Door')
-	    trigger=ld->special_type(CDoomDoor*)->trigger;
-	  else if(ld->special_type->type=='Ceil')
-	    trigger=ld->special_type(CDoomCeil*)->trigger;
-	  else if(ld->special_type->type=='Floor')
-	    trigger=ld->special_type(CDoomFloor*)->trigger;
-	  else if(ld->special_type->type=='Lift')
-	    trigger=ld->special_type(CDoomLift*)->trigger;
-	  if(trigger.u8[1]=='P')
-	    TriggerLinedef(l,ld,WACTIVATE_PUSH,p);
-	  else
-	    TriggerLinedef(l,ld,WACTIVATE_SWITCH,p);
-	  passed=TRUE;
-	  Spawn(&PlaySoundTask,"SWTCHN","snd",0,Fs);
-	  AddButtonThinker(l,sd,which_texture,trigger.u8[1]!='1',is_on);
-        }
-        break;
-      case 1:
-        if(ld->special_type&&AltSwitchTexture(sd->middle_texture[0]))
-	  goto pass;
-        break;
-      case 0:
-        if(ld->special_type&&AltSwitchTexture(sd->lower_texture[0]))
-	  goto pass;
-        break;
-    }
+	    if(ld->special_type->type=='Door')
+	      trigger=ld->special_type(CDoomDoor*)->trigger;
+	    else if(ld->special_type->type=='Ceil')
+	      trigger=ld->special_type(CDoomCeil*)->trigger;
+	    else if(ld->special_type->type=='Floor')
+	      trigger=ld->special_type(CDoomFloor*)->trigger;
+	    else if(ld->special_type->type=='Lift')
+	      trigger=ld->special_type(CDoomLift*)->trigger;
+	    if(trigger.u8[1]=='P')
+	      activated=TriggerLinedef(l,ld,WACTIVATE_PUSH,p);
+	    else
+	      activated=TriggerLinedef(l,ld,WACTIVATE_SWITCH,p);
+	    passed=TRUE;
+	    if(activated) {
+	      Spawn(&PlaySoundTask,"SWTCHN","snd",0,Fs);
+	      AddButtonThinker(l,sd,which_texture,trigger.u8[1]!='1',is_on);
+	    }
+	  }
+	  break;
+        case 1:
+	  if(ld->special_type&&AltSwitchTexture(sd->middle_texture[0],idx))
+	    goto pass;
+	  break;
+        case 0:
+	  if(ld->special_type&&AltSwitchTexture(sd->lower_texture[0],idx))
+	    goto pass;
+	  break;
+      }
   }
   if(!passed&&ld)
     TriggerLinedef(l,ld,WACTIVATE_SWITCH,p);

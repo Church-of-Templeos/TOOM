@@ -100,7 +100,6 @@ U0 DrawAutomap(CDC *dc,CDoomLevel *l) {
   CDoomActionSector *special;
   head=&l->linedefs;
   StrPrint(buf,"HUSTR_%s",l->map_name);
-PrintI(buf,Define(buf));
   title=Define(buf);   
   for(ld=head->next;ld!=head;ld=ld->next) {
     if(!ld->seen&&!all)

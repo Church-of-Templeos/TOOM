@@ -50,22 +50,27 @@ I16 GetWeaponIndex()
   return weaponIndex;
 }
 
-U0 AddWeaponIndex(Bool pos)
+Bool AddWeaponIndex(Bool pos)
 {
- if(pos)
- {
-  if(p->arsenal[weaponIndex+1].available)
-  {
-   weaponIndex++;
+  I64 idx;
+  if(pos)
+    {
+    for(idx=weaponIndex+1;idx!=8;idx++)
+      if(p->arsenal[idx].available)
+        {
+        weaponIndex=idx;
+	break;
+      }
   }
- }
- else
- {
-  if(p->arsenal[weaponIndex-1].available)
-  {
-   weaponIndex--;
+  else
+    {
+    for(idx=weaponIndex-1;idx>=0;idx--)
+      if(p->arsenal[idx].available)
+        {
+        weaponIndex=idx;
+	break;
+      }
   }
- }
 }
 
 // Multiple Icon widget

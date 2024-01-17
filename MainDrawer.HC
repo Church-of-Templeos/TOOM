@@ -106,7 +106,7 @@ class CDoomPlayer:CDoomThing {
 //IMPORTANT
 CacheAnimationFrames;
 
-I64 cursor_x = ms.pos.x, cursor_tx = ms.pos.x, cursor_z = ms.pos.z, cursor_tz = ms.pos.z;
+I64 cursor_x = ms.pos.x, cursor_tx = ms.pos.x, cursor_z = ms.pos.z, cursor_tz = ms.pos.z;
 
 class CVisplane {
   I64 color;
@@ -3498,7 +3498,8 @@ ent:;
       cursor_z=ms.pos.z;
       if(cursor_tz!=cursor_z)
       {
-        if(cursor_z>0)
+//cursor_z my be greater than 2,so check with previous value for difference
+        if(cursor_z-cursor_tz<0)
 	{
 	  AddWeaponIndex(TRUE);
         }

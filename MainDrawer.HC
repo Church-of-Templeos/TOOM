@@ -2720,7 +2720,8 @@ U0 ButtonThinker(CDoomLevel *l,CButtonThinker *t) {
   U8 on_off_idx=t->active_state; 
   CDC *dc;
   if(!repeat) {
-    on_off_idx=t->done_state;
+//active_state will be set as we never turn "off" again
+    on_off_idx=t->active_state;
     Free(t);
     QueRem(t);
     goto set_and_ret;

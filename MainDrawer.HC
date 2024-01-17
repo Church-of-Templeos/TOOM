@@ -3251,11 +3251,13 @@ U0 AnimateTask(I64)
 
 U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
   F64 angle;
+  CDoomSector *s=GetSectorForCoord(l,p->x,p->y);
 //if were are dead,sink the camera
   if(p->health<=0.) {
     cam->h=Clamp(cam->h-12*1/30.,p->height+8,p->height+32);
   } else 
     cam->h=p->height+41;
+  if(s) cam->h=Clamp(cam->h,s->floor_height+1.,s->ceil_height-4.);
   cam->x=p->x;
   cam->y=p->y;
   if(p->stare_at&&p->health<=0.) {

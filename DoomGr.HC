@@ -21,9 +21,9 @@ U8 *DitherPalette(CRGB *data) {
   CRGB normal[16*16],cur_pixel;
   GrPaletteGet(palette48);
   for(x=0;x!=16;x++) {
-    normal[x].r=ToF64(palette48[x].r)/0xfff*0xff;
-    normal[x].g=ToF64(palette48[x].g)/0xfff*0xff;
-    normal[x].b=ToF64(palette48[x].b)/0xfff*0xff;
+    normal[x].r=ToF64(palette48[x].r)/0xffff*0xff;
+    normal[x].g=ToF64(palette48[x].g)/0xffff*0xff;
+    normal[x].b=ToF64(palette48[x].b)/0xffff*0xff;
     normal[x*16].r=normal[x].r;
     normal[x*16].g=normal[x].g;
     normal[x*16].b=normal[x].b;

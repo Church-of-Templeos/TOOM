@@ -60,7 +60,6 @@ U0 Unpause(F64 to=-1) {
 class CJobRunnerData {
   U0 (*fptr)(U8*);
 };
-
 CDC *doom_scrn=gr.dc;
 doom_scrn->flags|=DCF_NO_TRANSPARENTS;
 I64 doom_scrn_in_draw=0;
@@ -396,6 +395,8 @@ already_has:;
       dist=DIST_SCALE/((ToF64(ToF64(to+from)/2.*2.)-GR_HEIGHT/2)/(cam->h-at));
       wxf=cam->x+(dist/cos2)*cos_table[x];
       wyf=cam->y+(dist/cos2)*sin_table[x];
+      wxf=cam->x+dist*cos_table[x];
+      wyf=cam->y+dist*sin_table[x];
       wx=wxf,wy=wyf;
       if(GetSectorForCoord(l,wxf,wyf)!=sector) {
         goto next2;
@@ -609,22 +610,12 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       }
       if(0<=ix<=GR_WIDTH-2) {
         ih2+=2;
-        if(dry) {
+        if(dry) {
 	  if(is_sky2) {
-	    ih2=ClampI64(ih2+iy,0,GR_HEIGHT-2);
-	    while(ih2>=0) {
-	      db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+ih2*to_dc->width_internal];
-	      to=&to_dc->body[GR_WIDTH-2-ix+ih2*to_dc->width_internal];
-	      db_z[0]=idist+1;
-	      db_z[1]=idist+1;
-	      *to=TRANSPARENT|TRANSPARENT<<8;
-	      db_z+=to_dc->width_internal;
-	      to(U8*)+=to_dc->width_internal;
-	      db_z[0]=idist+1;
-	      db_z[1]=idist+1;
-	      *to=TRANSPARENT|TRANSPARENT<<8;
-	      ih2-=2;
-	    }
+	    wall_cmd=&cam->wall_commands[ix>>1][cam->wall_command_cnts[ix>>1]++];
+	    wall_cmd->start=0;
+	    wall_cmd->end=ih2+iy;
+	    wall_cmd->dist=idist+1;
 	  }
 
 	  wall_cmd=&cam->wall_commands[ix>>1][cam->wall_command_cnts[ix>>1]];
@@ -752,7 +743,9 @@ U0 RayCastJob(CRayJobData *data) {
   Free(data);
 }
 U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd,Bool same_side,Bool dry) {
+  I64 core=0;
   CRayJobData *j=CAlloc(sizeof(CRayJobData),adam_task);
+  j->fptr=&RayCastJob;
   j->to_dc=to_dc;
   j->texture=texture;
   j->st=st;
@@ -768,7 +761,8 @@ U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 le
   j->fptr=&RayCastJob;
   j->same_side=same_side;
   j->dry=dry;
-  RayCastJob(j);
+  RayCastJob(j);
+
 }
 U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *_p,F64 level,Bool reflect=FALSE,Bool transparent=FALSE,I64 light=255) {
   if(!sprite) return;

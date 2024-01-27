@@ -133,23 +133,17 @@ class CDoomCamera {
 //These are used for rejecting places to draw
   I64 wall_command_cnts[GR_WIDTH/2];
   CWallCommand wall_commands[GR_WIDTH/2][0x80];
-  //These include the wall heights too
-  //Cordnates are diveded by 2
-  F64 floor_heights[GR_WIDTH/2]; //used for choosing which things not to draw
-  F64 ceil_heights[GR_WIDTH/2]; //used for choosing which things not to draw
-  F64 floor_depths[GR_WIDTH/2];
-  F64 wall_depths[GR_WIDTH/2]; //Absolute blocking walls
   CDC *floor_dc; //This is black or white,this is used for reducing floor overdraw
   I64 visplane_cnt;
   CVisplane visplanes[256];
 } cam;
 cam.fov=pi/4;
 
-I64 IsBlockedByWall(CDoomCamera *cam,I64 x,I64 y,I64 dist) {
+I64 IsBlockedByWall(CDoomCamera *cam,I64 x,I64 y,I64 dist,CDoomSidedef *self=INVALID_PTR) {
   I64 i,cnt=cam->wall_command_cnts[x>>1];
   CWallCommand *cmd=cam->wall_commands[x>>1];
   for(i=0;i!=cnt;i++,cmd++) {
-    if(cmd->dist<=dist) {
+    if(cmd->dist<=dist&&cmd->ld!=self) {
       if(cmd->start<y<cmd->end) {
 	return cmd->end-y;
       }
@@ -158,11 +152,11 @@ I64 IsBlockedByWall(CDoomCamera *cam,I64 x,I64 y,I64 dist) {
   return 0;
 }
 
-I64 IsBlockedByWallReverse(CDoomCamera *cam,I64 x,I64 y,I64 dist) {
+I64 IsBlockedByWallReverse(CDoomCamera *cam,I64 x,I64 y,I64 dist,CDoomSidedef *self=INVALID_PTR) {
   I64 i,cnt=cam->wall_command_cnts[x>>1];
   CWallCommand *cmd=cam->wall_commands[x>>1];
   for(i=0;i!=cnt;i++,cmd++) {
-    if(cmd->dist<=dist) {
+    if(cmd->dist<=dist&&cmd->ld!=self) {
       if(cmd->start<y<cmd->end) {
 	return y-cmd->start;
       }
@@ -470,7 +464,7 @@ PopulateTables;
 //floor is 1 for middle
 //floor is 2 for ceil
 //floor is 3 if visplane only
-U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd,Bool same_side) {
+U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd,Bool same_side,Bool dry) {
   I64 light=sd->sector->cur_light_level;
   if(ld->front==sd&&ld->back)
     light=MaxI64(light,ld->back->sector->cur_light_level);
@@ -525,7 +519,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   else
     is_sky2=sd->sector->ceil_dc[0]==GetFlatDC("F_SKY1")&&floor>=1;
 //Upper walls arent drawn between 2 sky sectors
-//is_sky will trigger no drawing wall 
+    //is_sky will trigger no drawing wall 
   if(floor==2&&opposite->sector->ceil_dc[0]==GetFlatDC("F_SKY1")) {
     return;
   }
@@ -560,8 +554,6 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       dist=Sqrt(Sqr(hit.x)+Sqr(hit.y));
       idist=dist;
       if(dist<=0.) dist=1;
-      if(cam->wall_depths[ix>>1]<idist)
-        goto next;
       tx=ToI64(Sqrt(Sqr(hit.x-clone_ld_st.x)+Sqr(hit.y-clone_ld_st.y)))*2+xoff*2;
       iy=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-(height+level))+GR_HEIGHT/2;
       ih=(DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-level)+GR_HEIGHT/2)-iy;
@@ -616,18 +608,13 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
         goto next;
       }
       if(0<=ix<=GR_WIDTH-2) {
-        if(idist<cam->floor_depths[ix/2]) {
-	  cam->floor_heights[ix/2]=GR_HEIGHT;
-	  cam->ceil_heights[ix/2]=0;
-	  cam->floor_depths[ix/2]=idist;
-        }
         ih2+=2;
-        if(is_sky2) {
-	  ih2=ClampI64(ih2+iy,0,GR_HEIGHT-2);
-	  while(ih2>=0) {
-	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+ih2*to_dc->width_internal];
-	    to=&to_dc->body[GR_WIDTH-2-ix+ih2*to_dc->width_internal];
-	    if(*db_z>idist) {
+        if(dry) {
+	  if(is_sky2) {
+	    ih2=ClampI64(ih2+iy,0,GR_HEIGHT-2);
+	    while(ih2>=0) {
+	      db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+ih2*to_dc->width_internal];
+	      to=&to_dc->body[GR_WIDTH-2-ix+ih2*to_dc->width_internal];
 	      db_z[0]=idist+1;
 	      db_z[1]=idist+1;
 	      *to=TRANSPARENT|TRANSPARENT<<8;
@@ -636,17 +623,38 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	      db_z[0]=idist+1;
 	      db_z[1]=idist+1;
 	      *to=TRANSPARENT|TRANSPARENT<<8;
+	      ih2-=2;
 	    }
-	    ih2-=2;
 	  }
+
+	  wall_cmd=&cam->wall_commands[ix>>1][cam->wall_command_cnts[ix>>1]];
+	  wall_cmd->ld=ld;
+	  wall_cmd->end=ClampI64(iy+ih2,0,GR_HEIGHT);
+	  wall_cmd->start=ClampI64(iy,0,GR_HEIGHT);;
+	  wall_cmd->dist=idist;
+	  if(floor==0)
+	    wall_cmd->end=GR_HEIGHT; //All the way down(we dont need to drawn benith the floor)
+	  if(floor==2)
+	    wall_cmd->start=0; //All the way up(We dont need to draw past the ceiling)
+
+	  if(wall_cmd->start<wall_cmd->end&&(texture->flags&DCF_NO_TRANSPARENTS)) {
+	    if(tx=cam->wall_command_cnts[ix>>1]) {
+	      if(cam->wall_command_cnts[tx-1]!=*wall_cmd) { //CWallCommand is I64
+	        cam->wall_command_cnts[ix>>1]++;
+	      }
+	    } else
+	      cam->wall_command_cnts[ix>>1]++;
+	  }
+	  goto next;
         }
-        {
+
+	  {
 	  tx%=texture->width;
 	  if(tx<0)
 	    tx+=texture->width;
 	  tx=ClampI64(tx,0,texture->width-2);
 	  tx&=~1;
-	  low_ih=MaxI64(cam->ceil_heights[ix>>1]-iy,0);
+	  low_ih=0;
 	  ih2=low_ih;
 //https://doomwiki.org/wiki/Texture_alignment
 	  if(repeat) {
@@ -675,34 +683,20 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  } else {
 	    tyf=(ToF64(ih2)/ih)*(texture->height-2);
 	  }
-
-	  wall_cmd=&cam->wall_commands[ix>>1][cam->wall_command_cnts[ix>>1]];
-	  wall_cmd->ld=ld;
-	  wall_cmd->end=0;
-	  wall_cmd->start=GR_HEIGHT;
-	  wall_cmd->dist=idist;
 	  for(ih2=low_ih;TRUE;ih2+=2,tyf+=2*ratio*2) { //2 for dither pixel,2 for ih2+=2
 	    if(ih2>=ih||ih2+iy>=GR_HEIGHT-2)
 	      break;
-	    if(idist>cam->floor_depths[ix/2]) {
-	      if(iy+ih2>=cam->floor_heights[ix/2]) {
-	        break;
-	      } else if(iy+ih2<cam->ceil_heights[ix/2]) {
-	        ih2=cam->ceil_heights[ix/2]-iy;
-	        goto skip_p;
-	      }
-	    }
-	    if((skip=IsBlockedByWall(cam,ix,iy+ih2,idist))>2) {
+	    if(iy+ih2<0) {
+	      skip=-iy;
 	      tyf+=2*ratio*(skip-2); // *2 for dither super pixel
 	      ih2+=skip-2;
 	      goto skip_p;
 	    }
-	    wall_cmd->start=MinI64(wall_cmd->start,iy+ih2);
-	    wall_cmd->end=MaxI64(wall_cmd->end,iy+ih2);
-	    if(floor==0)
-	      wall_cmd->end=GR_HEIGHT/2; //All the way down(we dont need to drawn benith the floor)
-	    if(floor==2)
-	      wall_cmd->start=0; //All the way up(We dont need to draw past the ceiling)
+	    if((skip=IsBlockedByWall(cam,ix,iy+ih2,idist,ld))>2) {
+	      tyf+=2*ratio*(skip-2); // *2 for dither super pixel
+	      ih2+=skip-2;
+	      goto skip_p;
+	    }
 	    ty=tyf;
 	    if(repeat)
 	      ty=ty%texture->height;
@@ -727,33 +721,6 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	    }
 skip_p:;
 	  }
-        if(wall_cmd->start<wall_cmd->end&&(texture->flags&DCF_NO_TRANSPARENTS)) {
-	  if(tx=cam->wall_command_cnts[ix>>1]) {
-	    if(cam->wall_command_cnts[tx-1]!=*wall_cmd) { //CWallCommand is I64
-	      cam->wall_command_cnts[ix>>1]++;
-	    }
-	  } else
-	    cam->wall_command_cnts[ix>>1]++;
-        }
-        }
-      }
-      if(texture->flags&DCF_NO_TRANSPARENTS) {
-        if(!is_sky) {
-set_floor_height:
-	    if(floor==0)  {
-	      cam->floor_heights[ix/2]=ClampI64(iy,0,GR_HEIGHT);
-	      cam->ceil_heights[ix/2]=0;
-	    } else if(floor==1) {
-	      cam->ceil_heights[ix/2]=GR_HEIGHT;
-	      cam->floor_heights[ix/2]=0;
-	    } else if(floor==2) {
-	      cam->floor_heights[ix/2]=GR_HEIGHT;
-	      cam->ceil_heights[ix/2]=ClampI64(iy+ih,0,GR_HEIGHT);
-	    }
-	    cam->floor_depths[ix/2]=idist;
-	  if(floor==1) 
-	    if(cam->wall_depths[ix/2]>idist)
-	      cam->wall_depths[ix/2]=idist;
         }
       }
     }
@@ -767,7 +734,7 @@ class CRayJobData:CJobRunnerData {
   I64 level,height,flrh,ceilh,floor;
   CDoomLinedef *ld;
   CDoomSidedef *sd;
-  Bool same_side;
+  Bool same_side,dry;
 };
 U0 RayCastJob(CRayJobData *data) {
   RayCastWall(
@@ -779,11 +746,12 @@ U0 RayCastJob(CRayJobData *data) {
 	data->floor,
 	data->ld,
 	data->sd,
-	data->same_side
+	data->same_side,
+	data->dry
 	);
   Free(data);
 }
-U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd,Bool same_side) {
+U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd,Bool same_side,Bool dry) {
   CRayJobData *j=CAlloc(sizeof(CRayJobData),adam_task);
   j->to_dc=to_dc;
   j->texture=texture;
@@ -799,6 +767,7 @@ U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 le
   j->sd=sd;
   j->fptr=&RayCastJob;
   j->same_side=same_side;
+  j->dry=dry;
   RayCastJob(j);
 }
 U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *_p,F64 level,Bool reflect=FALSE,Bool transparent=FALSE,I64 light=255) {
@@ -964,7 +933,7 @@ CDC *GetLowerTexture(CDoomSidedef *s) {
   I64 t=ToI64(Server_tS*4)%FrameCnt(s->lower_texture);
   return s->lower_texture[t];
 }
-U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
+U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss,Bool dry) {
   CD2 start_floor,start_ceil;
   CD2 end_floor,end_ceil;
   I64 seg_idx,wall,fail_cnt;
@@ -1024,6 +993,7 @@ draw_wall:
 	  h2=Abs(end_ceil.y-end_floor.y);
 	  if(ToI64(h)&&ToI64(h2)) {
 	    if(fail_cnt!=2) {
+	      if(dry) {
 	      if(!sector->drawn) {
 	        sector->drawn=TRUE;
 	        InsertVisplane(cam,sector);
@@ -1032,17 +1002,18 @@ draw_wall:
 	        opposite->sector->drawn=TRUE;
 	        InsertVisplane(cam,opposite->sector);
 	      }
+		}
 	      if(!no_draw) {
 	        if(seg->back_side)
-		  QueRayCastJob(to_dc,texture,seg->end,seg->start,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,TRUE);
+		  QueRayCastJob(to_dc,texture,seg->end,seg->start,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,TRUE,dry);
 	        else
-		  QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,FALSE);
-	        if(wall==3&&opposite&&opposite->sector) {
+		  QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,FALSE,dry);
+	        if(wall==3&&opposite&&opposite->sector&&dry) {
 		  sector=opposite->sector;
 		  sidedef=opposite;
 		  floor=sector->floor_height;
 		  ceil=sector->ceil_height;
-		  QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,opposite,FALSE);
+		  QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,opposite,FALSE,dry);
 	        }
 	      }
 	    }
@@ -1160,9 +1131,53 @@ F64 DistFromLine(CD2 *p,CD2 *l1,CD2 *l2) {
   return Abs((l2->x-l1->x)*(l1->y-p->y)-(l2->y-l1->y)*(l1->x-p->x))/Sqrt(Sqr(l1->x-l2->x)+Sqr(l1->y-l2->y));
 }
 
-U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
+U0 WallCmdSort(CWallCommand *a,CWallCommand *b) {  
+  if(a->start==b->start) {
+    return a->end-b->end;
+  }
+  return a->start-b->start;
+}
+Bool WallCmdIsCovered(CWallCommand *others,CWallCommand *wall,I64 cnt) {
+  I64 idx;
+  Bool visible=FALSE;
+  I64 y=ClampI64(wall->start,0,GR_HEIGHT/2),ey=ClampI64(wall->end,0,GR_HEIGHT/2);
+  I64 a,b;
+  CWallCommand *other;
+  for(idx=0;idx!=cnt;idx++) {
+    other=&others[idx];
+    if(other!=wall&&other->dist<wall->dist) {
+      a=ClampI64(other->start,0,GR_HEIGHT/2);
+      b=ClampI64(other->end,0,GR_HEIGHT/2);
+      if(a<=y<=b&&a<=ey<=b)
+       return TRUE;
+    }
+  }
+  return FALSE;
+}
+U0 MergeWallCommands(CDoomCamera *cam) {
+  I64 i=0,i2,cnt,new_cnt;
+  CWallCommand *cmds;
+  for(i=0;i!=GR_WIDTH/2;i++) {
+    cmds=&cam->wall_commands[i];
+    QSort(cmds,cnt=cam->wall_command_cnts[i],sizeof(CWallCommand),&WallCmdSort);
+    new_cnt=0;
+    for(i2=0;i2!=cnt;i2++) {
+      if(WallCmdIsCovered(cmds,&cmds[i2],cnt)) {
+        ; //Exclude from result
+      } else {
+        if(new_cnt!=i2)
+	  MemCpy(&cmds[new_cnt],&cmds[i2],sizeof CWallCommand);
+        new_cnt++;
+      }
+    }
+    cam->wall_command_cnts[i]=new_cnt;
+  }
+}
+
+
+U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node,Bool dry) {
   if(node->signature!='NODE') {
-    DrawSubsector(to_dc,cam,node);
+    DrawSubsector(to_dc,cam,node,dry);
     return;
   }
   if(node->visited) return;
@@ -1179,21 +1194,23 @@ U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
   right_dist=DistFromLine(&cam->x,&node->right_child->x,&other);
   if(left_dist<right_dist) {
     if(HitsBBox(cam,&node->left))
-      DrawBSP0(to_dc,cam,node->left_child);
+      DrawBSP0(to_dc,cam,node->left_child,dry);
     if(HitsBBox(cam,&node->right))
-      DrawBSP0(to_dc,cam,node->right_child);
+      DrawBSP0(to_dc,cam,node->right_child,dry);
   } else {
     if(HitsBBox(cam,&node->right))
-      DrawBSP0(to_dc,cam,node->right_child);
+      DrawBSP0(to_dc,cam,node->right_child,dry);
     if(HitsBBox(cam,&node->left))
-      DrawBSP0(to_dc,cam,node->left_child);
+      DrawBSP0(to_dc,cam,node->left_child,dry);
   }
-  if(node->parent) DrawBSP0(to_dc,cam,node->parent);
+  if(node->parent) DrawBSP0(to_dc,cam,node->parent,dry);
   node->visited=FALSE;
 }
 
 U0 DrawBSP(CDC *to_dc,CDoomCamera *cam,CDoomLevel *level) {
-  DrawBSP0(to_dc,cam,DoomWhichBSPNode(cam->x,cam->y,level));
+  DrawBSP0(to_dc,cam,DoomWhichBSPNode(cam->x,cam->y,level),TRUE);
+  MergeWallCommands(cam);
+  DrawBSP0(to_dc,cam,DoomWhichBSPNode(cam->x,cam->y,level),FALSE);
 }
 
 I64 FloorSort(CVisplane *va,CVisplane *vb)  {
@@ -1241,12 +1258,12 @@ U0 DrawSky(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
       to=&to_dc->body[GR_WIDTH-2-ix+iy*to_dc->width_internal];
       if(*to&TRANSPARENT!=TRANSPARENT)
         goto skip;
-      *to=*from;
       tx=(ix+off)/ToF64(GR_WIDTH)*texture->width;
       tx&=~1;
       tx%=texture->width-2;
       tx=AbsI64(tx);
       from=&texture->body[tx+ty*texture->width_internal];
+      *to=*from;
       from(U8*)+=texture->width_internal;
       to(U8*)+=to_dc->width_internal;
       *to=*from;
@@ -1255,53 +1272,6 @@ skip:;
   }
 }
 
-U0 WallCmdSort(CWallCommand *a,CWallCommand *b) {  
-  if(a->start==b->start) {
-    return a->end-b->end;
-  }
-  return a->start-b->start;
-}
-Bool WallCmdIsCovered(CWallCommand *others,CWallCommand *wall,I64 cnt) {
-  I64 idx;
-  Bool visible=FALSE;
-  I64 y=ClampI64(wall->start,0,GR_HEIGHT/2),ey=ClampI64(wall->end,0,GR_HEIGHT/2);
-  I64 a,b;
-  U8 check[GR_HEIGHT/2];
-  CWallCommand *other;
-  MemSet(check,0,GR_HEIGHT/2);
-  MemSet(check+y,TRUE,ey-y);
-  for(idx=0;idx!=cnt;idx++) {
-    other=&others[idx];
-    if(other!=wall&&other->dist<wall->dist) {
-      a=ClampI64(other->start,0,GR_HEIGHT/2);
-      b=ClampI64(other->end,0,GR_HEIGHT/2);
-      MemSet(check+a,FALSE,b-a);
-    }
-  }
-  while(y<ey)
-    if(check[y++])
-      return FALSE;
-  return TRUE;
-}
-U0 MergeWallCommands(CDoomCamera *cam) {
-  I64 i=0,i2,cnt,new_cnt;
-  CWallCommand *cmds;
-  for(i=0;i!=GR_WIDTH/2;i++) {
-    cmds=&cam->wall_commands[i];
-    QSort(cmds,cnt=cam->wall_command_cnts[i],sizeof(CWallCommand),&WallCmdSort);
-    new_cnt=0;
-    for(i2=0;i2!=cnt;i2++) {
-      if(WallCmdIsCovered(cmds,&cmds[i2],cnt)) {
-        ; //Exclude from result
-      } else {
-        if(new_cnt!=i2)
-	  MemCpy(&cmds[new_cnt],&cmds[i2],sizeof CWallCommand);
-        new_cnt++;
-      }
-    }
-    cam->wall_command_cnts[i]=new_cnt;
-  }
-}
 U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   CDoomSector *sector;  
   CDoomThing *thing;
@@ -1318,12 +1288,6 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   DCFill(cam->floor_dc,BLACK);
   for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next)
     sector->drawn=FALSE;
-  for(idx=0;idx!=GR_WIDTH/2;idx++) {
-    cam->floor_heights[idx]=GR_HEIGHT;
-    cam->ceil_heights[idx]=0;
-    cam->floor_depths[idx]=I16_MAX;
-    cam->wall_depths[idx]=I16_MAX;
-  }
   MemSetI64(cam->wall_command_cnts,0,GR_WIDTH/2);
   if(!to_dc->depth_buf)
     DCDepthBufAlloc(to_dc);

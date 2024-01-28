@@ -395,8 +395,6 @@ already_has:;
       dist=DIST_SCALE/((ToF64(ToF64(to+from)/2.*2.)-GR_HEIGHT/2)/(cam->h-at));
       wxf=cam->x+(dist/cos2)*cos_table[x];
       wyf=cam->y+(dist/cos2)*sin_table[x];
-      wxf=cam->x+dist*cos_table[x];
-      wyf=cam->y+dist*sin_table[x];
       wx=wxf,wy=wyf;
       if(GetSectorForCoord(l,wxf,wyf)!=sector) {
         goto next2;
@@ -614,7 +612,8 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  if(is_sky2) {
 	    wall_cmd=&cam->wall_commands[ix>>1][cam->wall_command_cnts[ix>>1]++];
 	    wall_cmd->start=0;
-	    wall_cmd->end=ih2+iy;
+	    wall_cmd->end=ClampI64(ih2+iy,0,GR_HEIGHT);
+	    wall_cmd->ld=ld;
 	    wall_cmd->dist=idist+1;
 	  }
 
@@ -625,7 +624,9 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  wall_cmd->dist=idist;
 	  if(floor==0)
 	    wall_cmd->end=GR_HEIGHT; //All the way down(we dont need to drawn benith the floor)
-	  if(floor==2)
+	  else if(floor==1)
+	    wall_cmd->start=0,wall_cmd->end=GR_HEIGHT;
+	  else if(floor==2)
 	    wall_cmd->start=0; //All the way up(We dont need to draw past the ceiling)
 
 	  if(wall_cmd->start<wall_cmd->end&&(texture->flags&DCF_NO_TRANSPARENTS)) {
@@ -761,7 +762,7 @@ U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 le
   j->fptr=&RayCastJob;
   j->same_side=same_side;
   j->dry=dry;
-  RayCastJob(j);
+  RayCastJob(j);
 
 }
 U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *_p,F64 level,Bool reflect=FALSE,Bool transparent=FALSE,I64 light=255) {

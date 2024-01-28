@@ -1149,7 +1149,10 @@ U0 BossDeath(CDoomLevel *l,CMonsterThinker *t) {
     dummy.special_type=action_sector_types[37];
     TriggerLinedef(l,&dummy,-1,p); //-1 for all types
   } else if(l->map_name[1]=='2'||l->map_name[1]=='3') { //E2M8 cyberdemon,E2M8 spiderdemon
-    l->ended=TRUE;
+    if(self->template==doom_thing_types[16]) //Cyberdemon
+      l->ended=TRUE;
+    if(self->template==doom_thing_types[7]) //spider guy
+      l->ended=TRUE;
   }
 }
 U0 Hoof(CDoomLevel *l,CMonsterThinker *t) {

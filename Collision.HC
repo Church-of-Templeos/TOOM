@@ -34,7 +34,7 @@ Bool CheckLineWithBox(CDoomLinedef *ld,CD2 *at,F64 radius) {
 	CrosesLine(ld,&tr,&br)||
 	CrosesLine(ld,&br,&bl)||
 	CrosesLine(ld,&tl,&bl)) {
-    return radius>=DistFromLine(at,ld->start,ld->end);
+    return TRUE;
   }
   return FALSE;
 }
@@ -93,7 +93,7 @@ Bool SlideWalk(CDoomLevel *l,CDoomLinedef *ld,CD2 *point,F64 angle,F64 tallness,
   F64 score;
   F64 angle3=FArg(ld->end->x-ld->start->x,ld->end->y-ld->start->y);
   score=NormalScore(ld,point,angle);
-  MoveInLevel(l,point,angle3,score*to_travel,radius,tallness,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING|COLLISF_SLIDE,,exclude);
+  MoveInLevel(l,point,angle3,score*to_travel,tallness,radius,cur_h,COLLISF_ADJUST_FOR_RADIUS|COLLISF_NO_HIT_THING|COLLISF_SLIDE,,exclude);
 }
 
 CI64Set *ThingsInRadius(CDoomLevel *l,I64 x,I64 y,F64 radius) {
@@ -548,6 +548,11 @@ fin:
     }
     result->x=cur_pos.x;
     result->y=cur_pos.y;
+    //Final test Pt.2,check if not went through a cursed line
+    for(i=0;i!=fail_walls->cnt;i++) {
+      if(CrosesLine(fail_walls->body[i],&move1,result))
+        goto found;
+    }
     goto pass;
 found:
     dist-=1;
@@ -618,8 +623,9 @@ look_for_hot:
       }
   }
 
+  
 
-  //Final test,if COLLISF_NO_DROP,make sure we dont drop
+  //Final test Pt.2,if COLLISF_NO_DROP,make sure we dont drop
   if(flags&COLLISF_NO_DROP)
     if(s=GetSectorForCoord(l,result->x,result->y)) {
       if(s->floor_height<cur_height-STEP_HEIGHT) {

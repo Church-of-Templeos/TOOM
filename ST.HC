@@ -297,10 +297,12 @@ U0 DrawNumber(CDoomPlayer *p, U32 x, U32 y, U16 weapon,Bool large,Bool percent=F
     GrBlot(doom_scrn,x,y,NUMPCT);
 }
 
-U0 BlotWithLighting(CDC *to,I64 x,I64 y,CDC *dc,F64 light=255) {
+U0 BlotWithLighting(CDC *to,I64 x,I64 y,CDC *dc,F64 light=255,Bool invis=FALSE) {
   I64 w=dc->width>>1,h=dc->height>>1,i,i2;
   U16 *src,*dst,*dst2;
   I32 lighting;
+  U16 trans_pixel=TRANSPARENT|TRANSPARENT<<8;
+  U16 black_pixel=BLACK|BLACK<<8;
   Bool god_mode=GodModeFilter;
   light+=LightOffset;
   x&=~1;
@@ -311,14 +313,23 @@ U0 BlotWithLighting(CDC *to,I64 x,I64 y,CDC *dc,F64 light=255) {
       dst2=dst(U8*)+to->width_internal;
       for(i=0;i!=w;i++) {
         if(0<=x+i*2<to->width) {
-	  lighting=LookupLighting(*src,light,0.,god_mode);
+	  if(invis) {
+	    if(RandU16<ToI64(0x10000*.75)) {
+	      if(*src!=trans_pixel)
+	        lighting=black_pixel;
+	      else
+	        lighting=trans_pixel;
+	    } else
+	      lighting=trans_pixel;
+	  } else
+	    lighting=LookupLighting(*src,light,0.,god_mode);
 	  if(lighting&0xff!=TRANSPARENT) {
 	    *dst=lighting&0xffff;
 	    *dst2=lighting>>16;
 	  }
         }
-	++dst;
- 	++dst2;
+        ++dst;
+        ++dst2;
         src++;
       }
     }
@@ -347,12 +358,12 @@ U0 ST_refreshBackground(CDoomPlayer *p)
     if(dc=weapons.icon_dc)
       BlotWithLighting(doom_scrn,weapons.x+weapons.x_off-dc->x*2,
 	    weapons.y+weapons.y_off-dc->y*2,
-	    dc,s->cur_light_level+add);//weapon
+	    dc,s->cur_light_level+add,ToBool(p->flags&MF_SHADOW));//weapon
     if(dc=weapons.flash_dc)
       BlotWithLighting(doom_scrn,
 	    weapons.x+weapons.flash_x_off+weapons.x_off-dc->x*2,
 	    weapons.y+weapons.y_off-dc->y*2,
-	    dc,s->cur_light_level+add);
+	    dc,s->cur_light_level+add,ToBool(p->flags&MF_SHADOW));
 
       //STATUSBAR
 

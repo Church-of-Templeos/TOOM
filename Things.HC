@@ -28,6 +28,8 @@ class CDoomThingTemplate {
 #define MF_AMBUSH (4<<16)
 #define MF_SKULL_ATTACK (8<<16)
 #define MF_MISSILE (0x10<<16)
+//Partial invisiblity
+#define MF_SHADOW (0x20<<16)
   I64 code;
   I64 flags;
 } *doom_thing_types[0x10000];

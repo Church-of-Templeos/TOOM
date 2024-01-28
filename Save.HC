@@ -278,6 +278,7 @@ U0 SaveGame(U8 *filename,U8 *title) {
   DocPrint(doc,"%d\n",l->has_map);
   DocPrint(doc,"%n\n",p->light_goggles_time);
   DocPrint(doc,"%n\n",p->invincible_time);
+  DocPrint(doc,"%n\n",p->invisible_time);
   DocWrite(doc);  
   DocDel(doc);
   Free(filename);
@@ -733,6 +734,10 @@ skip_thinker:;
         break;
       case 11:
         ptr=StrScan(ptr,"%n\n",&p->invincible_time);
+        state++;
+        break;
+      case 12:
+        ptr=StrScan(ptr,"%n\n",&p->invisible_time);
         state++;
         break;
       default:

@@ -673,6 +673,9 @@ U0 FaceTarget(CDoomLevel *l,CMonsterThinker *t)  {
   if(target) {
     target->flags&=~MF_AMBUSH;
     self->angle=FArg(target->x-self->x,target->y-self->y);
+    if(target->flags&MF_SHADOW) {
+      self->angle+=(Rand-Rand)*pi/4;
+    }
   }
 }
 
@@ -948,6 +951,9 @@ U0 SpawnMissile(CDoomLevel *l,CDoomThing *t,CDoomThing *target,U64 type) {
     angle=FArg(target->x-t->x,target->y-t->y);
   } else
     angle=t->angle;
+  if(target&&target->flags&MF_SHADOW) {
+    angle+=(Rand-Rand)*pi/4;
+  }
   self->x=t->x;
   self->y=t->y;
   self->angle=angle;

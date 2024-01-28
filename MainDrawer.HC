@@ -85,6 +85,7 @@ class GunAvail{
 class CDoomPlayer:CDoomThing { 
 //rad_suit_time is the time remaining(same for bezerk_time) in ticks
   F64 armor,rad_suit_time,bezerk_time,last_attack;
+  F64 invisible_time;
 //These are used for screen palete effects
   F64 hurt_amt,pickup_amt;
   F64 muzzle_flash_end_tS;
@@ -393,8 +394,8 @@ already_has:;
         dir=1;
       }
       dist=DIST_SCALE/((ToF64(ToF64(to+from)/2.*2.)-GR_HEIGHT/2)/(cam->h-at));
-      wxf=cam->x+(dist/cos2)*cos_table[x];
-      wyf=cam->y+(dist/cos2)*sin_table[x];
+      wxf=cam->x+dist/cos2*cos_table[x];
+      wyf=cam->y+dist/cos2*sin_table[x];
       wx=wxf,wy=wyf;
       if(GetSectorForCoord(l,wxf,wyf)!=sector) {
         goto next2;
@@ -2984,6 +2985,10 @@ rem:
 	    if(orig!=p->health)
 	      goto rem;
 	    break;
+	  case 2024:
+	    p->invisible_time=60*30;
+	    got_msg="Partial Invisibility";
+	    goto rem;
 	  case 2022:
 	    //Invincible
 	    p->invincible_time=30*30;
@@ -3124,6 +3129,12 @@ U0 UpdateLevel(CDoomLevel *l) {
     p->light_goggles_time=Clamp(p->light_goggles_time-1/30.,0.,60.);
   if(p&&p->invincible_time)
     p->invincible_time=Clamp(p->invincible_time-1/30.,0.,30.);
+  if(p&&p->invisible_time) {
+    p->flags|=MF_SHADOW;
+    p->invisible_time=Clamp(p->invisible_time-1/30.,0.,60.);
+  } else if(p) {
+    p->flags&=~MF_SHADOW;
+  }
 }
 
 

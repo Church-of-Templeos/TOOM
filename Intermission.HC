@@ -268,6 +268,9 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
     DrawAnimatedBackground(gr.dc,ep,l);
     if(!state) {
       y=TITLEY;
+      dc=GetGrLump("WIF");
+      GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
+      y+=(5*dc->height)/4;
       StrPrint(buf,"WILV%d%d",ep,l); //Lvel name
       LoadGrLump(wad,buf); //Will load once
       dc=GetGrLump(buf);
@@ -277,12 +280,12 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
         dc=GetGrLump(buf);
       }
       GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
-      y+=(5*dc->height)/4;
-      dc=GetGrLump("WIF");
-      GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
       DrawSplats(gr.dc,ep,l);
     } else {
       y=TITLEY;
+      dc=GetGrLump("WIENTER");
+      GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
+      y+=(5*dc->height)/4;
       StrPrint(buf,"WILV%d%d",ep,l+1); //Lvel name
       LoadGrLump(wad,buf); //Will load once
       dc=GetGrLump(buf);
@@ -292,9 +295,6 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
         dc=GetGrLump(buf);
       }
       if(!dc) return; //??? TODO text intermission
-      GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
-      y+=(5*dc->height)/4;
-      dc=GetGrLump("WIENTER");
       GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
       DrawStats(gr.dc,lev,ep,l,(tS-start_ts)*30.);
     }

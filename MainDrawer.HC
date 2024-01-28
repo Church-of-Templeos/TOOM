@@ -418,8 +418,17 @@ already_has:;
         dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at));
         idist=dist;
         db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
-        if(idist>*db_z)
+        if(idist>*db_z) {
+//Perhaps we hit a wall
+	  do {
+	    y+=dir;
+	    if(y<0||y>=GR_HEIGHT/2)
+	      break;
+            db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
+	  } while(idist==*db_z);
+	  y-=dir;
 	  goto next;
+        }
 	//Heres the deal. The dither pixels are always aligned to 2 mofo.
 	//So that means I can write an I64 as two I32s into the depth buffer mofo at once
 	idist|=idist<<32;

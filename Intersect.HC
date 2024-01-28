@@ -17,7 +17,7 @@ Check for intersection basically.
   /
  /
 */
-  F64 slope1,slope2,off1,off2;
+  F64 slope1,slope2,off1,off2,x,x2,y,y2;
   CD2 dummy;
   if(!dst) dst=&dummy;
 //If the line points straight up,we can check to see if the other
@@ -55,8 +55,28 @@ Check for intersection basically.
   dst->y=slope1*(dst->x)+off1;
 fin:
   if(!check) return TRUE;
-  return InRange(a->x,dst->x,b->x)&&
-        InRange(a2->x,dst->x,b2->x)&&
-        InRange(a->y,dst->y,b->y)&&
-        InRange(a2->y,dst->y,b2->y);
+  if(a->x>b->x)
+    x=b->x-.01,x2=a->x+.01;
+  else
+    x=a->x-.01,x2=b->x+.01;
+  if(a->y>b->y)
+    y=b->y-.01,y2=a->y+.01;
+  else
+    y=a->y-.01,y2=b->y+.01;
+
+  if(!(x<=dst->x<=x2&&y<=dst->y<=y2))
+    return FALSE;
+
+  if(a2->x>b2->x)
+    x=b2->x-.01,x2=a2->x+.01;
+  else
+    x=a2->x-.01,x2=b2->x+.01;
+  if(a2->y>b2->y)
+    y=b2->y-.01,y2=a2->y+.01;
+  else
+    y=a2->y-.01,y2=b2->y+.01;
+  if(!(x<=dst->x<=x2&&y<=dst->y<=y2))
+    return FALSE;
+
+  return TRUE;
 }

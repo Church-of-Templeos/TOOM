@@ -1064,7 +1064,7 @@ skip_thing:
         arr[2]=TextureName2DC("FIREMAG3");
       }
       if(!StrNCmp("FIREWALA",name,7)) {
-        arr[0]=TextureName2DC("FIREMALA");
+        arr[0]=TextureName2DC("FIREWALA");
         arr[1]=TextureName2DC("FIREWALB");
         arr[2]=TextureName2DC("FIREWALL");
       }

@@ -1,4 +1,4 @@
- #ifndef DOOM_MAIN
+#ifndef DOOM_MAIN
 #define DOOM_MAIN "Doom" 
 #exe {Cd(__DIR__);};;
 #ifndef PrintI 
@@ -530,7 +530,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
     is_sky2=sd->sector->ceil_dc[0]==GetFlatDC("F_SKY1");
 //Upper walls arent drawn between 2 sky sectors
     //is_sky will trigger no drawing wall 
-  if(floor==2&&opposite->sector->ceil_dc[0]==GetFlatDC("F_SKY1")) {
+  if(opposite&&floor==2&&opposite->sector->ceil_dc[0]==GetFlatDC("F_SKY1")) {
     return;
   }
   start_angle=Wrap(start_angle);
@@ -623,7 +623,7 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  while(ih2>=0) {
 	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+ih2*to_dc->width_internal];
 	    to=&to_dc->body[GR_WIDTH-2-ix+ih2*to_dc->width_internal];
-	    if(db_z[0]>idist) {
+	    if(db_z[0]>idist+1) {
 	      db_z[0]=idist+1;
 	      db_z[1]=idist+1;
 	      *to=TRANSPARENT|TRANSPARENT<<8;
@@ -643,19 +643,20 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
         }
 
         if(texture->flags&DCF_NO_TRANSPARENTS) {
-        wall_cmd=&cam->wall_commands[ix>>1][cam->wall_command_cnts[ix>>1]++];
-        wall_cmd->ld=ld;
-        wall_cmd->end=ClampI64(iy+ih2,0,GR_HEIGHT);
-        wall_cmd->start=ClampI64(iy,0,GR_HEIGHT);;
-        wall_cmd->dist=idist;
-        if(floor==0)
-	  wall_cmd->end=GR_HEIGHT; //All the way down(we dont need to drawn benith the floor)
-        else if(floor==1)
-	  wall_cmd->start=0,wall_cmd->end=GR_HEIGHT;
-        else if(floor==2)
-	  wall_cmd->start=0; //All the way up(We dont need to draw past the ceiling)
-	}
-	{
+	  wall_cmd=&cam->wall_commands[ix>>1][cam->wall_command_cnts[ix>>1]++];
+	  wall_cmd->ld=ld;
+	  wall_cmd->end=ClampI64(iy+ih2,0,GR_HEIGHT);
+	  wall_cmd->start=ClampI64(iy,0,GR_HEIGHT);;
+	  wall_cmd->dist=idist;
+	  if(floor==0)
+	    wall_cmd->end=GR_HEIGHT; //All the way down(we dont need to drawn benith the floor)
+	  else if(floor==1)
+	    wall_cmd->start=0,wall_cmd->end=GR_HEIGHT;
+	  else if(floor==2)
+	    wall_cmd->start=0; //All the way up(We dont need to draw past the ceiling)
+        }
+
+	  {
 	  tx%=texture->width;
 	  if(tx<0)
 	    tx+=texture->width;
@@ -887,29 +888,19 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
       PlotSpriteIn3DSpace(to_dc,thing->template->height,sprite,cam,&p,thing->height,reflect,,sec->cur_light_level+LightOffset);
   }
 }
-
+CDoomSector *OppositeSector(CDoomLinedef *l,CDoomSector *sector) {
+  if(l->front^^l->back) return sector;
+  if(l->front->sector==sector) return l->back->sector;
+  return l->front->sector;
+}
 F64 FloorRaise(CDoomLinedef *l,CDoomSector *sector) {
-  F64 ret=sector->floor_height;
-  if(l->back^^l->front) {
-    if(l->back) return Max(ret,l->back->sector->floor_height);
-    if(l->front) return Max(ret,l->front->sector->floor_height);
-    return ret;
-  }
-  return Max(l->front->sector->floor_height,Max(
-        l->back->sector->floor_height,ret
-        ));
+  F64 ret=Max(sector->floor_height,OppositeSector(l,sector)->floor_height);
+  return ret;
 }
 
 F64 CeilDepress(CDoomLinedef *l,CDoomSector *sector) {
-  F64 ret=sector->ceil_height;
-  if(l->back^^l->front) {
-    if(l->back) return Min(ret,l->back->sector->ceil_height);
-    if(l->front) return Min(ret,l->front->sector->ceil_height);
-    return ret;
-  }
-  return Min(l->front->sector->ceil_height,Min(
-        l->back->sector->ceil_height,ret
-        ));
+  F64 ret=Min(sector->ceil_height,OppositeSector(l,sector)->ceil_height);
+  return ret;
 }
 
 F64 HighestCeil(CDoomLinedef *l,CDoomSector *sector) {

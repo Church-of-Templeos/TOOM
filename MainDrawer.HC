@@ -1923,7 +1923,19 @@ F64 GetTargetFloorHeight(CDoomSector *floor,I64 type,Bool up) {
 	  }
         }
       }
-      break;
+      break; case FLOOR_DST_LOWEST_TEXTURE:
+	dst=I16_MAX;
+        for(idx=0;idx!=floor->linedef_cnt;idx++) {
+	  if(sd=floor->linedefs[idx]->front) {
+	    if(sd->lower_texture[0])
+	      dst=Min(sd->lower_texture[0]->height/2,dst); // /2 for dither super pixels
+	  }
+	  if(sd=floor->linedefs[idx]->back) {
+	    if(sd->lower_texture[0])
+	      dst=Min(sd->lower_texture[0]->height/2,dst);
+	  }
+	}
+        dst+=floor->base_floor_height;
   }
   return dst;
 }

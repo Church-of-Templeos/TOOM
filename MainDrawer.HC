@@ -61,7 +61,6 @@ class CJobRunnerData {
   U0 (*fptr)(U8*);
 };
 CDC *doom_scrn=gr.dc;
-doom_scrn->flags|=DCF_NO_TRANSPARENTS;
 I64 doom_scrn_in_draw=0;
 CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
   CDoomSubsector *ss;
@@ -241,25 +240,40 @@ U0 TransformPointToCamera(CDoomCamera *cam,CD2 *p) {
 Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *out_of_view=NULL) {
   CD2 s,e,at,*ptr,debug;
   I64 cnt,fail_cnt;
-  F64 angle;
+  F64 angle,angle2;
   TransformPointToCamera(cam,p);
   TransformPointToCamera(cam,p2);
-  if(p->x<1&&p2->x<1) return FALSE;
-  s.x=1,e.x=1;
-  s.y=I16_MIN,e.y=I16_MAX;  
-  if(out_of_view)
+  s.x=0,s.y=0;
+  e.y=I16_MAX*Sin(cam->fov/1.75),e.x=I16_MAX;
+  if(out_of_view) {
     *out_of_view=FALSE;
-  if(PlaneIntersect(&at,&s,&e,p,p2)) {
-    if(out_of_view)
+    if(p->x<1&&p2->x<1)
       *out_of_view=TRUE;
-    if(p->x>=1) {
-      p2->x=at.x;
-      p2->y=at.y;
-    } else {
+  }
+  if(PlaneIntersect(&at,&s,&e,p,p2)) {
+    angle=FArg(p->x,p->y);
+    angle2=FArg(p2->x,p2->y);
+    if(Sin(angle)>Sin(cam->fov/2)) {
       p->x=at.x;
       p->y=at.y;
+    } else {
+      p2->x=at.x;
+      p2->y=at.y;
     }
   }
+  e.y=-e.y;
+  if(PlaneIntersect(&at,&s,&e,p,p2)) {
+    angle=FArg(p->x,p->y);
+    angle2=FArg(p2->x,p2->y);
+    if(Sin(angle)<Sin(-cam->fov/2)) {
+      p->x=at.x;
+      p->y=at.y;
+    } else {
+      p2->x=at.x;
+      p2->y=at.y;
+    }
+  }
+
   for(cnt=0;cnt!=2;cnt++) {
     if(!cnt) ptr=p;
     else ptr=p2;
@@ -276,10 +290,8 @@ I64 F64SortRev(F64 a,F64 b) {
   if(a>b) return -1;
   return 0;
 }
-I64 F64Sort(F64 a,F64 b) {
-  if(a>b) return 1;
-  if(a<b) return -1;
-  return 0;
+I64 I64Sort(I64 a,I64 b) {
+  return a-b;
 }
 
 F64 LightOffset() {
@@ -303,159 +315,173 @@ Bool GodModeFilter() {
     return Blink;
   return FALSE;
 }
+ class CD4 {
+  CD2 start;
+  CD2 end;
+};
+I64 YSort(CD4 *a,CD4 *b) {
+  if(a->start.y>b->start.y) return 1;
+  if(a->start.y<b->start.y) return -1;
+  return 0;
+}
+CD4 *GetFlatPoints(CDoomCamera *cam,CDoomSector *s,F64 level,I64 *cnt) {
+  CD4 *ret=CAlloc(sizeof(CD4)*s->linedef_cnt);
+  CDoomLinedef *ld;
+  I64 idx,idx2=0;
+  CD2 dummy;
+  I64 out_of_view;
+  for(idx=0;idx!=s->linedef_cnt;idx++) {
+    ld=s->linedefs[idx];    
+    ret[idx2].start.x=ld->start->x;
+    ret[idx2].start.y=ld->start->y;
+    ret[idx2].end.x=ld->end->x;
+    ret[idx2].end.y=ld->end->y;
+    ClipLineToScrenCoords(cam,&ret[idx2].start,&ret[idx2].end,level,&out_of_view);
 
-U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
-  if(!texture) return;
-  if(GetFlatDC("F_SKY1")==texture) return;
-  F64 *intersects=MAlloc(2*(sector->linedef_cnt+1)*8);
-  Bool in_sector=GetSectorForCoord(l,cam->x,cam->y)==sector;
+    ret[idx2].start.x=ret[idx2].start.x;
+    ret[idx2].end.x=ret[idx2].end.x;
+
+    if(ret[idx2].start.x>ret[idx2].end.x) {
+      SwapI64(&ret[idx2].start.x,&ret[idx2].end.x);
+      SwapI64(&ret[idx2].start.y,&ret[idx2].end.y);
+    }
+    if(!out_of_view)
+	idx2++;
+  }
+  if(cnt) *cnt=idx2;
+  QSort(ret,idx2,sizeof(CD4),&YSort);
+  return ret;
+}
+I64 class CLine64 {
+  I16 sx,sy,ex,ey;
+};
+I64 LineYSort(CLine64 a,CLine64 b) {
+  return a.ey-b.ey;
+}
+U0 SectorPlot(CDC *dc,CDC *texture,I64 x,I64 y,F64 level,F64 cos2,F64 sin2,I64 light,Bool god_mode) {
+  x=GR_WIDTH-x;
+  if(x<0) return;
+  if(x>GR_WIDTH-2) return;
+  if(y<0) return;
+  if(y>GR_HEIGHT-2) return;
+  U16 *to=&dc->body[x+y*dc->width_internal];
+  I32 *db_z=&dc->depth_buf[x+y*dc->width_internal];
+  F64 dist=DIST_SCALE/((ToF64(y)-GR_HEIGHT/2)/(cam.h-level));
+  F64 cos=ray_cast_table_cos[x>>1];
+  dist/=cos;
+  I32 idist=dist;
+  I64 wx,wy,color;
+  if(*db_z<idist) return;
+//Heres the deal. The dither pixels are always aligned to 2 mofo.
+    //So that means I can write an I64 as two I32s into the depth buffer mofo at once
+  idist|=idist<<32;
+  db_z[0](I64)=idist;
+  db_z+=dc->width_internal;
+  db_z[0](I64)=idist;
+//End of legendary code
+  wx=cam.x+dist*cos2;
+  wy=cam.y+dist*sin2;
+//wx<<1 multiples by 2,which means any number*2 is even
+  wx=(wx<<1)&127;
+  wy=(wy<<1)&127;
+  color=LookupLighting(texture->body[wx+wy*128](U16),light,dist,god_mode);
+  *to=color&0xffff;
+  to(U8*)+=dc->width_internal;
+  *to=color>>16;
+}
+U0 FillPoly(CDC *dc,CDoomCamera *cam,CDoomSector *s,CDC *texture,CD4 *points,I64 cnt,F64 level,Bool floor) {
   Bool god_mode=GodModeFilter;
-  I64 x,y;
-  I64 plane=sector->visplane_idx;
-  I64 floorx,floory;
-  I32 *db_z;
-  U16 *dst;
-  U32 color;
-  I64 maxx,maxy;
-  I64 minx,miny,idist,dir,from,to,skip,hit_cnt;
-  I64 consec_y,idx;
-  I64 wx,wy;
-  F64 dist,angle;
-  F64 cos2;
-  F64 wxf,wyf;
-  F64 light=sector->cur_light_level+LightOffset;
-  U8 *already;
-  CD2 ray,hit;
-  CDoomLinedef*ld;
+  I64 idx,idx2,idx3;
+  CI64Set *lines=I64SetNew();
+  I64 minx,x,miny;
+  I64 maxx,cap;
+  CD3 dummya,dummyb;
+  F64 slope,wxf,wyf,midx,y,slope2,angle,dist;
+  I64 scrn_points[0x100];
+  CLine64 ln,to_remove,ln2;
   static F64 last_angle=I16_MAX; //Not possible to start with this angle
-  static F64 cos_table[GR_WIDTH/2];
-  static F64 sin_table[GR_WIDTH/2];
+  static F64 cos_table[GR_WIDTH];
+  static F64 sin_table[GR_WIDTH];
   if(last_angle!=cam->angle) {
-    for(x=0;x!=GR_WIDTH/2;x++) {
-      angle=(ToF64(x*2)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
+    for(x=0;x!=GR_WIDTH;x++) {
+      angle=(ToF64(x)-GR_WIDTH/2)/GR_WIDTH*(cam->fov);
       sin_table[x]=Sin(cam->angle+angle);
       cos_table[x]=Cos(cam->angle+angle);
     }
     last_angle=cam->angle;
   }
-  CVisplane *vp=&cam->visplanes[plane];
-  if(floor) {
-    miny=vp->fminy>>1;
-    maxy=vp->fmaxy>>1;
-    minx=vp->fminx>>1;
-    maxx=vp->fmaxx>>1;
-  } else {
-    minx=vp->cminx>>1;
-    maxx=vp->cmaxx>>1;
-    miny=vp->cminy>>1;
-    maxy=vp->cmaxy>>1;
+  ln.sx=points[0].start.x;
+  ln.ex=ln.sx;
+  if(!floor)
+    ln.sy=0,ln.ey=0;
+  else 
+    ln.sy=GR_HEIGHT,ln.ey=GR_HEIGHT;
+  for(idx=0;idx!=cnt;idx++) {
+    ln.sx=MinI64(points[idx].start.x,ln.sx);
+    ln.ex=MaxI64(points[idx].end.x,ln.ex);
   }
-//https://www.doomworld.com/forum/topic/102392-the-definitive-guide-to-visplanes/
-  minx=minx-1;
-  if(minx<0) minx=0;
-  maxx=maxx+1;
-  if(maxx>GR_WIDTH/2) maxx=GR_WIDTH/2;
-  for(x=minx;x<maxx;x++) {
-    ray.x=cos_table[x]*I16_MAX+cam->x;
-    ray.y=sin_table[x]*I16_MAX+cam->y;
-    cos2=ray_cast_table_cos[x];
-    hit_cnt=0;
-    if(floor)
-      intersects[hit_cnt++]=GR_HEIGHT/2;
-    else
-      intersects[hit_cnt++]=0;
-    for(skip=0;skip!=sector->linedef_cnt;skip++) {
-      ld=sector->linedefs[skip];
-      if(PlaneIntersect(&hit,ld->start,ld->end,&cam->x,&ray)) {
-        dist=Sqrt(Sqr(hit.x-cam->x)+Sqr(hit.y-cam->y));
-        dist*=cos2;
-        dist=(((DIST_SCALE/dist)*(cam->h-at))+GR_HEIGHT/2)/2;
-        dist=Clamp(dist,0,GR_HEIGHT/2);
-        intersects[hit_cnt++]=dist;
-already_has:;
-      }
-    } 
-    if(floor) //Most bottom point is good to start at
-      QSortI64(intersects,hit_cnt,&F64SortRev); 
-    else //Most top point is good to stop at
-      QSortI64(intersects,hit_cnt,&F64Sort);
-    if(!hit_cnt)
-      goto next3;
-    for(idx=hit_cnt-2;idx>=0;idx--) {
-      if(floor)  {
-//Reverse sorted
-        from=intersects[idx];
-        to=intersects[idx+1];
-        dir=-1;
-      } else{
-//Forward sorted
-        from=intersects[idx];
-        to=intersects[idx+1];
-        dir=1;
-      }
-      dist=DIST_SCALE/((ToF64(ToF64(to+from)/2.*2.)-GR_HEIGHT/2)/(cam->h-at));
-      wxf=cam->x+dist/cos2*cos_table[x];
-      wyf=cam->y+dist/cos2*sin_table[x];
-      wx=wxf,wy=wyf;
-      if(GetSectorForCoord(l,wxf,wyf)!=sector) {
-        goto next2;
-      }
-      for(y=from;(dir==1&&y<=to)||(dir==-1&&y>=to);y+=dir) {
-        already=cam->floor_dc->body+y*cam->floor_dc->width_internal+x;
-        if(*already)
-	  goto next;
-        if(y<0) {
-	  y=0-dir;
-	  if(dir==-1)
-	    break;
-	  goto next;
-        }
-        if(y>=GR_HEIGHT/2) {
-	  y=GR_HEIGHT/2-1-dir;
-	  if(dir==1)
-	    break;
-	  goto next;
-        }
-        dist=DIST_SCALE/((ToF64(y*2)-GR_HEIGHT/2)/(cam->h-at));
-        idist=dist;
-        db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
-        if(idist>*db_z) {
-//Perhaps we hit a wall
-	  do {
-	    y+=dir;
-	    if(y<0||y>=GR_HEIGHT/2)
-	      break;
-            db_z=&to_dc->depth_buf[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
-	  } while(idist==*db_z);
-	  y-=dir;
-	  goto next;
-        }
-	//Heres the deal. The dither pixels are always aligned to 2 mofo.
-	//So that means I can write an I64 as two I32s into the depth buffer mofo at once
-	idist|=idist<<32;
-        db_z[0](I64)=idist;
-        db_z+=to_dc->width_internal;
-        db_z[0](I64)=idist;
-//End of legendary code
-        wx=cam->x+(dist/cos2)*cos_table[x];
-        wy=cam->y+(dist/cos2)*sin_table[x];
-        dst=&to_dc->body[GR_WIDTH-2-x*2+y*2*to_dc->width_internal];
-        *already=TRUE;
-//wx<<1 multiples by 2,which means any number*2 is even
-        floorx=(wx<<1)&127; //In doom flats are 64,(*2 for dither super pixel)
-        floory=(wy<<1)&127;
-        color=LookupLighting(texture->body[floorx+floory*128](U16),light,dist,god_mode);
-        *dst=color&0xffff;
-        dst(U8*)+=to_dc->width_internal;
-        *dst=color>>16;
-        dst(U8*)-=to_dc->width_internal;
-next:;
-      }
-next2:;
-    } 
-next3:;
+  minx=ClampI64(ln.sx,0,GR_WIDTH-1);
+  maxx=ClampI64(ln.ex,0,GR_WIDTH-1);
+
+  I64SetAdd(lines,ln);
+
+  for(idx=0;idx!=cnt;idx++) {
+    ln.sx=points[idx].start.x;
+    ln.sy=points[idx].start.y;
+    ln.ex=points[idx].end.x;
+    ln.ey=points[idx].end.y;
+    I64SetAdd(lines,ln);
   }
-  Free(intersects);
+
+  minx&=~1;
+  for(x=minx-2;x<maxx+2;x+=2) {
+    idx3=0;
+    for(idx2=0;idx2!=lines->cnt;idx2++) {
+      ln=lines->body[idx2];
+      if(!(ln.sx<=x<=ln.ex))
+        goto skip;
+      slope=ToF64(ln.ey-ln.sy)/ToF64(ln.ex-ln.sx);
+      scrn_points[idx3++]=(x-ln.sx)*slope+ln.sy;
+skip:;
+    }
+    if(idx3)
+      QSortI64(&scrn_points,idx3,&I64Sort);
+    for(idx2=0;idx2<idx3-1;idx2++) {
+      dummya.x=x;
+      dummyb.x=x;
+      dummya.y=scrn_points[idx2];
+      dummyb.y=scrn_points[idx2+1];
+      dist=DIST_SCALE/(((dummya.y+dummyb.y)/2-GR_HEIGHT/2)/(cam->h-level));
+      if(dist>0.) {
+        dist/=ray_cast_table_cos[ToI64(x)>>1];
+        wyf=cam->y+dist*sin_table[ToI64(x)];
+        wxf=cam->x+dist*cos_table[ToI64(x)];
+        if(GetSectorForCoord(l,wxf,wyf)==s) {
+	  y=MinI64(dummya.y,dummyb.y);
+	  cap=MaxI64(dummya.y,dummyb.y);
+	  y=ClampI64(y-1,0,GR_HEIGHT-2);
+	  cap=ClampI64(cap+2,0,GR_HEIGHT-2);
+	  for(;y<cap;y+=2) {
+	    SectorPlot(dc,texture,x,y,
+		  level,
+		  cos_table[x],
+		  sin_table[x],
+		  s->cur_light_level,
+		  god_mode);
+	  }
+        }
+      }
+    }
+  }
+  I64SetDel(lines);
+}
+U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
+  if(!texture) return;
+  if(GetFlatDC("F_SKY1")==texture) return;
+  I64 in_view;
+  CD4 *poodle=GetFlatPoints(cam,sector,at,&in_view);
+  FillPoly(to_dc,cam,sector,texture,poodle,in_view,at,floor);
+  Free(poodle);
 }
 
 

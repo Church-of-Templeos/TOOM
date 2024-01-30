@@ -261,6 +261,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
     e.y=-e.y;
   }
 
+
   if(PlaneIntersect(&at,&s,&e,p,p2)) {
     if(p->x*at.y<at.x*p->y) {
       dist=Sqrt(Sqr(at.x)+Sqr(at.y));
@@ -343,7 +344,7 @@ CD4 *GetFlatPoints(CDoomCamera *cam,CDoomSector *s,F64 level,I64 *cnt) {
   CDoomLinedef *ld;
   I64 idx,idx2=0;
   CD2 dummy;
-  I64 out_of_view;
+  Bool out_of_view=0;
   for(idx=0;idx!=s->linedef_cnt;idx++) {
     ld=s->linedefs[idx];    
     ret[idx2].start.x=ld->start->x;
@@ -363,7 +364,6 @@ CD4 *GetFlatPoints(CDoomCamera *cam,CDoomSector *s,F64 level,I64 *cnt) {
 	idx2++;
   }
   if(cnt) *cnt=idx2;
-  QSort(ret,idx2,sizeof(CD4),&YSort);
   return ret;
 }
 I64 class CLine64 {

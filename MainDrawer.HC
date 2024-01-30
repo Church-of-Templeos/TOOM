@@ -3608,7 +3608,7 @@ ent:;
         if(Bt(kbd.down_bitmap,Char2ScanCode(' ')&0xff)) {
 	  PressAWall(l,&p->x,p->angle,p->height);
         }
-      }
+      } 
 //This accounts for key-press delay
       while((mr=ScanMsg(&a,&b))!=MSG_NULL) {
         if(mr==MSG_KEY_DOWN&&a==CH_ESC) {
@@ -3616,6 +3616,19 @@ ent:;
 	  Refresh;
 	  FlushMsgs; //Flush Esc msg
 	  break;
+        }
+	if(p->health<=0.) {
+	  if(mr==MSG_MS_L_DOWN) {
+	    goto play_again;
+	  } else if(mr==MSG_KEY_DOWN&&a!=CH_ESC) {
+play_again:
+	    screen_melt=TRUE;
+	    transition=FALSE;
+	    next_lvl=LoadWadLevel(wads[0],l->map_name,l->skill);
+	    FreeLevel(l);
+	    l=next_lvl;
+	    PlayLevel(TRUE);
+          }
         }
       }
     } else {

@@ -89,6 +89,7 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
     }
 
   }
+  weaponIndex=1;
   CDoomThing *t,*head=&l->things;
   for(t=head->next;t!=head;t=t->next) {
 //https://doomwiki.org/wiki/Thing_types#Other

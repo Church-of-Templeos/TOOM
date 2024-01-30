@@ -2575,6 +2575,8 @@ factivate:
         door=type;
         switch(door->trigger) {
 	  case 'P1':
+	    if(!ld->back)
+	      break;
 	    s=ld->back->sector;
 	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
 activate1:
@@ -2631,9 +2633,12 @@ activate:
 	    goto activate1;
 	    break;
 	  case 'PR':
-	    s=ld->back->sector;
-	    if(!(flags&WACTIVATE_PUSH)) return FALSE;
-	    goto activate;
+	    if(ld->back) {
+	      s=ld->back->sector;
+	      if(!(flags&WACTIVATE_PUSH)) return FALSE;
+	      goto activate;
+	    }
+	    break;
 	  case 'WR':
 	    if(!(flags&WACTIVATE_WALK)) return FALSE;
 	    goto activate;

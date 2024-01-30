@@ -353,7 +353,10 @@ lenter_name:;
   active_menu_item=ClampI64(active_menu_item,0,5);
   for(i=0;i!=6;i++) {
     DrawSaveLoadBorder(to,x,y);
-    DoomPrint(to,x,y-2*2,"%s",titles[i]); //-2*2 was choosen by what looks good
+    if(enter_name&&Blink&&i==active_menu_item) {
+      DoomPrint(to,x,y-2*2,"%s_",titles[i]); //-2*2 was choosen by what looks good
+    } else
+      DoomPrint(to,x,y-2*2,"%s",titles[i]);
     if(active_menu_item==i) {
       GrBlot(to,
 	    x-16-skull->width-skull->x*2,

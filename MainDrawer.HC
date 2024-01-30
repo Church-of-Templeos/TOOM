@@ -251,12 +251,12 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
   angle2=FArg(p2->x,p2->y);
   if(out_of_view) {
     *out_of_view=FALSE;
-    if(p->x*e.y<e.x*p->y)   
-      if(p2->x*e.y<e.x*p2->y)   
+    if(p->x*e.y<e.x*p->y||p->x<0.)   
+      if(p2->x*e.y<e.x*p2->y||p2->x<0.) 
         *out_of_view=TRUE;
     e.y=-e.y;
-    if(p->x*e.y>e.x*p->y)   
-      if(p2->x*e.y>e.x*p2->y)   
+    if(p->x*e.y>e.x*p->y||p->x<0.)   
+      if(p2->x*e.y>e.x*p2->y||p2->x<0.)   
         *out_of_view=TRUE;
     e.y=-e.y;
   }

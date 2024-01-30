@@ -240,37 +240,50 @@ U0 TransformPointToCamera(CDoomCamera *cam,CD2 *p) {
 Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *out_of_view=NULL) {
   CD2 s,e,at,*ptr,debug;
   I64 cnt,fail_cnt;
-  F64 angle,angle2;
+  F64 angle,angle2,slump,dist,slump_angle=cam->fov/2;
   TransformPointToCamera(cam,p);
   TransformPointToCamera(cam,p2);
   s.x=0,s.y=0;
-  e.y=I16_MAX*Sin(cam->fov/1.75),e.x=I16_MAX;
+  slump=1.75;
+  e.y=I16_MAX*Sin(cam->fov/2),e.x=I16_MAX*Cos(cam->fov/2);
+  slump=cam->fov/2.;
+  angle=FArg(p->x,p->y);
+  angle2=FArg(p2->x,p2->y);
   if(out_of_view) {
     *out_of_view=FALSE;
-    if(p->x<1&&p2->x<1)
-      *out_of_view=TRUE;
+    if(p->x*e.y<e.x*p->y)   
+      if(p2->x*e.y<e.x*p2->y)   
+        *out_of_view=TRUE;
+    e.y=-e.y;
+    if(p->x*e.y>e.x*p->y)   
+      if(p2->x*e.y>e.x*p2->y)   
+        *out_of_view=TRUE;
+    e.y=-e.y;
   }
+
   if(PlaneIntersect(&at,&s,&e,p,p2)) {
-    angle=FArg(p->x,p->y);
-    angle2=FArg(p2->x,p2->y);
-    if(Sin(angle)>Sin(cam->fov/2)) {
-      p->x=at.x;
-      p->y=at.y;
-    } else {
-      p2->x=at.x;
-      p2->y=at.y;
+    if(p->x*at.y<at.x*p->y) {
+      dist=Sqrt(Sqr(at.x)+Sqr(at.y));
+      p->x=Cos(slump_angle)*dist;
+      p->y=Sin(slump_angle)*dist;
+    }
+    if(p2->x*at.y<at.x*p2->y) {
+      dist=Sqrt(Sqr(at.x)+Sqr(at.y));
+      p2->x=Cos(slump_angle)*dist;
+      p2->y=Sin(slump_angle)*dist;
     }
   }
   e.y=-e.y;
   if(PlaneIntersect(&at,&s,&e,p,p2)) {
-    angle=FArg(p->x,p->y);
-    angle2=FArg(p2->x,p2->y);
-    if(Sin(angle)<Sin(-cam->fov/2)) {
-      p->x=at.x;
-      p->y=at.y;
-    } else {
-      p2->x=at.x;
-      p2->y=at.y;
+    if(p->x*at.y>at.x*p->y) {
+      dist=Sqrt(Sqr(at.x)+Sqr(at.y));
+      p->x=Cos(-slump_angle)*dist;
+      p->y=Sin(-slump_angle)*dist;
+    }
+    if(p2->x*at.y>at.x*p2->y) {
+      dist=Sqrt(Sqr(at.x)+Sqr(at.y));
+      p2->x=Cos(-slump_angle)*dist;
+      p2->y=Sin(-slump_angle)*dist;
     }
   }
 
@@ -278,8 +291,9 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
     if(!cnt) ptr=p;
     else ptr=p2;
     angle=FArg(ptr->x,ptr->y);
-    at.x=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2-1);
-    at.y=GR_HEIGHT/2+DIST_SCALE/(Sqrt(Sqr(ptr->x)+Sqr(ptr->y))*FCos(angle))*(cam->h-level);
+
+    at.x=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2);
+    at.y=GR_HEIGHT/2+DIST_SCALE/(Sqrt(Sqr(ptr->x)+Sqr(ptr->y))*Cos(angle))*(cam->h-level);
     ptr->x=at.x;
     ptr->y=at.y;
   }

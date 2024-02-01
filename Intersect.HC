@@ -1,4 +1,4 @@
- Bool InRange(F64 low,F64 x,F64 high) {
+Bool InRange(F64 low,F64 x,F64 high) {
   if(low<high)
     return low-.01<=x<=high+.01;
   return high-.01<=x<=low+.01;
@@ -18,13 +18,15 @@ Check for intersection basically.
  /
 */
   F64 slope1,slope2,off1,off2,x,x2,y,y2;
+  F64 tolerance=.01;
   CD2 dummy;
   if(!dst) dst=&dummy;
 //If the line points straight up,we can check to see if the other
   //line goes through the y position,if so,it is a hit
   if((ToI64(b->x)==ToI64(a->x))||(ToI64(b2->x)==ToI64(a2->x))) {
+    tolerance=1.;
     if(ToI64(a->x)==ToI64(b->x)&&ToI64(a2->x)==ToI64(b2->x)) {
-      if(a->x==a2->x) {
+      if(ToI64(a->x)==ToI64(a2->x)) {
         dst->x=a->x;
         dst->y=a->y;
 	goto fin;
@@ -56,25 +58,25 @@ Check for intersection basically.
 fin:
   if(!check) return TRUE;
   if(a->x>b->x)
-    x=b->x-.01,x2=a->x+.01;
+    x=b->x-tolerance,x2=a->x+tolerance;
   else
-    x=a->x-.01,x2=b->x+.01;
+    x=a->x-tolerance,x2=b->x+tolerance;
   if(a->y>b->y)
-    y=b->y-.01,y2=a->y+.01;
+    y=b->y-tolerance,y2=a->y+tolerance;
   else
-    y=a->y-.01,y2=b->y+.01;
+    y=a->y-tolerance,y2=b->y+tolerance;
 
   if(!(x<=dst->x<=x2&&y<=dst->y<=y2))
     return FALSE;
 
   if(a2->x>b2->x)
-    x=b2->x-.01,x2=a2->x+.01;
+    x=b2->x-tolerance,x2=a2->x+tolerance;
   else
-    x=a2->x-.01,x2=b2->x+.01;
+    x=a2->x-tolerance,x2=b2->x+tolerance;
   if(a2->y>b2->y)
-    y=b2->y-.01,y2=a2->y+.01;
+    y=b2->y-tolerance,y2=a2->y+tolerance;
   else
-    y=a2->y-.01,y2=b2->y+.01;
+    y=a2->y-tolerance,y2=b2->y+tolerance;
   if(!(x<=dst->x<=x2&&y<=dst->y<=y2))
     return FALSE;
 

@@ -239,6 +239,7 @@ U0 TransformPointToCamera(CDoomCamera *cam,CD2 *p) {
 
 Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *out_of_view=NULL) {
   CD2 s,e,at,*ptr,debug;
+  Bool dummy;
   I64 cnt,fail_cnt;
   F64 angle,angle2,slump,dist,slump_angle=cam->fov/2;
   TransformPointToCamera(cam,p);
@@ -249,46 +250,42 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
   slump=cam->fov/2.;
   angle=FArg(p->x,p->y);
   angle2=FArg(p2->x,p2->y);
-  if(out_of_view) {
-    *out_of_view=FALSE;
-    if(p->x*e.y<e.x*p->y)   
-      if(p2->x*e.y<e.x*p2->y) 
-        *out_of_view=TRUE;
-    e.y=-e.y;
-    if(p->x*e.y>e.x*p->y)   
-      if(p2->x*e.y>e.x*p2->y)   
-        *out_of_view=TRUE;
-    if(p->x<0.)
-      if(p2->x<0.)
-        *out_of_view=TRUE;
-    e.y=-e.y;
-  }
+  if(!out_of_view) out_of_view=&dummy;
 
-
-  if(PlaneIntersect(&at,&s,&e,p,p2)) {
-    if(p->x*at.y<at.x*p->y) {
-      dist=Sqrt(Sqr(at.x)+Sqr(at.y));
-      p->x=Cos(slump_angle)*dist;
-      p->y=Sin(slump_angle)*dist;
-    }
-    if(p2->x*at.y<at.x*p2->y) {
-      dist=Sqrt(Sqr(at.x)+Sqr(at.y));
-      p2->x=Cos(slump_angle)*dist;
-      p2->y=Sin(slump_angle)*dist;
-    }
-  }
+  *out_of_view=FALSE;
+  if(p->x*e.y<e.x*p->y)   
+    if(p2->x*e.y<e.x*p2->y) 
+      *out_of_view=TRUE;
   e.y=-e.y;
-  if(PlaneIntersect(&at,&s,&e,p,p2)) {
-    if(p->x*at.y>at.x*p->y) {
-      dist=Sqrt(Sqr(at.x)+Sqr(at.y));
-      p->x=Cos(-slump_angle)*dist;
-      p->y=Sin(-slump_angle)*dist;
-    }
-    if(p2->x*at.y>at.x*p2->y) {
-      dist=Sqrt(Sqr(at.x)+Sqr(at.y));
-      p2->x=Cos(-slump_angle)*dist;
-      p2->y=Sin(-slump_angle)*dist;
-    }
+  if(p->x*e.y>e.x*p->y)   
+    if(p2->x*e.y>e.x*p2->y)   
+      *out_of_view=TRUE;
+  if(p->x<0.)
+    if(p2->x<0.)
+      *out_of_view=TRUE;
+  e.y=-e.y;
+
+//Use intersect if above the line
+  PlaneIntersect(&at,&s,&e,p,p2,FALSE);
+  if(p->x*e.y-e.x*p->y<-.1) {
+    p->x=at.x;
+    p->y=at.y;
+  }
+  if(p2->x*e.y-e.x*p2->y<-.1) {
+    p2->x=at.x;
+    p2->y=at.y;
+  }
+
+//Use intersect if below the line
+  e.y=-e.y;
+  PlaneIntersect(&at,&s,&e,p,p2,FALSE);
+  if(p->x*e.y-e.x*p->y>.1) {
+    p->x=at.x;
+    p->y=at.y;
+  }
+  if(p2->x*e.y-e.x*p2->y>.1) {
+    p2->x=at.x;
+    p2->y=at.y;
   }
 
   for(cnt=0;cnt!=2;cnt++) {
@@ -301,7 +298,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
     ptr->x=at.x;
     ptr->y=at.y;
   }
-  return TRUE;
+  return !*out_of_view;
 }
 I64 F64SortRev(F64 a,F64 b) {
   if(a<b) return 1;
@@ -524,6 +521,11 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
     light=MaxI64(light,ld->front->sector->cur_light_level);
   light+=LightOffset;
   CD2 clone_st,clone_en,zero,clone_ld_st,clone_ld_en;
+  CD2 scrn_st,scrn_en;
+  scrn_st.x=st->x;
+  scrn_st.y=st->y;
+  scrn_en.x=en->x;
+  scrn_en.y=en->y;
   clone_st.x=st->x,clone_st.y=st->y;
   clone_en.x=en->x,clone_en.y=en->y;
   clone_ld_st.x=ld->start->x;
@@ -538,12 +540,12 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   st=&clone_st;
   en=&clone_en;
   F64 start_angle=FArg(st->x,st->y);
-  F64 end_angle=FArg(en->x,en->y),tmp,tyf;
+  F64 end_angle=FArg(en->x,en->y),tmp,tyf,sy,ey,slope;
   CD2 ray,hit,*sw;
-  I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex,dir,skip;
+  I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex,dir,skip,sx;
   CVisplane *vp;
   I32 *db_z,idist;
-  U32 dither_px;
+  U32 dither_px;
   CWallCommand *wall_cmd;
   F64 dist,ratio;
   Bool repeat=FALSE,onesided=ld->front^^ld->back;
@@ -577,23 +579,17 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   if(opposite&&floor==2&&opposite->sector->ceil_dc[0]==GetFlatDC("F_SKY1")) {
     return;
   }
-  start_angle=Wrap(start_angle);
-  end_angle=Wrap(end_angle);
-//Angles are strange so i will just assume whole range if out of bound
-  if(!(-cam->fov/2<start_angle<cam->fov/2)||!(-cam->fov/2<end_angle<cam->fov/2)) {
-    clipped=TRUE;
-    if(-cam->fov/2<start_angle<cam->fov/2) {
-      end_angle=Sign(st->x*en->y-st->y*en->x)*cam->fov/2.;
-    } else if(-cam->fov/2<end_angle<cam->fov/2) {
-      start_angle=Sign(en->x*st->y-en->y*st->x)*cam->fov/2.;
-    } else {
-      start_angle=-cam->fov/2;
-      end_angle=cam->fov/2;
-    }
-  }
   repeat=TRUE;
-  ix=GR_WIDTH/2.+start_angle/(cam->fov/2.)*GR_WIDTH/2.;
-  ex=GR_WIDTH/2.+end_angle/(cam->fov/2.)*GR_WIDTH/2.;
+
+  ClipLineToScrenCoords(cam,&scrn_st,&scrn_en,level,&clipped);
+  if(clipped) return;
+
+  sy=scrn_st.y;
+  ey=scrn_en.y;
+  sx=scrn_st.x;
+  ex=scrn_en.x;
+
+  ix=sx;
   ix&=~1;
   ex&=~1;
   if(ix<ex) {
@@ -602,10 +598,17 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
     dir=-2;
   }
   for(;ix!=ex;ix+=dir) {
-    ray.x=I16_MAX*ray_cast_table_cos[ix/2];
-    ray.y=I16_MAX*ray_cast_table_sin[ix/2]; 
-    if(PlaneIntersect(&hit,&ray,&zero,st,en)) {
-      dist=Sqrt(Sqr(hit.x)+Sqr(hit.y));
+    if(ix>GR_WIDTH) {
+      break;
+    } else if(ix<0) {
+      break;
+    }
+    tyf=(ey-sy)/ToF64(ex-sx)*(ix-sx)+sy;
+    dist=DIST_SCALE/((tyf-GR_HEIGHT/2)/(cam->h-level));
+    dist/=ray_cast_table_cos[ix>>1];
+    if(dist>0.) {
+      hit.x=dist*ray_cast_table_cos[ix>>1];
+      hit.y=dist*ray_cast_table_sin[ix>>1];
       idist=dist;
       if(dist<=0.) dist=1;
       tx=ToI64(Sqrt(Sqr(hit.x-clone_ld_st.x)+Sqr(hit.y-clone_ld_st.y)))*2+xoff*2;

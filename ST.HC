@@ -354,7 +354,10 @@ U0 ST_refreshBackground(CDoomPlayer *p)
     //WEAPONS
     //
     weapons.y=(200./480)*480-120;
+
+
     //TODO account for lighting
+
     if(dc=weapons.icon_dc)
       BlotWithLighting(doom_scrn,weapons.x+weapons.x_off-dc->x*2,
 	    weapons.y+weapons.y_off-dc->y*2,

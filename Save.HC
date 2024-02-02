@@ -758,8 +758,6 @@ fin:
   }
   Free(optr);
   Free(filename);
-  old=DCCopy(gr.dc2); //The screen,make a copy so it doestn change
-  new=DCCopy(old); //Same dimension
   screen_melt=TRUE;
   Unpause(level_time);
   PlayLevel(FALSE);

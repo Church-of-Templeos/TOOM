@@ -126,10 +126,10 @@ U64 EpisodeMenu() {
     "M_EPI1",'1','1',
     "M_EPI2",'2','2',
     "M_EPI3",'3','3',
-    "M_EPI4",'4','4',
+    "M_EPI4",'4','4'
   );
   active_menu=items;
-  return MenuInteract(gr.dc,items,48,63);
+  return MenuInteract(doom_scrn,items,48,63);
 }
 U64 NewGameMenu() {
   static CMenuItem *items=CreateMenu(
@@ -137,10 +137,10 @@ U64 NewGameMenu() {
     "M_ROUGH",'2','h',
     "M_HURT",'3','h',
     "M_ULTRA",'4','u',
-    "M_NMARE",'5','n',
+    "M_NMARE",'5','n'
   );
   active_menu=items;
-  return MenuInteract(gr.dc,items,48,63);
+  return MenuInteract(doom_scrn,items,48,63);
 }
 
 extern I64 LoadSaveInteract(CDC *to,Bool save);
@@ -159,7 +159,7 @@ againm:;
   CDC *dc,*old,*new;
   switch(state) {
     case 0:
-      r=MenuInteract(gr.dc,items,97,67);
+      r=MenuInteract(doom_scrn,items,97,67);
       if(r=='NGAME') {
         state=1;
       } else if(r=='LOADG') {
@@ -231,12 +231,12 @@ againm:;
     end:
       break;;
     case 6:
-      r=LoadSaveInteract(gr.dc,TRUE);
+      r=LoadSaveInteract(doom_scrn,TRUE);
       if(r==-1)
         state=0;
       return r;
     case 7:
-      r=LoadSaveInteract(gr.dc,FALSE);
+      r=LoadSaveInteract(doom_scrn,FALSE);
       if(r==-1)
         state=0;
       return r;

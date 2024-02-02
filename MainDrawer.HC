@@ -10,6 +10,7 @@ U0 DbgPrint(U8*,...) {}
 #define MemSetI64 MemSetU64
 #endif
 Bool in_level=FALSE,screen_melt=FALSE;
+CDC *doom_scrn=DCNew(GR_WIDTH,GR_HEIGHT);
 #include "ScreenMelt.HC"
 #include "Serialize.HC";
 #include "FastTrig.HC";
@@ -60,7 +61,6 @@ U0 Unpause(F64 to=-1) {
 class CJobRunnerData {
   U0 (*fptr)(U8*);
 };
-CDC *doom_scrn=gr.dc;
 I64 doom_scrn_in_draw=0;
 CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
   CDoomSubsector *ss;
@@ -447,7 +447,7 @@ U0 FillPoly(CDC *dc,CDoomCamera *cam,CDoomSector *s,CDC *texture,CD4 *points,I64
     I64SetAdd(lines,ln);
   }
 
-  minx&=~1;
+  minx=minx&~1; //Avoids Templeos bug with &=~1;
   for(x=minx-2;x<maxx+2;x+=2) {
     idx3=0;
     for(idx2=0;idx2!=lines->cnt;idx2++) {
@@ -590,8 +590,9 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   ex=scrn_en.x;
 
   ix=sx;
-  ix&=~1;
-  ex&=~1;
+//Avoids Templeos bug with &=~1;
+  ix=ix&~1;
+  ex=ex&~1;
   if(ix<ex) {
     dir=2;
   }else {
@@ -616,8 +617,9 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       ih=(DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-level)+GR_HEIGHT/2)-iy;
       if(ih&1) ih++;
       if(iy&1) ih++,iy--;
-      iy&=~1;
-      ih&=~1;
+//Avoids Templeos bug with &=~1;
+      iy=iy&~1;
+      ih=ih&~1;
       ih2=ih;
       ratio=height/ToF64(ih);
       if(floor==3) { //If a "visplane" draw
@@ -708,7 +710,8 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	  if(tx<0)
 	    tx+=texture->width;
 	  tx=ClampI64(tx,0,texture->width-2);
-	  tx&=~1;
+//Avoids Templeos bug with &=~1;
+	  tx=tx&~1;
 	  low_ih=0;
 	  ih2=low_ih;
 //https://doomwiki.org/wiki/Texture_alignment
@@ -757,7 +760,8 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	      ty=ty%texture->height;
 	    if(ty<0) ty=-ty;
 	    ty=ClampI64(ty,0,texture->height-2);
-	    ty&=~1;
+//Avoids Templeos bug with &=~1;
+	    ty=ty&~1;
 	    color=texture->body[tx+ty*texture->width_internal](U16);
 	    dither_px=LookupLighting(color,light,dist,god_mode);
 	    to=&to_dc->body[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
@@ -801,7 +805,7 @@ U0 RayCastJob(CRayJobData *data) {
 	data->floor,
 	data->ld,
 	data->sd,
-	data->same_side,
+	data->same_side
 	);
   Free(data);
 }
@@ -849,10 +853,11 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *_
   fromy=copy.y-new_height;
   toy=ClampI64(copy.y,0,GR_HEIGHT-2);
 //&~1 aligns to 2 for dithering super pixels
-  fromy&=~1;
-  toy&=~1;
-  fromx&=~1;
-  tox&=~1;
+//Avoids Templeos bug with &=~1;
+  fromy=fromy&~1;
+  toy=toy&~1;
+  fromx=fromx&~1;
+  tox=tox&~1;
   for(y=fromy;y<toy;y+=2) {
     if(y<0) y=0;
     if(y>toy) break;
@@ -1301,7 +1306,8 @@ U0 DrawSky(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
       if(*to&TRANSPARENT!=TRANSPARENT)
         goto skip;
       tx=(ix+off)/ToF64(GR_WIDTH)*texture->width;
-      tx&=~1;
+//Avoids Templeos bug with &=~1;
+      tx=tx&~1;
       tx%=texture->width-2;
       tx=AbsI64(tx);
       from=&texture->body[tx+ty*texture->width_internal];
@@ -3503,7 +3509,7 @@ ent:;
       new=DCCopy(gr.dc2);
       UpdateCameraFromPlayer(&cam,p);
       DrawDoomWorld(&cam,l,new);
-      ScreenMelt(gr.dc,new,old);
+      ScreenMelt(doom_scrn,new,old);
       DCDel(old),DCDel(new);
       Unpause;
     }
@@ -3514,7 +3520,7 @@ ent:;
       AutomapInteract;
 
       if(am_state.active)
-        DrawAutomap(gr.dc,l);
+        DrawAutomap(doom_scrn,l);
       ST_Start(p);
 
       //mouse camera pan.
@@ -3652,6 +3658,7 @@ play_again:
     if(!paused) {
       UpdateLevel(l);
     }
+    GrBlot(,0,0,doom_scrn);
     Refresh;
   }
 ret:
@@ -3665,7 +3672,7 @@ ret:
   next_lvl=NextLevel(l->map_name,l->ended_special);
   if(!next_lvl) {
 //EXM9
-    Finale(gr.dc,l->map_name[1]-'0');
+    Finale(doom_scrn,l->map_name[1]-'0');
     goto fin_level;
   }
   l2=LoadWadLevel(wad,next_lvl,l->skill);  
@@ -3767,8 +3774,9 @@ U0 ThingDel(CDoomLevel *l,CDoomThing *t) {
 U64 r;
 CDC *title=GetGrLump("TITLEPIC");
 while(TRUE) {
-  TallBlot(gr.dc,0,0,GR_HEIGHT,title);
+  TallBlot(doom_scrn,0,0,GR_HEIGHT,title);
   r=MainMenu;
+  GrBlot(,0,0,doom_scrn);
   Refresh;
   if(!r) {
     DCFill;

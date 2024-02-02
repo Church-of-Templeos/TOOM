@@ -264,8 +264,8 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
   F64 start_ts=tS;
   FlushMsgs;
   while(state<2) {
-    GrBlot(gr.dc,0,0,background);
-    DrawAnimatedBackground(gr.dc,ep,l);
+    GrBlot(doom_scrn,0,0,background);
+    DrawAnimatedBackground(doom_scrn,ep,l);
     if(!state) {
       y=TITLEY;
       dc=GetGrLump("WIF");
@@ -280,7 +280,7 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
         dc=GetGrLump(buf);
       }
       GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
-      DrawSplats(gr.dc,ep,l);
+      DrawSplats(doom_scrn,ep,l);
     } else {
       y=TITLEY;
       dc=GetGrLump("WIENTER");
@@ -296,7 +296,7 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
       }
       if(!dc) return; //??? TODO text intermission
       GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
-      DrawStats(gr.dc,lev,ep,l,(tS-start_ts)*30.);
+      DrawStats(doom_scrn,lev,ep,l,(tS-start_ts)*30.);
     }
     while(ScanKey) {
 	FlushMsgs;

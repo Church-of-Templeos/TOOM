@@ -8,5 +8,5 @@ else
   LoadWad("freedoom1.wad");
 }
 
-//if(FileFind("TOOM.wad"))
-// LoadWad("TOOM.wad");   
+if(FileFind("TOOM.wad"))
+ LoadWad("TOOM.wad");   

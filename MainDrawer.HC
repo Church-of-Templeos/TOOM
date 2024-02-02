@@ -1106,7 +1106,7 @@ Bool FrontSide(Vector *v,CD2 *p) {
 
 
 
-$SP,"<1>",BI=1$
+$ER$
 
 
 
@@ -1373,8 +1373,142 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   LBtr(&doom_scrn_in_draw,0);
 }
 
+U0 SongTaskDOOM(I64 LEVEL)
+{//Original Song by Robert Prince
+  
+  Fs->task_end_cb=&SndTaskEndCB;
+  MusicSettingsRst;
+  //Play("tttttttt");
+  //     Play("4eDEqFFetEEFqDeCDDEetCGF");
+  //   Play("4eDEqFFetEEFqDeCDDEetCGF");
+  //   Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
+   //  Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
+ 
+    // Play("4eDEqFFetEEFqDeCDDEetCGF");
+    // Play("4eDEqFFetEEFqDeCDDEetCGF");
+    // Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
+    // Play("4eDCqDE3eAA4etEEFEDG3B4DCqF");
+ //Play("ttt");
+ if(LEVEL==0||LEVEL==1||LEVEL==4)
+ {
+  while (TRUE) {
+   music.stacatto_factor = .75;
+   music.tempo = 8;
+    I64 i =3;
+    while(i!=0)
+      {
+      Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
+      Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#");   
+      i--;
+    }
+    Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
+    Play("1AA2A1AA2G1AAtt3BA2F#3BDCB2F#3BCDEDCB2F#..");
 
-U0 SongTask(U8 *title) {
+    Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
+    Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#");   
+    Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
+    Play("1AA2A1AA2G1AAtt3ECACECEAECECEA..");
+
+    Play("1DD2D1DD2C1DDA#1DDG#DDAA#");
+    Play("1DD2D1DD2C1DDA#1DDG#G#G#G#");
+    Play("1DD2D1DD2C1DDA#1DDG#DDAA#");
+    Play("1DD2D1DD2C1DDtt4AGFAFDFADAFAFAFAFD.."); 
+
+
+    Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
+    Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#D#");    
+    Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
+    Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#D#");
+
+    Play("1F#F#2F#1F#F#2E1F#F#2D1F#F#2C1F#F#2C#D");
+    Play("1EE2E1EE2D1EE2C1D#D1A#A#A#A#");
+
+    Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
+    Play("1AA2A1AA2G1AA2tt3AC2EC3A2E3CACA2EC3ACEA..");
+
+    Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
+    Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#D#");    
+    Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
+
+    Play("1AA2A1AA2G1AAtt2G#FEB3B2G#ED3DB2G#E3EDB2G#..");
+    Play("1AA2C1AA2B1AAG#AAGAAG2A");
+    Play("1AA2C1AA2B1AAEAAF#F#F#F#");
+
+    Play("1F#F#3C1F#F#3B1F#F#3A1F#F#2F#1F#F#2F#A");
+    Play("1EE3B1EE3A1EE2G#1D#D2EEEE");
+
+    Play("1AA2C1AA2B1AAG#AAGAAG2A");
+    Play("1AA2C1AA2B1AAtt3DB2G#EDB1G#E3E3DB2G#EDB..");
+    Play("1G#2A");
+   }
+  }
+  else if(LEVEL==3||LEVEL==2)
+  {
+  
+  while(TRUE){ //original song by Jamiroquai
+  music.stacatto_factor = .9;
+  music.tempo = 6;
+  Play("q2A#D#3ttF#A#4hD#r..");
+  Play("q2A#G#3ttF#4ChD#r..");
+  Play("q2D#C#ttB4FhG#r..");
+  Play("q2G#F#3ttA#4C#hFr..");
+  Play("q3C#CttF#A#4hD#r..");
+  Play("q2F#B3ttF#A#4hD#r..");
+  Play("q2F#A#3ttG#4wDtq5F#G#A#hA#..");
+  Play("q2D#A#5G#2ttC#F#..5F#");
+  Play("5C#D#2G#5D#3ttD#F#4C..5hF#");
+  Play("5qD#tt2C#..5G#tt2G#..5G#tt2B3F5F#..C#D#2F#5D#tt2C#5hD#q2FhA#q");
+  Play("2C5C#D#tt2F#A#3D#..5hF#q");
+  Play("2B5C#D#tt3F#A#3D#..5hF#q");
+  Play("5F#2A#3F5F3G#4D5D#FF#2D#5D#");
+  Play("2A#C#F#5D#D#hAq2D#5G#2ttA#3C#F#..5F#G#G#2hG#q5ttD#2D#F#3C..5hF#hG#q");
+  Play("2C#ttG#B3F..5C#D#F#2F#5D#tt3C#FA#5hF#q..");
+  Play("tt3C5C#D#tt3F#A#4D#..5hF#q");
+  Play("2B5C#D#tt3F#A#D#..5hF#q");
+  Play("5hF#q2A#5F3ttFG#D..5D#FF#2D#5hD#q");
+  Play("ttt2D#A#3C#F#2hF#...5qC#tt2D#..5D#F#D#tt2A#3C#F#..5D#C#4A#A#hG#q2ttG#D#F#C#..");
+  Play("5C#D#F#D#tt2C#G#B3F..5C#4A#A#hG#F#qA#tt2F#3C#FA#..");
+  Play("5C#D#F#D#tt3CF#A#4D#..5C#4A#A#hG#qtt2B3F#A#4D#..A#5C#hD#q");
+  Play("tt2A#3FG#B..5BhA#q2ttD#A#3C#F#..5G#F#G#F#hAqtt2D#G#A#3C#F#..5G#F#F#");
+  Play("tt2C#G#B3F..5D#D#F#F#G#2ttF#3C#FA#..5D#F#D#F#D#tt3CF#A#D#..5F#D#F#D#3ttCF#A#3D#..5F#D#F#D#");
+  Play("tt2B3F#A#4D#..5F#G#hG#qF#tt2A#3FG#D..5F#D#tt3FG#4D..");
+  Play("tt2B4B5F#.B5hD#qtt3F#A#4D#3F#A#4D#2A#4A#5F4A#5hDqtt3FG#4D3FG#4D..");
+  Play("tt2D#4A#5D#2A#3C#F#4A#5D#4A#5D#2A#3C#F#4A#5F4B5F#F2G#3D#F#B4B5D#2A#3FG#4DA#5Fr..");
+  Play("tt2B4B5G#4B5hD#qtt3F#A#4D#3F#A#4D#A#..4A#5F4A#5hDqtt3FG#4D3FG#4D..");
+  Play("tt2D#A#C#F#4A#5F#4A#5F4A#5D#4A#5F2A#C#F#4B5F#2G#3D#F#B4B5F4B5F2A#3FG#4DB5D#2B");
+  Play("4B5F#4B5hD#qttt3F#A4#D3#F#A4#D#3A#4A#5F4hA#5hDqtt3FG#4D3FG#4D2D#A#3C#F#4A#5D#4A#5D#4A#5D#2A#3C#F#4A#5F4B5F#2G#3D#F#B4F#5D#4F#5D#2A#3FG#4D");
+  Play("G#5C#2B4F#5D#4A#G#A#3F#A#4D#3F#A#4D#2A#3FG#4D5hC#4qA#t");
+  Play("3FG#4DG#F#G#A#2D#A#3C#F#2A#3C#tF#5C#D#hF#.q");
+  Play("tt2G#3D#F#B2A#3FG#4D5hD#qtD#AG#t2D#A#3C#F#..5hG#q");
+  Play("5D#F#D#F#tt2C#G#B3F..5F#F#F#F#tt2F#C#FA#..5F#D#");
+  Play("tt3CF#A#4D#..5C#D#F#rtt2B3F#A#4D#..5C#D#F#D#F#rtt2A#3FG4D..5D#D#Ftt2D#A#3C#F#..");
+  Play("5D#hAqtt2G#3D#F#4C3D#F#4C..5#G#G#hF#hG#qtt2C#G#tB3F2B3F...5hF#qtt2G#B3F2F#..5hG#qttF#2F#3C#FA#..5D#F#D#tt3CF#A#4D#..");
+  Play("tt2B3F#A#4D#..5C#D#F#tt2A#3FG#4D..5C#D#F#D#F#D#");
+  Play("tt2D#A#C#F#F#..5C#rD#F#D#C#4A#tt2G#3D#F#4C3D#F#4C..4A#G#");
+  Play("tt2C#G#B3F3G#B4F..5C#D#F#D#C#4A#tt2F#3C#FA#C#FA#..4A#G#");
+  Play("tt3CD#F#A#D#F#A#..5C#D#F#D#C#4A#tt2B3F#A#4D#3F#A#D#..4A#G#tt2A#3FG#4D3FG#4D..4A#5C#D#"); 
+  Play("tt2D#A#3C#F#..5wA#qtt2G#3D#F#4C..5G#G#F#tt2C#G#B3F..5D#F#F#D#D#F#F#D#tt2F#3C#FA#.."); 
+  Play("tt3CF#A#4D#..5D#F#D#F#D#F#tt2B3F#A#4D#..5D#A#D#F#D#tt2A#3FG#4D3FG#4D2B....");
+  Play("tt2B4B5F#.B5hD#qtt3F#A#4D#3F#A#4D#2A#4A#5F4A#5hDqtt3FG#4D3FG#4D..");
+  Play("tt2D#4A#5D#2A#3C#F#4A#5D#4A#5D#2A#3C#F#4A#5F4B5F#F2G#3D#F#B4B5D#2A#3FG#4DA#5Fr..");
+  Play("tt2B4B5G#4B5hD#qtt3F#A#4D#3F#A#4D#A#..4A#5F4A#5hDqtt3FG#4D3FG#4D..");
+  Play("tt2D#A#C#F#4A#5F#4A#5F4A#5D#4A#5F2A#C#F#4B5F#2G#3D#F#B4B5F4B5F2A#3FG#4DB5D#2B");
+  Play("4B5F#4B5hD#qttt3F#A4#D3#F#A4#D#3A#4A#5F4hA#5hDqtt3FG#4D3FG#4D2D#A#3C#F#4A#5D#4A#5D#4A#5D#2A#3C#F#4A#5F4B5F#2G#3D#F#B4F#5D#4F#5D#2A#3FG#4D");
+  Play("G#5C#2B4F#5D#4A#G#A#3F#A#4D#3F#A#4D#2A#3FG#4D5hC#4qA#t");
+  Play("3FG#4DG#F#G#A#2D#A#3C#F#2A#3C#tF#5C#D#hF#.q");
+  Play(".q2A#D#3ttF#A#4hD#r..");
+  Play("q2A#G#3ttF#4ChD#r..");
+  Play("q2D#C#ttB4FhG#r..");
+  Play("q2G#F#3ttA#4C#hFr..");
+  Play("q3C#CttF#A#4hD#r..");
+  Play("q2F#B3ttF#A#4hD#r..");
+  Play("q2F#A#3ttG#4wDw4D#rr");
+  }
+  }
+}
+
+U0 SongTask(U8 *title) 
+{
   CWadDirectory *wad_dir=wad->body+wad->directory_ptr;
   U8 lump_name[9],*m;
   StrPrint(lump_name,"D_%s",title);
@@ -3445,9 +3579,13 @@ U0 PlayLevel(Bool init=TRUE) {
   CDoomThing *t,*head;
   U8 *next_lvl;
   CDC *new,*old;
-  if(music_task)
+  if(music_task){
     Kill(music_task,FALSE);
-//  music_task=Spawn(&SongTask,l->map_name,"Song",0,Fs);
+  }
+  if(l->map_name[1]=='3')
+   music_task=Spawn(&SongTaskDOOM,2,"Song",0,Fs);
+  else  
+   music_task=Spawn(&SongTaskDOOM,0,"Song",0,Fs);
 ent:;
   CDoomLevel *l2;
   if(init) {
@@ -3487,6 +3625,7 @@ ent:;
   if(Fs->animate_task)
     Kill(Fs->animate_task,FALSE);
   Fs->animate_task=Spawn(&AnimateTask,NULL,"Animate",,Fs);
+  
 //Return to parent instance  of PlayLevel(if recursivly called)
   //But be sure to initailize the level and player
   if(in_level) return;
@@ -3765,6 +3904,9 @@ U0 ThingDel(CDoomLevel *l,CDoomThing *t) {
 }
 #include "Save.HC";
 U64 r;
+ //Fs->song_task
+ music_task=Spawn(&SongTaskDOOM,0,"Song",,Fs);
+ //SongTask("E1M1");
 CDC *title=GetGrLump("TITLEPIC");
 while(TRUE) {
   TallBlot(gr.dc,0,0,GR_HEIGHT,title);
@@ -3775,8 +3917,8 @@ while(TRUE) {
     break;
   }
 }
-#endif        ‹         þÿÿÿ   þÿÿÿ   þÿÿÿ]   ›ÿÿÿ   üÿÿÿ   üÿÿÿ   üÿÿÿn      
-!   Éÿÿÿ0   ûÿÿÿ
-0   ûÿÿÿb   ðÿÿÿ
-b   ðÿÿÿQ   ¼ÿÿÿ
-Q   ¼ÿÿÿ   Êÿÿÿ 
+#endif                                    ]                            n      
+!       0       
+0       b       
+b       Q       
+Q               

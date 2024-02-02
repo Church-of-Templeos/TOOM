@@ -217,7 +217,7 @@ U0 RadiusAttack(CDoomLevel *l,CDoomThing *dik,F64 boom) {
     cur=in_rad->body[idx];
     dist=Sqrt(Sqr(cur->y-dik->y)+Sqr(cur->x-dik->x));
     if(dist<boom) {
-      DamageMob(l,cur,dik,dist);
+      DamageMob(l,cur,dik,boom-dist);
     }
   }
   I64SetDel(in_rad);
@@ -1469,10 +1469,10 @@ U0 LoadMonsterInfo() {
   AddState(t->spawn_state="SPIDER_LOOK",10/35.,t->_idle_frames,&Look,"SPIDER_LOOK");
   AddState(t->see_state="SPIDER.RUN1",3/35.,t->_chase_frames,&Metal,"SPIDER.RUN2");
   AddState("SPIDER.RUN2",9/35.,t->_chase_frames,&Chase,"SPIDER.RUN1");
-  AddState(t->missile_state="SPIDER.ATK1",3/35.,t->_attack_frames,&FaceTarget,"SPIDER.ATK2");
-  AddState("SPIDER.ATK2",4/35.,t->_attack_frames,&SPosAttack,"SPIDER.ATK3");
-  AddState("SPIDER.ATK3",4/35.,t->_attack_frames,&SPosAttack,"SPIDER.ATK4");
-  AddState("SPIDER.ATK4",1/35.,t->_attack_frames,&SpidRefire,"SPIDER.ATK1");
+  AddState(t->missile_state="SPIDER.ATK1",3/35.*4,t->_attack_frames,&FaceTarget,"SPIDER.ATK2");
+  AddState("SPIDER.ATK2",4/35.*4,t->_attack_frames,&SPosAttack,"SPIDER.ATK3");
+  AddState("SPIDER.ATK3",4/35.*4,t->_attack_frames,&SPosAttack,"SPIDER.ATK4");
+  AddState("SPIDER.ATK4",1/35.*4,t->_attack_frames,&SpidRefire,"SPIDER.ATK1");
   AddState(t->death_state="SPIDER.DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"SPIDER.DIE2");
   AddState("SPIDER.DIE2",0,t->_dying_frames,&BossDeath,"ST_NULL");
 

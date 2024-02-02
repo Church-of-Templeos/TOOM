@@ -3726,9 +3726,9 @@ ent:;
 	  if(Bt(kbd.down_bitmap,Char2ScanCode('7'))) {
 	    SwapWeapon(p,7);
 	  }
-	  if(Bt(kbd.down_bitmap,Char2ScanCode('8'))) {
+/*	  if(Bt(kbd.down_bitmap,Char2ScanCode('8'))) {
 	    SwapWeapon(p,8);
-	  }
+	  }*/
 	  if(Bt(kbd.down_bitmap,Char2ScanCode('0'))) {
 	    SwapWeapon(p,0);
 	  }

@@ -1,6 +1,5 @@
 #ifndef DOOM_MAIN
 #define DOOM_MAIN "Doom" 
-#exe {Cd(__DIR__);};;
 #ifndef PrintI 
 U0 PrintI(U8*,I64) {}
 U0 PrintF(U8*,F64) {}
@@ -801,7 +800,7 @@ U0 RayCastJob(CRayJobData *data) {
 	data->floor,
 	data->ld,
 	data->sd,
-	data->same_side,
+	data->same_side
 	);
   Free(data);
 }

@@ -122,11 +122,11 @@ fin:
   return code;
 }
 U64 EpisodeMenu() {
-  static CMenuItem *items=CreateMenu(
+  static CMenuItem *items=CreateMenu(
     "M_EPI1",'1','1',
     "M_EPI2",'2','2',
     "M_EPI3",'3','3',
-    "M_EPI4",'4','4',
+    "M_EPI4",'4','4'
   );
   active_menu=items;
   return MenuInteract(gr.dc,items,48,63);
@@ -137,7 +137,7 @@ U64 NewGameMenu() {
     "M_ROUGH",'2','h',
     "M_HURT",'3','h',
     "M_ULTRA",'4','u',
-    "M_NMARE",'5','n',
+    "M_NMARE",'5','n'
   );
   active_menu=items;
   return MenuInteract(gr.dc,items,48,63);

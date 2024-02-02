@@ -16,9 +16,13 @@ Run the following command to copy the game to your C drive. Then play the game w
 # Controls
 
 Mouse to look around
-Left mouse button to firedw
+
+Left mouse button to fire
+
 Arrow keys or WASD to move around
+
 0-9 or mousewheel to change weapons
+
 Spacebar to activate buttons and doors
 
 

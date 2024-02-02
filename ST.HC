@@ -214,7 +214,7 @@ static Bool st_stopped = TRUE;
 
 
 static I64 st_palette = 0;
-U0 DoomPrint(CDC *dc,I64 x,I64 y,U8 *fmt,...) {
+I64 DoomPrint(CDC *dc,I64 x,I64 y,U8 *fmt,...) {
   fmt=StrPrintJoin(NULL,fmt,argc,argv);
   I64 len=StrLen(fmt),idx,c,ox=x;
   CDC *ch_dc;
@@ -227,7 +227,7 @@ U0 DoomPrint(CDC *dc,I64 x,I64 y,U8 *fmt,...) {
         *StrFirstOcc(lump_name," ")='0';
       ch_dc=GetGrLump(lump_name);
       if(ch_dc) {
-        GrBlot(dc,x-ch_dc->x*2,y-ch_dc->y*2,ch_dc);
+        if(dc) GrBlot(dc,x-ch_dc->x*2,y-ch_dc->y*2,ch_dc);
         x+=ch_dc->width;
       } else
 	x+=4*2;
@@ -238,6 +238,7 @@ U0 DoomPrint(CDC *dc,I64 x,I64 y,U8 *fmt,...) {
       x+=4*2;
   }
   Free(fmt);
+  return x;
 } 
 
 U0 DrawNumber(CDoomPlayer *p, U32 x, U32 y, U16 weapon,Bool large,Bool percent=FALSE)

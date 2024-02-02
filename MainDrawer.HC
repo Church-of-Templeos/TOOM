@@ -12,6 +12,7 @@ U0 DbgPrint(U8*,...) {}
 Bool in_level=FALSE,screen_melt=FALSE;
 CDC *doom_scrn=DCNew(GR_WIDTH,GR_HEIGHT);
 doom_scrn->flags|=DCF_NO_TRANSPARENTS;
+
 #include "ScreenMelt.HC"
 #include "Serialize.HC";
 #include "FastTrig.HC";

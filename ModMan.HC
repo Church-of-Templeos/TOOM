@@ -1,12 +1,12 @@
-
 if(FileFind("DOOM.WAD"))
 {
   LoadWad("DOOM.WAD");
-}
+} else if(FileFind("doom1.wad"))
+  LoadWad("doom1.wad");
 else
 {
   LoadWad("freedoom1.wad");
 }
 
 if(FileFind("TOOM.wad"))
- LoadWad("TOOM.wad");   
+ LoadWad("TOOM.wad");

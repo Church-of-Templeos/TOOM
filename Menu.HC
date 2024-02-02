@@ -1,6 +1,12 @@
 #ifndef MENU
 #define MENU "poop"
 extern U0 PlayLevel(Bool init=TRUE);
+#define SWSTRING	\
+"this is the shareware version of doom.\n\n"\
+"you need to order the entire trilogy.\n\n" \
+"press a key."
+
+
 class CMenuItem {
   U64 value;
   CDC *gr;
@@ -32,6 +38,9 @@ U0 MenuDraw(CDC *dc,CMenuItem *items,I64 offx,I64 offy,I64 cur_active=0) {
   h=offy*2;
   for(idx=0;items[idx].state!=-1;idx++) {
     skull=GetGrLump(items[idx].name);
+//Item now availble,some WAD's might not have episode 4 os just stop counting
+    if(!skull)
+      break;
     items[idx].gr=skull;
     items[idx].x=offx*2;
     items[idx].y=h;
@@ -144,6 +153,23 @@ U64 NewGameMenu() {
 }
 
 extern I64 LoadSaveInteract(CDC *to,Bool save);
+U0 MenuMessage(U8 *str) {
+  I64 y=200-(1+StrOcc(str,'\n'))*18/2,w;
+  U8 buf[STR_LEN];
+loop:;
+  if(!StrOcc(str,'\n')) {
+    w=DoomPrint(NULL,0,0,"%s",str);
+    DoomPrint(doom_scrn,GR_WIDTH/2-w/2,y,"%s",str);
+  } else {
+    StrCpy(buf,str);
+    *StrFirstOcc(buf,"\n")=0;
+    w=DoomPrint(NULL,0,0,"%s",buf);
+    DoomPrint(doom_scrn,GR_WIDTH/2-w/2,y,"%s",buf);
+    str+=StrLen(buf)+1;
+    y+=24;
+    goto loop;
+  }
+}
 U64 MainMenu() {
 againm:;
   static I64 state=0,ep,s;
@@ -193,7 +219,11 @@ againm:;
 
         active_menu=NULL;
         l=LoadWadLevel(wad,level,s-'1'+1);
-	screen_melt=TRUE;
+        if(!l) {
+	  state=8;
+	  break;
+        }
+        screen_melt=TRUE;
 //This will check if we are in a level,otherwise the world is just swapped with l
         PlayLevel;
         return 0;
@@ -214,7 +244,7 @@ againm:;
       }
       case 4:
         dc=GetGrLump("HELP1");
-        GrBlot(,0,0,dc);
+        GrBlot(doom_scrn,0,0,dc);
         if(next) {
 	  state=5;
 	  FlushMsgs;
@@ -222,7 +252,19 @@ againm:;
         break;
       case 5:
         dc=GetGrLump("HELP2");
-        GrBlot(,0,0,dc);
+        if(dc) {
+	  GrBlot(doom_scrn,0,0,dc);
+	  if(next) {
+	    state=0;
+	    FlushMsgs;
+	  }
+        } else {
+	  state=0;
+	  FlushMsgs;
+        }
+        break;
+      case 8:
+        MenuMessage(SWSTRING);
         if(next) {
 	  state=0;
 	  FlushMsgs;
@@ -240,6 +282,7 @@ againm:;
       if(r==-1)
         state=0;
       return r;
+
   }
   return INVALID_PTR;
 }

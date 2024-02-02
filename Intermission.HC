@@ -269,7 +269,7 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
     if(!state) {
       y=TITLEY;
       dc=GetGrLump("WIF");
-      GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
+      GrBlot(doom_scrn,(GR_WIDTH-dc->width)/2,y,dc);
       y+=(5*dc->height)/4;
       StrPrint(buf,"WILV%d%d",ep,l); //Lvel name
       LoadGrLump(wad,buf); //Will load once
@@ -279,12 +279,12 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
         LoadGrLump(wad,buf); //Will load once
         dc=GetGrLump(buf);
       }
-      GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
+      GrBlot(doom_scrn,(GR_WIDTH-dc->width)/2,y,dc);
       DrawSplats(doom_scrn,ep,l);
     } else {
       y=TITLEY;
       dc=GetGrLump("WIENTER");
-      GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
+      GrBlot(doom_scrn,(GR_WIDTH-dc->width)/2,y,dc);
       y+=(5*dc->height)/4;
       StrPrint(buf,"WILV%d%d",ep,l+1); //Lvel name
       LoadGrLump(wad,buf); //Will load once
@@ -295,13 +295,14 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
         dc=GetGrLump(buf);
       }
       if(!dc) return; //??? TODO text intermission
-      GrBlot(,(GR_WIDTH-dc->width)/2,y,dc);
+      GrBlot(doom_scrn,(GR_WIDTH-dc->width)/2,y,dc);
       DrawStats(doom_scrn,lev,ep,l,(tS-start_ts)*30.);
     }
     while(ScanKey) {
 	FlushMsgs;
         state++;
     }
+    GrBlot(,0,0,doom_scrn);
     Refresh;
   }
 }

@@ -183,6 +183,7 @@ againm:;
   U8 level[STR_LEN],next=FALSE;
   U64 r,a,b;
   CDC *dc,*old,*new;
+  CDoomLevel *oldl;
   switch(state) {
     case 0:
       r=MenuInteract(doom_scrn,items,97,67);
@@ -214,15 +215,17 @@ againm:;
       if(s&&s!=INVALID_PTR) {
         state=0;
         StrPrint(level,"E%cM1",ep);
-        if(l)
-	  FreeLevel(l);
 
         active_menu=NULL;
+	oldl=l;
         l=LoadWadLevel(wad,level,s-'1'+1);
         if(!l) {
+	  l=oldl;
 	  state=8;
 	  break;
         }
+        if(oldl)
+	  FreeLevel(oldl);
         screen_melt=TRUE;
 //This will check if we are in a level,otherwise the world is just swapped with l
         PlayLevel;

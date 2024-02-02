@@ -3760,7 +3760,7 @@ ent:;
       } 
 //This accounts for key-press delay
       while((mr=ScanMsg(&a,&b))!=MSG_NULL) {
-        if(mr==MSG_KEY_DOWN&&a==CH_ESC) {
+        if(mr==MSG_KEY_DOWN&&a==CH_ESC&&Bt(kbd.down_bitmap,Char2ScanCode(CH_ESC))) {
 	  paused=TRUE;
 	  Refresh;
 	  FlushMsgs; //Flush Esc msg

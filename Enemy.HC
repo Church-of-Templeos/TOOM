@@ -12,7 +12,7 @@ CDoomThingTemplate *bfg_scanner_hit;
 #define MISSILE_RANGE (64*32)
 #define MELEE_RANGE 70
 #define FLOATSPEED 2.
-#define GRAVITY 4.
+#define GRAVITY 1.5
 //These P pushers are used with FramePtrAdd
 class CState {
   F64 time;

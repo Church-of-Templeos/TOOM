@@ -362,7 +362,7 @@ U0 ST_refreshBackground(CDoomPlayer *p)
     if(dc=weapons.icon_dc)
       BlotWithLighting(doom_scrn,weapons.x+weapons.x_off-dc->x*2,
 	    weapons.y+weapons.y_off-dc->y*2,
-	    dc,s->cur_light_level+add,ToBool(p->flags&MF_SHADOW));//weapon
+	    dc,s->cur_light_level+add,ToBool(p->flags&MF_SHADOW));//weapon
     if(dc=weapons.flash_dc)
       BlotWithLighting(doom_scrn,
 	    weapons.x+weapons.flash_x_off+weapons.x_off-dc->x*2,

@@ -460,44 +460,6 @@ U8 *W_GetLumpPtrFromName(U8 *name,CWad *wad,I64 *lump_len=NULL,I64 which=1) {
 }
 
 
-/*//$BK,1$YOU MUST CALL THIS AFTER LoadWad$BK,0$
-CWad *MergeWads() {
-  I64 idx,sz=0,lumps=0,idx2;
-  CWad *final,*cur;
-  U8 *data_ptr;
-  CWadDirectory *dir,*dir2;
-  for(idx=0;idx!=wad_cnt;idx++) {
-    sz+=wad_sizes[idx];
-    lumps+=wads[idx]->lump_cnt;
-  }
-  sz+=lumps*sizeof(CWadDirectory)+sizeof(CWad);
-  final=MAlloc(sz);
-  MemCpy(final,wads[0],sizeof CWad);
-  final->lump_cnt=lumps;
-  final->directory_ptr=sizeof(CWad);
-  dir=final+1;
-  data_ptr=final(U8*)+sizeof(CWad)+lumps*sizeof(CWadDirectory);
-  for(idx=0;idx!=wad_cnt;idx++) {
-    cur=wads[idx];
-    dir2=cur->body+cur->directory_ptr;
-    for(idx2=0;idx2!=cur->lump_cnt;idx2++) {
-      MemCpy(data_ptr,cur->body+dir2->ptr,dir2->lump_size);
-      MemCpy(dir,dir2,sizeof(CWadDirectory));
-      dir->ptr=data_ptr-final->body;
-      data_ptr+=dir2->lump_size;
-      dir2++;
-      dir++;
-    }
-    Free(cur);
-  }
-  wad_cnt=1;
-  wads[0]=final;
-  wad_sizes[0]=sz;
-  return wad=final;
-}
-
-MergeWads;
-*/
 
 U0 AddLinedefToSector(CDoomSector *ld,CDoomSector *s) {
   CDoomLinedef **list=MAlloc(8*(s->linedef_cnt+1));

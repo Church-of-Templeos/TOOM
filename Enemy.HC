@@ -306,11 +306,12 @@ Bool MMove(CDoomLevel *l,CMonsterThinker *m) {
     allow_float=COLLISF_NO_DROP;
   lv=MoveThingFinal(l,self,
         self->angle,
-        self->template(CDoomMonsterTemplate*)->speed*TICK_FPS_SCALE,
+        self->template(CDoomMonsterTemplate*)->speed/3.,
         allow_float|COLLISF_NO_HIT_THING|COLLISF_MONSTER|COLLISF_ADJUST_FOR_RADIUS|COLLISF_SLIDE,
         crossed,
         self
         );
+
   if(self->template->flags&TF_FLOATING) {
     if(sec=GetSectorForCoord(l,self->x,self->y)) {
       if(target&&self->height<target->height-FLOATSPEED) {
@@ -321,10 +322,10 @@ Bool MMove(CDoomLevel *l,CMonsterThinker *m) {
     }
   }
 //If we hit a line,try opening the door ?
-  if(lv) {
+  if(lv)
     TriggerLinedef(l,lv,WACTIVATE_MONSTER|WACTIVATE_PUSH,self);
-    while(FifoI64Rem(crossed,&lv))
-      TriggerLinedef(l,lv,WACTIVATE_MONSTER|WACTIVATE_WALK,self);
+  while(FifoI64Rem(crossed,&lv)) {
+    TriggerLinedef(l,lv,WACTIVATE_MONSTER|WACTIVATE_WALK,self);
   }
   FifoI64Del(crossed);
   return !!lv;
@@ -439,9 +440,9 @@ U0 BarrelThinker(CDoomLevel *l,CBarrelThinker *m) {
       }
     } else {
       if(Server_tS-m->explode_start_tS>=AnimationTime(self->animation)) {
+        ThingDel(l,self);
         QueRem(m);
         Free(m);
-        ThingDel(l,self);
       }
     }
   }
@@ -597,8 +598,8 @@ U0 NewChaseDir(CDoomLevel *l,CMonsterThinker *t) {
 
   }
   t->steps_to_walk=dist/2;
-  thing->x=dummy.x;
-  thing->y=dummy.y;
+//  thing->x=dummy.x;
+//  thing->y=dummy.y;
 }
 Bool LookForPlayers(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *thing=t->self;

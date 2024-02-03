@@ -23,7 +23,7 @@ U0 I64SetAdd(CI64Set *s,I64 v) {
   if(I64SetHas(s,v)) return;
   I64 *new;
   if(s->cnt+1>=s->cap) {
-     new=MAlloc(MSize(s->body)+16*8);
+     new=CAlloc(MSize(s->body)+16*8);
      s->cap+=16;
      MemCpy(new,s->body,s->cnt*8);
      Free(s->body);

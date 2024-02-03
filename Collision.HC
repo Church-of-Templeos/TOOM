@@ -373,7 +373,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 tallness,
 	        } else {
 		  floor_height=lds[0]->front->sector->floor_height;
 		  ceil_height=lds[0]->front->sector->ceil_height;
-		}
+	        }
 	      }
 	      if(CrosesLine(lds[0],&move1,&move_fat)) {
 	        tmp=IntersectDist(lds[0],&move1,&move2);
@@ -384,7 +384,7 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 tallness,
 	        goto fail_walk;
 //Check for bumping on side of ceiling
 	      if(cur_height+tallness>ceil_height)
-		goto fail_walk;
+	        goto fail_walk;
 	      if(tallness>ceil_height-floor_height||floor_height==ceil_height) {
 fail_walk:
 	        I64SetAdd(fail_walls,lds[0]);
@@ -548,7 +548,7 @@ fin:
     }
     result->x=cur_pos.x;
     result->y=cur_pos.y;
-    //Final test Pt.2,check if not went through a cursed line
+//Final test Pt.2,check if not went through a cursed line
     for(i=0;i!=fail_walls->cnt;i++) {
       if(CrosesLine(fail_walls->body[i],&move1,result))
         goto found;
@@ -617,13 +617,11 @@ pass:
 look_for_hot:
     if(walked_over_hot)
       while(--walked_over_idx>=0) {
-        if(walked_over_dists[walked_over_idx]<min_dist) {
-	  FifoI64Ins(walked_over_hot,walked_over[walked_over_idx]);
-        }
+        FifoI64Ins(walked_over_hot,walked_over[walked_over_idx]);
       }
   }
 
-  
+
 
   //Final test Pt.2,if COLLISF_NO_DROP,make sure we dont drop
   if(flags&COLLISF_NO_DROP)
@@ -656,11 +654,28 @@ U0 InitPosDataForThing(CDoomLevel *l,CDoomThing *t) {
 U0 RemovePosDataForThing(CDoomLevel *l,CDoomThing *t) {
   CDoomSector *s=GetSectorForCoord(l,t->x,t->y);
   I64 x=ToI64(t->x-l->block_map_x_off)/128,y=ToI64(t->y-l->block_map_y_off)/128;
-  if(s)
-    I64SetRem(s->things,t);
+  if(s) {
+    if(I64SetHas(s->things,t)) {
+      I64SetRem(s->things,t);
+    } else {
+//Fail-safe
+      for(s=l->sectors.next;s!=&l->sectors;s=s->next)
+        I64SetRem(s->things,t);
+    }
+  }
   if(0<=x<l->block_map_cols)
-    if(0<=y<l->block_map_rows)
-      I64SetRem(l->block_map_things[y*l->block_map_cols+x],t);
+    if(0<=y<l->block_map_rows) {
+//Fail-safe,MAKE SURE OUR ITEM IS TO BE REMOVED FROM THIS blockmap,otherwise it is misplaced
+      if(I64SetHas(l->block_map_things[y*l->block_map_cols+x],t)) {
+	//All is good
+        I64SetRem(l->block_map_things[y*l->block_map_cols+x],t);
+      } else {
+//We misplaced our thing so remove from every blockmap grid
+	for(x=0;x!=l->block_map_cols;x++)
+	  for(y=0;y!=l->block_map_rows;y++)
+           I64SetRem(l->block_map_things[y*l->block_map_cols+x],t);
+      }
+    }
 }
 
 

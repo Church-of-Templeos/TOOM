@@ -478,7 +478,7 @@ skip:;
         dist=DIST_SCALE/((dummyb.y-GR_HEIGHT/2)/(cam->h-level));
         dist/=ray_cast_table_cos[ToI64(x)>>1];
 	if(wall_skip=IsBlockedByWallReverse(cam,x,dummyb.y-2,dist,NULL)) {
-	  if(2+wall_skip>=scrn_points[idx2+1]-scrn_points[idx2])
+	  if(2+wall_skip>=scrn_points[idx2+1]-scrn_points[idx2])
 	    goto next;
 	  dummyb.y-=2+wall_skip;
 	}
@@ -487,7 +487,7 @@ skip:;
         dist=DIST_SCALE/((dummya.y-GR_HEIGHT/2)/(cam->h-level));
         dist/=ray_cast_table_cos[ToI64(x)>>1];
 	if(wall_skip=IsBlockedByWall(cam,x,dummya.y+2,dist,NULL)) {
-	  if(2+wall_skip>=scrn_points[idx2+1]-scrn_points[idx2])
+	  if(2+wall_skip>=scrn_points[idx2+1]-scrn_points[idx2])
 	    goto next;
 	  dummya.y+=2+wall_skip;
 	}  

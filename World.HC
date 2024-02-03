@@ -593,10 +593,11 @@ U0 LoadDoors() {
   //Monster
   if(!StrCmp(monster,"Yes"))
     door->monster=TRUE;
-  else if(!StrCmp(monster,"No"))
+  else if(!StrCmp(monster,"No"))
     door->monster=FALSE;
   else
     throw('Door');//Action
+   Print("\n%s\n",action);
   if(!StrCmp("Open, Wait, Then Close",action)) {
     door->action=DOOR_ACTION_OPEN_WAIT_CLOSE;
   } else if(!StrCmp("Open and Stay Open",action)) {
@@ -610,6 +611,7 @@ U0 LoadDoors() {
 skip:
     Free(ln);
   }
+ 
   Free(optr);
 }
 

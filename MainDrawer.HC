@@ -415,7 +415,7 @@ U0 FillPoly(CDC *dc,CDoomCamera *cam,CDoomSector *s,CDC *texture,CD4 *points,I64
   I64 maxx,cap;
   CD3 dummya,dummyb;
   F64 slope,wxf,wyf,midx,y,slope2,angle,dist;
-  I64 scrn_points[0x100];
+  I64 scrn_points[0x100],wall_skip;
   CLine64 ln,to_remove,ln2;
   static F64 last_angle=I16_MAX; //Not possible to start with this angle
   static F64 cos_table[GR_WIDTH];
@@ -438,8 +438,8 @@ U0 FillPoly(CDC *dc,CDoomCamera *cam,CDoomSector *s,CDC *texture,CD4 *points,I64
     ln.sx=MinI64(points[idx].start.x,ln.sx);
     ln.ex=MaxI64(points[idx].end.x,ln.ex);
   }
-  minx=ClampI64(ln.sx,0,GR_WIDTH-1);
-  maxx=ClampI64(ln.ex,0,GR_WIDTH-1);
+  minx=ClampI64(ln.sx,0,GR_WIDTH-2);
+  maxx=ClampI64(ln.ex,0,GR_WIDTH-2);
 
   I64SetAdd(lines,ln);
 
@@ -454,6 +454,10 @@ U0 FillPoly(CDC *dc,CDoomCamera *cam,CDoomSector *s,CDC *texture,CD4 *points,I64
   minx=minx&~1; //Avoids Templeos bug with &=~1;
   for(x=minx-2;x<maxx+2;x+=2) {
     idx3=0;
+    if(maxx>GR_WIDTH-2)
+      break;
+    else if(maxx<0)
+      maxx=0;
     for(idx2=0;idx2!=lines->cnt;idx2++) {
       ln=lines->body[idx2];
       if(!(ln.sx<=x<=ln.ex))
@@ -469,6 +473,25 @@ skip:;
       dummyb.x=x;
       dummya.y=scrn_points[idx2];
       dummyb.y=scrn_points[idx2+1];
+//In floors,the lower cordante is the nearest(idx2+1)
+      if(floor) {
+        dist=DIST_SCALE/((dummyb.y-GR_HEIGHT/2)/(cam->h-level));
+        dist/=ray_cast_table_cos[ToI64(x)>>1];
+	if(wall_skip=IsBlockedByWallReverse(cam,x,dummyb.y-2,dist,NULL)) {
+	  if(2+wall_skip>=scrn_points[idx2+1]-scrn_points[idx2])
+	    goto next;
+	  dummyb.y-=2+wall_skip;
+	}
+      } else {
+//In ceils,the upper cordante is the nearest(idx2+0)
+        dist=DIST_SCALE/((dummya.y-GR_HEIGHT/2)/(cam->h-level));
+        dist/=ray_cast_table_cos[ToI64(x)>>1];
+	if(wall_skip=IsBlockedByWall(cam,x,dummya.y+2,dist,NULL)) {
+	  if(2+wall_skip>=scrn_points[idx2+1]-scrn_points[idx2])
+	    goto next;
+	  dummya.y+=2+wall_skip;
+	}  
+      }
       dist=DIST_SCALE/(((dummya.y+dummyb.y)/2-GR_HEIGHT/2)/(cam->h-level));
       if(dist>0.) {
         dist/=ray_cast_table_cos[ToI64(x)>>1];
@@ -489,6 +512,7 @@ skip:;
 	  }
         }
       }
+next:;
     }
   }
   I64SetDel(lines);
@@ -754,11 +778,14 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	      ih2+=skip-2;
 	      goto skip_p;
 	    }
-	    if((skip=IsBlockedByWall(cam,ix,iy+ih2,idist,ld))>2) {
-	      tyf+=2*ratio*(skip-2); // *2 for dither super pixel
-	      ih2+=skip-2;
-	      goto skip_p;
-	    }
+	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
+	    if(*db_z<idist) {
+	      if((skip=IsBlockedByWall(cam,ix,iy+ih2,idist,ld))>2) {
+	        tyf+=2*ratio*(skip-2); // *2 for dither super pixel
+	        ih2+=skip-2;
+	        goto skip_p;
+	      }
+            }
 	    ty=tyf;
 	    if(repeat)
 	      ty=ty%texture->height;
@@ -845,7 +872,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *_
   Bool god_mode=GodModeFilter;
   copy.x=_p->x,copy.y=_p->y;
   copy2.x=_p->x,copy2.y=_p->y;
-  ClipLineToScrenCoords(cam,&copy,&copy2,level,,FALSE);
+  ClipLineToScrenCoords(cam,&copy,&copy2,level,,FALSE);
   angle=(ToF64(copy.x)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
   angle=Clamp(angle,-cam->fov/2,cam->fov/2);
   dist=Sqrt(1+Sqr(_p->x-cam->x)+Sqr(_p->y-cam->y));
@@ -1100,30 +1127,6 @@ Bool FrontSide(Vector *v,CD2 *p) {
 
 
 //box will either inteserect viewport,or point will be inside of it
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-$ER$
-
-
-
-
-
-
-
-
-
 Bool HitsBBox(CDoomCamera *cam,CBoundBoxF64 *bbox) {
   F64 x=cam->x,y=cam->y,angle,base;
   Vector *v,*v2;

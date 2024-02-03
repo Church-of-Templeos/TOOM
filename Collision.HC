@@ -490,37 +490,6 @@ fail_walk2:
     result->x=move1.x;
     result->y=move1.y;
   } else if(hit_thing) {
-//Make a dummy linedef that will block the things from transgrsseing
-    //Make it on the North,West,East or South side,
-    //do it "around the clock" and dist the cloestest side
-    //
-    static CDoomLinedef dummy_ld[4];
-    static CDoomSidedef dummy_sd[4];
-    static CD2 dummy_ld_s[4],dummy_ld_e[4];
-    MemSet(&dummy_ld,0,4*sizeof CDoomLinedef);
-    MemSet(&dummy_sd,0,4*sizeof CDoomSidedef);
-    min_dist=I16_MAX;
-    xoff=0;
-    for(try_wall=0;try_wall!=4;try_wall++) {
-      off=2*pi/4*try_wall;
-      dummy_ld[try_wall].start=&dummy_ld_s[try_wall];
-      dummy_ld[try_wall].end=&dummy_ld_e[try_wall];
-      dummy_ld[try_wall].front=&dummy_sd; //Make a 1 sided(solid) sidedef
-      dummy_ld[try_wall].flags=3; //Block moonsters and players
-      dummy_ld_s[try_wall].x=hit_thing->x+Cos(off-pi/4)*hit_thing->template->radius;
-      dummy_ld_s[try_wall].y=hit_thing->y+Sin(off-pi/4)*hit_thing->template->radius;
-      dummy_ld_e[try_wall].x=hit_thing->x+Cos(off+pi/4)*hit_thing->template->radius;
-      dummy_ld_e[try_wall].y=hit_thing->y+Sin(off+pi/4)*hit_thing->template->radius;
-      if(CheckLineWithBox(&dummy_ld,&cur_pos,radius)) {
-        dist=DistFromLine(&move1,&dummy_ld_s,&dummy_ld_e);
-        if(dist<min_dist) {
-	  min_dist=dist;
-	  xoff=try_wall;
-        }
-      }
-    }
-    off=2*pi/4*xoff;
-    best=&dummy_ld[xoff];
     min_dist=0;
     dist=0.;
 //IMPORTANT,set cap for correction
@@ -590,6 +559,38 @@ pass:
     }
 //Make sure to slide against thing "walls"
     if(hit_thing) {
+//Make a dummy linedef that will block the things from transgrsseing
+      //Make it on the North,West,East or South side,
+      //do it "around the clock" and dist the cloestest side
+      //
+      static CDoomLinedef dummy_ld[4];
+      static CDoomSidedef dummy_sd[4];
+      static CD2 dummy_ld_s[4],dummy_ld_e[4];
+      MemSet(&dummy_ld,0,4*sizeof CDoomLinedef);
+      MemSet(&dummy_sd,0,4*sizeof CDoomSidedef);
+      min_dist=I16_MAX;
+      xoff=0;
+      for(try_wall=0;try_wall!=4;try_wall++) {
+        off=2*pi/4*try_wall;
+        dummy_ld[try_wall].start=&dummy_ld_s[try_wall];
+        dummy_ld[try_wall].end=&dummy_ld_e[try_wall];
+        dummy_ld[try_wall].front=&dummy_sd; //Make a 1 sided(solid) sidedef
+        dummy_ld[try_wall].flags=3; //Block moonsters and players
+        dummy_ld_s[try_wall].x=hit_thing->x+Cos(off-pi/4)*hit_thing->template->radius;
+        dummy_ld_s[try_wall].y=hit_thing->y+Sin(off-pi/4)*hit_thing->template->radius;
+        dummy_ld_e[try_wall].x=hit_thing->x+Cos(off+pi/4)*hit_thing->template->radius;
+        dummy_ld_e[try_wall].y=hit_thing->y+Sin(off+pi/4)*hit_thing->template->radius;
+        if(CheckLineWithBox(&dummy_ld,&cur_pos,radius)) {
+	  dist=DistFromLine(&move1,&dummy_ld_s,&dummy_ld_e);
+	  if(dist<min_dist) {
+	    min_dist=dist;
+	    xoff=try_wall;
+	  }
+        }
+      }
+      off=2*pi/4*xoff;
+      best=&dummy_ld[xoff];
+
       for(i=0;i!=4;i++) {
         wall=&dummy_ld[i];
         tmp=NormalScore(wall,&cur_pos,angle);
@@ -701,7 +702,8 @@ CDoomLinedef *MoveThingFinal(CDoomLevel *l,CDoomThing *t,F64 angle,F64 dist,I64 
 }
 
 
-#endif        0                    "      '         !      !   õÿÿÿ   .   ÷ÿÿÿ   ÷ÿÿÿ   ,      ³   ×ÿÿÿ   -   ûÿÿÿ.   ñÿÿÿ;   ñÿÿÿ   ¨   áÿÿÿ¦      º      µ   Üÿÿÿ§   áÿÿÿ   º   ÜÿÿÿÃ   ÓÿÿÿÈ   Ûÿÿÿ   Á   ÒÿÿÿÁ   Äÿÿÿ   Ê   Èÿÿÿ¶   Çÿÿÿ   ¹   ÁÿÿÿÌ   ÅÿÿÿÌ   »ÿÿÿ¶   ¹ÿÿÿº   Áÿÿÿ   êÿÿÿ           k      
+#endif
+        0                    "      '         !      !   õÿÿÿ   .   ÷ÿÿÿ   ÷ÿÿÿ   ,      ³   ×ÿÿÿ   -   ûÿÿÿ.   ñÿÿÿ;   ñÿÿÿ   ¨   áÿÿÿ¦      º      µ   Üÿÿÿ§   áÿÿÿ   º   ÜÿÿÿÃ   ÓÿÿÿÈ   Ûÿÿÿ   Á   ÒÿÿÿÁ   Äÿÿÿ   Ê   Èÿÿÿ¶   Çÿÿÿ   ¹   ÁÿÿÿÌ   ÅÿÿÿÌ   »ÿÿÿ¶   ¹ÿÿÿº   Áÿÿÿ   êÿÿÿ           k      
 -   8   `   8   
 `   8   `      
 g      g   6   

@@ -509,7 +509,7 @@ Bool CanSeeTarget(CDoomLevel *l,CMonsterThinker *t) {
   if(!t->target) return FALSE;
   CDoomThing *self=t->self;
   CDoomThing *tar=t->target;
-  if(!self->template||!tar->template) return FALSE;
+  if(!self->template||!tar->template) return FALSE;
   F64 dist=Sqrt(Sqr(self->x-tar->x)+Sqr(self->y-tar->y)),dist2;
   F64 angle=FArg(tar->x-self->x,tar->y-self->y);
 //Returns -1 if we Pushin P didnt hit a wall
@@ -1140,7 +1140,11 @@ U0 BossDeath(CDoomLevel *l,CMonsterThinker *t) {
   CDoomThing *self=t->self;
 //Check if the Drake treacherous twin's are all dead,then we fin ta trigger 666
   CDoomThing *treacherous_twin,*head=&l->things;
-  CDoomLinedef dummy;
+  static CDoomLinedef dummy;
+//Yeah  will pwned em all homie,activate #666 Floor FloorToLowest
+  //See Floors.TXT for more info on our dummy thang(37)
+  MemSet(&dummy,0,sizeof CDoomLinedef); //Clear activated
+  dummy.sector_tag=666;
   if(l->map_name[1]=='1') { //Episode 1
     for(
 	  treacherous_twin=head->next;
@@ -1150,10 +1154,6 @@ U0 BossDeath(CDoomLevel *l,CMonsterThinker *t) {
       if(treacherous_twin->template==self->template&&treacherous_twin->health>0.)
         return ;
     }
-//Yeah  will pwned em all homie,activate #666 Floor FloorToLowest
-    //See Floors.TXT for more info on our dummy thang(37)
-    MemSet(&dummy,0,sizeof CDoomLinedef); //Clear activated
-    dummy.sector_tag=666;
     dummy.special_type=action_sector_types[37];
     TriggerLinedef(l,&dummy,-1,p); //-1 for all types
   } else if(l->map_name[1]=='2'||l->map_name[1]=='3') { //E2M8 cyberdemon,E2M8 spiderdemon
@@ -1161,6 +1161,22 @@ U0 BossDeath(CDoomLevel *l,CMonsterThinker *t) {
       l->ended=TRUE;
     if(self->template==doom_thing_types[7]) //spider guy
       l->ended=TRUE;
+  } else if(l->map_name[1]=='4') {
+    if(self->template==doom_thing_types[16]) { //Cyberdemon
+      switch(l->map_name[3]) {
+        case '6':
+        dummy.special_type=action_sector_types[109]; //Open dont close
+        TriggerLinedef(l,&dummy,WACTIVATE_WALK,p);
+	break;
+	case '8':
+        dummy.special_type=action_sector_types[38]; //lowest
+        TriggerLinedef(l,&dummy,WACTIVATE_WALK,p);
+	break;
+      }
+    }  //-1 for all types
+    if(self->template==doom_thing_types[7]) //spider guy
+      l->ended=TRUE;
+
   }
 }
 U0 Hoof(CDoomLevel *l,CMonsterThinker *t) {
@@ -1524,8 +1540,8 @@ U0 LoadMonsterInfo() {
   AddState("CYBER.ATK4",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&CyberAttack,"CYBER.ATK5");
   AddState("CYBER.ATK5",0,t->_attack_frames,&FaceTarget,"CYBER.ATK6");
   AddState("CYBER.ATK6",STATE_UNTIL_ANIM_DONE,t->_attack_frames,&CyberAttack,"CYBER.RUN1");
-  AddState(t->death_state="CYBER.DIE",STATE_NO_REPEAT,t->_dying_frames,&Fall,"CYBER.DIE2");
-  AddState("CYBER.DIE2",0,t->_dying_frames,&BossDeath,"ST_NULL");
+  AddState(t->death_state="CYBER.DIE",STATE_UNTIL_ANIM_DONE,t->_dying_frames,&Fall,"CYBER.DIE2");
+  AddState("CYBER.DIE2",STATE_NO_REPEAT,t->_dying_frames,&BossDeath,"ST_NULL");
   AddState(t->pain_state="CYBER.PAIN",STATE_UNTIL_ANIM_DONE,t->_hurt_frames,&Pain,"CYBER.RUN1");
 //BFG scaner hit
   UH("bfgfizzle",bfg_scanner_hit=CAlloc(sizeof CDoomThingTemplate));

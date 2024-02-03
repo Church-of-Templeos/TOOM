@@ -3787,6 +3787,9 @@ ret:
     goto fin_level;
   }
   l2=LoadWadLevel(wad,next_lvl,l->skill);  
+ if(music_task)
+    Kill(music_task,FALSE);
+  music_task=Spawn(&SongTaskDOOM,l->map_name[3]-'1',"Song",0,Fs);
   FreeLevel(l);
   l=NULL;
   l=l2;

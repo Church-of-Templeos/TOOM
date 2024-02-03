@@ -916,6 +916,10 @@ found:
   cnt=wad_dir->lump_size/sizeof(CWadThing);
   wthing=wad_dir->ptr+wad->body;
   for(idx=0;idx!=cnt;idx++) {
+//https://doomwiki.org/wiki/E4M3:_Sever_the_Wicked_(Doom)
+//If no flags are set for the spawns,stil handle them
+    if(wthing->thing_type==1)
+      goto pass_thing;
     if(wthing->flags&WAD_THINGF_MULTIPLAYER)
       goto skip_thing;
     switch(skill) {

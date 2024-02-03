@@ -115,8 +115,14 @@ U0 IntermessionLoadData(I64 ep,I64 level) {
       ep_ptr=ep2animinfo;
       anim_cnt=6;
       break;
+    case 3:
+      anim_cnt=0;
   }
-  StrPrint(buf,"WIMAP%d",ep);
+  if(ep==3) {
+    background=GetGrLump("INTERPIC");
+    return;
+  } else
+    StrPrint(buf,"WIMAP%d",ep);
   if(!GetGrLump(buf))
     LoadGrLump(wad,buf);
   background=GetGrLump(buf);
@@ -181,6 +187,10 @@ U0 DrawAnimatedBackground(CDC *to_dc,I64 ep,I64 l) {
       ep_ptr=ep2animinfo;
       anim_cnt=6;
       break;
+    case 3:
+      ep_ptr=NULL;
+      anim_cnt=0;
+      break;
   }
   for(idx=0;idx!=anim_cnt;idx++) {
     if(ep_ptr[idx].type==ANIM_LEVEL) {
@@ -199,6 +209,8 @@ skip:;
 }
 
 U0 DrawSplats(CDC *to_dc,I64 ep,I64 l) {
+//No splats for the final episode
+  if(ep==3) return;
   I64 idx,x,y;
   CDC *s=GetGrLump("WISPLAT");
   for(idx=0;idx!=l;idx++) {

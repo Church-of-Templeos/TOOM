@@ -25,6 +25,8 @@ Arrow keys or WASD to move around
 
 Spacebar to activate buttons and doors
 
+Tab to open the map
+
 # Development 
 ##  Dithering
 In TOOM all the pixels are acutally "2x2" pixels this allows for dithering. This means in many places in source code you will see things like 

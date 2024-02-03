@@ -1386,7 +1386,7 @@ U0 SongTaskDOOM(I64 LEVEL)
 
   Fs->task_end_cb=&SndTaskEndCB;
   MusicSettingsRst;
-  if(LEVEL==0||LEVEL==1||LEVEL==4)
+  if(LEVEL==0||LEVEL>=3||LEVEL>=4)
     {
     while (TRUE) {
       music.stacatto_factor = .75;
@@ -1406,7 +1406,7 @@ U0 SongTaskDOOM(I64 LEVEL)
       Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
       Play("1AA2A1AA2G1AAtt3ECACECEAECECEA..");
 
-      Play("1DD2D1DD2C1DDA#1DDG#DDAA#");
+      Play("1DD2D1DD2C1DDA#1DDG#DDAA#");
       Play("1DD2D1DD2C1DDA#1DDG#G#G#G#");
       Play("1DD2D1DD2C1DDA#1DDG#DDAA#");
       Play("1DD2D1DD2C1DDtt4AGFAFDFADAFAFAFAFD.."); 
@@ -1437,7 +1437,7 @@ U0 SongTaskDOOM(I64 LEVEL)
       Play("1AA2C1AA2B1AAtt3DB2G#EDB1G#E3E3DB2G#EDB..");
       Play("1G#2A");
     }
-  } else if(LEVEL==3||LEVEL==2) {
+  } else if(LEVEL==1||LEVEL==2) {
 
     while(TRUE){ //original song by Jamiroquai
       music.stacatto_factor = .9;

@@ -86,12 +86,13 @@ retry:
       start:
         msx=ms.pos.x;
         msy=ms.pos.y;
-        for(idx=0;idx!=cnt;idx++) {
+        for(idx=0;idx!=cnt;idx++) {
 	  y=items[idx].y;
+          if(items[idx].gr!=NULL){
 	  if(y<=msy<=y+items[idx].gr->height) {
 	    cur_active=idx;
 	    break;
-	  }
+	  }}
         }
         case MSG_MS_MOVE:
 	  break;

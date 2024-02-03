@@ -20,10 +20,10 @@ givest thanks well, but the other is not edified.
 
 14:18 I thank my God, I speak with tongues more than ye all: 14:19 Yet
 in the church I had rather speak five words with my understanding,
-that by my voice I might teach others also, than ten thousand words in
+that by my voice I might teach others also, than ten thousand words in
 an unknown tongue.
 
-14:20 Brethren, be not children in understanding: howbeit in malice be
+14:20 Brethren, be not children in understanding: howbeit in malice be
 ye children, but in understanding be men.
 */
 

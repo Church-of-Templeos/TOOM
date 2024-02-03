@@ -2,6 +2,7 @@
 #define DOOM_WAD" Whats Poppin"
 #define DEBUG 1
 #include "Set.HC";
+#include "Serialize.HC";
 class CWad {
   U8 body[0];
   U8 ident[4];
@@ -454,9 +455,20 @@ U8 *W_GetLumpPtrFromNum(I64 idx,CWad *wad,I64 *lump_len=NULL) {
 //
 // Nroot,Get pointer to lump
 //
-U8 *W_GetLumpPtrFromName(U8 *name,CWad *wad,I64 *lump_len=NULL,I64 which=1) {
-  I64 idx=W_CheckNumForName(name,wad,which);
-  return W_GetLumpPtrFromNum(idx,wad,lump_len);
+// wad can be NULL for iterating through all the laoded WAD's
+U8 *W_GetLumpPtrFromName(U8 *name,CWad *wad=NULL,I64 *lump_len=NULL,I64 which=1) {
+  I64 idx,widx;
+  if(wad) {
+      idx=W_CheckNumForName(name,wad,which);
+      return W_GetLumpPtrFromNum(idx,wad,lump_len);
+  }
+  for(widx=wad_cnt-1;widx>=0;widx--) {
+    idx=W_CheckNumForName(name,wads[widx],which);
+    if(idx!=-1) {
+      return W_GetLumpPtrFromNum(idx,wads[widx],lump_len);
+    }
+  }
+  return NULL;
 }
 
 
@@ -555,7 +567,10 @@ CDC *GetGrLump(U8 *name) {
 }
 
 
-CDoomGr *LoadWadGr(CWad *wad) {
+//
+// Nroots note,$BK,1$USE W_GetLumpPtrFromName("name",NULL) to consult Patch WADs first$BK,0$
+//
+CDoomGr *LoadWadGr() {
   CDoomGr *ret=CAlloc(sizeof(CDoomGr));
   CWadDirectory *wad_dir;
   I64 idx,pass;
@@ -563,10 +578,10 @@ CDoomGr *LoadWadGr(CWad *wad) {
   CWadPnames *pnames;
   CDC *gr;
 //Load Player palett
-  if(W_CheckNumForName("PLAYPAL",wad)!=-1)
-    ret->palette=LoadPLAYPALFromLump(W_GetLumpPtrFromName("PLAYPAL",wad));
+  ret->palette=LoadPLAYPALFromLump(W_GetLumpPtrFromName("PLAYPAL",NULL));
 //Find the sprites start
   pass=1;
+  wad=wads[0];
   do {
     wad_dir=wad->body+wad->directory_ptr;
     idx=W_CheckNumForName("S_START",wad,pass);
@@ -578,7 +593,7 @@ found_sstart:
     if(StrCmp8(wad_dir->lump_name,"S_END")) {
       lump_name[8]=0;
       MemCpy(lump_name,wad_dir->lump_name,8);
-      gr=ReadDoomImage(wad->body+wad_dir->ptr);
+      gr=ReadDoomImage(W_GetLumpPtrFromName(lump_name,NULL)); //See note above funcrtion
       Upper8(lump_name);
       StrPrint(buf,"Spr.%s",lump_name);
       FramePtrAdd(buf,gr);
@@ -600,9 +615,9 @@ found_fstart:
 //There are lumps like F1_START/F1_END/F2_START/F2_END
       //There are empty are are used for shareware/registered lumps
       if(wad_dir->lump_size) {
-        gr=ReadDoomFlat(wad->body+wad_dir->ptr,ret->palette);
         lump_name[8]=0;
         MemCpy(lump_name,wad_dir->lump_name,8);
+        gr=ReadDoomFlat(W_GetLumpPtrFromName(lump_name,NULL),ret->palette); //See note above funcrtion
         tmp=MStrPrint("F.%s",lump_name);
         Upper8(tmp);
         UH(buf,gr);
@@ -614,236 +629,237 @@ found_fstart:
     pass++;
   } while(TRUE);
 //Load Wall Patch names(ONLYUSE LASTFOR NOW)
-  pass=1;
-  do {
-    wad_dir=wad->body+wad->directory_ptr;
-    idx=W_CheckNumForName("PNAMES",wad,pass);
-    if(idx==-1) break;
-    wad_dir+=idx;
+  I64 widx;
+  for(widx=0;widx!=wad_cnt;widx++) {
+    pass=1;
+    wad=wads[widx];
+    do {
+      wad_dir=wad->body+wad->directory_ptr;
+      idx=W_CheckNumForName("PNAMES",wad,pass);
+      if(idx==-1) break;
+      wad_dir+=idx;
 found_pnames:
-    pnames=wad->body+wad_dir->ptr;
-    ret->pname_cnt=pnames->len;
-    ret->pnames=MAlloc(ret->pname_cnt*8);
-    MemCpy(ret->pnames,pnames->names,ret->pname_cnt*8);
+      pnames=wad->body+wad_dir->ptr;
+      ret->pname_cnt=pnames->len;
+      Free(ret->pnames);
+      ret->pnames=MAlloc(ret->pname_cnt*8);
+      MemCpy(ret->pnames,pnames->names,ret->pname_cnt*8);
 //Load wall patches
-    wad_dir=wad->body+wad->directory_ptr;
-    wad_dir+=W_CheckNumForName("P_START",wad,pass);
+      wad_dir=wad->body+wad->directory_ptr;
 found_pstart:
-    wad_dir++; //Move past S_START
-    if(StrCmp8(wad_dir->lump_name,"P_END")) {
-//There are lumps like P1_START/P1_END/P2_START/P2_END
-      //There are empty are are used for shareware/registered lumps
-      if(wad_dir->lump_size) {
-        lump_name[8]=0;
-        MemCpy(lump_name,wad_dir->lump_name,8);
-        gr=ReadDoomImage(wad->body+wad_dir->ptr);
-        Upper8(lump_name);
-        StrPrint(buf,"Pat.%s",lump_name);
-	UH(buf,gr);
-        FramePtrAdd(buf,gr);
+      for(idx=0;idx!=ret->pname_cnt;idx++) { 
+	  lump_name[8]=0;
+	  MemCpy(lump_name,&ret->pnames[idx],8);
+	  Upper8(lump_name);
+        if(W_GetLumpPtrFromName(lump_name,NULL)) {
+	  gr=ReadDoomImage(W_GetLumpPtrFromName(lump_name,NULL)); //See note above funcrtion
+	  StrPrint(buf,"Pat.%s",lump_name);
+	  UH(buf,gr);
+	  FramePtrAdd(buf,gr);
+        }
       }
-      goto found_pstart;
-    }
-    LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE1",wad,,pass),ret);
-    if(W_CheckNumForName("TEXTURE2",wad,pass)!=-1) {
-      LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE2",wad,,pass),ret);
-    }
-    pass++;
-  } while(TRUE);
+try_text:
+      if(W_CheckNumForName("TEXTURE1",wad,pass)!=-1)
+        LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE1",wad,,pass),ret);
+      if(W_CheckNumForName("TEXTURE2",wad,pass)!=-1)
+        LoadWadTEXTUREs(W_GetLumpPtrFromName("TEXTURE2",wad,,pass),ret);
+      pass++;
+    } while(TRUE);
+  }
 
 
-  LoadGrLump(wad,"STBAR");
-  LoadGrLump(wad,"STARMS");
+  LoadGrLump(NULL,"STBAR");
+  LoadGrLump(NULL,"STARMS");
   for(idx=0;idx!=10;idx++) {
     lump_name[0]=0;
     CatPrint(lump_name,"STTNUM%d",idx);
-    LoadGrLump(wad,lump_name);
+    LoadGrLump(NULL,lump_name);
     lump_name[0]=0;
     CatPrint(lump_name,"STGNUM%d",idx);
-    LoadGrLump(wad,lump_name);
+    LoadGrLump(NULL,lump_name);
   }
 
   for(idx=0;idx!=6;idx++) {
     lump_name[0]=0;
     CatPrint(lump_name,"STKEYS%d",idx);
-    LoadGrLump(wad,lump_name);
+    LoadGrLump(NULL,lump_name);
   }
 
-  LoadGrLump(wad,"STTPRCNT");
+  LoadGrLump(NULL,"STTPRCNT");
   for(idx=0;idx!=10;idx++) {
     lump_name[0]=0;
     CatPrint(lump_name,"STYSNUM%d",idx);
-    LoadGrLump(wad,lump_name);
+    LoadGrLump(NULL,lump_name);
   }
 
   for(idx='!';idx<='_';idx++) {
     StrPrint(lump_name,"STCFN%3d",idx-'!');
     while(StrOcc(lump_name,' '))
       *StrFirstOcc(lump_name," ")='0';
-    LoadGrLump(wad,lump_name);
+    LoadGrLump(NULL,lump_name);
   }
 
   //Intermission
-  LoadGrLump(wad,"WIURH0");
-  LoadGrLump(wad,"WIURH1");
-  LoadGrLump(wad,"WISPLAT");
-  LoadGrLump(wad,"WIPCNT");
-  LoadGrLump(wad,"WIF");
-  LoadGrLump(wad,"WIENTER");
-  LoadGrLump(wad,"WIOSTK");
-  LoadGrLump(wad,"WIOSTI");
-  LoadGrLump(wad,"WIOSTS");
-  LoadGrLump(wad,"WISCRT2");
-  LoadGrLump(wad,"WIFRGS");
-  LoadGrLump(wad,"WICOLON");
-  LoadGrLump(wad,"WIPAR");
+  LoadGrLump(NULL,"WIURH0");
+  LoadGrLump(NULL,"WIURH1");
+  LoadGrLump(NULL,"WISPLAT");
+  LoadGrLump(NULL,"WIPCNT");
+  LoadGrLump(NULL,"WIF");
+  LoadGrLump(NULL,"WIENTER");
+  LoadGrLump(NULL,"WIOSTK");
+  LoadGrLump(NULL,"WIOSTI");
+  LoadGrLump(NULL,"WIOSTS");
+  LoadGrLump(NULL,"WISCRT2");
+  LoadGrLump(NULL,"WIFRGS");
+  LoadGrLump(NULL,"WICOLON");
+  LoadGrLump(NULL,"WIPAR");
   for(idx=0;idx!=10;idx++) {
     StrPrint(lump_name,"WINUM%d",idx);
-    LoadGrLump(wad,lump_name);
+    LoadGrLump(NULL,lump_name);
 
   }
 //FACES
 
-  LoadGrLump(wad,"STFST01");
-  LoadGrLump(wad,"STFST00");
-  LoadGrLump(wad,"STFST02");
+  LoadGrLump(NULL,"STFST01");
+  LoadGrLump(NULL,"STFST00");
+  LoadGrLump(NULL,"STFST02");
 
   //MAINMENU
-  LoadGrLump(wad,"M_NGAME");
-  LoadGrLump(wad,"M_LOADG");
-  LoadGrLump(wad,"M_OPTION");
-  LoadGrLump(wad,"M_SAVEG");
-  LoadGrLump(wad,"M_RDTHIS");
-  LoadGrLump(wad,"M_QUITG");
-  LoadGrLump(wad,"M_EP1");
-  LoadGrLump(wad,"M_EP2");
-  LoadGrLump(wad,"M_EP3");
-  LoadGrLump(wad,"M_EP4");
+  LoadGrLump(NULL,"M_NGAME");
+  LoadGrLump(NULL,"M_LOADG");
+  LoadGrLump(NULL,"M_OPTION");
+  LoadGrLump(NULL,"M_SAVEG");
+  LoadGrLump(NULL,"M_RDTHIS");
+  LoadGrLump(NULL,"M_QUITG");
+  LoadGrLump(NULL,"M_EP1");
+  LoadGrLump(NULL,"M_EP2");
+  LoadGrLump(NULL,"M_EP3");
+  LoadGrLump(NULL,"M_EP4");
 
-  LoadGrLump(wad,"M_JKILL");
-  LoadGrLump(wad,"M_ROUGH");
-  LoadGrLump(wad,"M_HURT");
-  LoadGrLump(wad,"M_ULTRA");
-  LoadGrLump(wad,"M_NMARE");
+  LoadGrLump(NULL,"M_JKILL");
+  LoadGrLump(NULL,"M_ROUGH");
+  LoadGrLump(NULL,"M_HURT");
+  LoadGrLump(NULL,"M_ULTRA");
+  LoadGrLump(NULL,"M_NMARE");
 
-  LoadGrLump(wad,"TITLEPIC");
-  LoadGrLump(wad,"M_QUITG");
-  LoadGrLump(wad,"M_OPTION");
-  LoadGrLump(wad,"M_SKULL1");
-  LoadGrLump(wad,"M_SKULL2");
-  LoadGrLump(wad,"M_LGTTL");
-  LoadGrLump(wad,"M_ABOUT");
-  LoadGrLump(wad,"HELP1");
-  LoadGrLump(wad,"AQCONC14");
-  LoadGrLump(wad,"M_HURT");
-  LoadGrLump(wad,"M_DOOM");
-  LoadGrLump(wad,"RW1_3");
-  LoadGrLump(wad,"RW12_3");
-  LoadGrLump(wad,"M_SKILL");
-  LoadGrLump(wad,"M_JKILL");
-  LoadGrLump(wad,"M_ROUGH");
-  LoadGrLump(wad,"M_ULTRA");
-  LoadGrLump(wad,"M_NMARE");
-  LoadGrLump(wad,"M_EPI1");
-  LoadGrLump(wad,"M_EPI2");
-  LoadGrLump(wad,"M_EPI3");
-  LoadGrLump(wad,"M_EPI4");
-  LoadGrLump(wad,"M_EPISOD");
-  LoadGrLump(wad,"M_SGTTL");
+  LoadGrLump(NULL,"TITLEPIC");
+  LoadGrLump(NULL,"M_QUITG");
+  LoadGrLump(NULL,"M_OPTION");
+  LoadGrLump(NULL,"M_SKULL1");
+  LoadGrLump(NULL,"M_SKULL2");
+  LoadGrLump(NULL,"M_LGTTL");
+  LoadGrLump(NULL,"M_ABOUT");
+  LoadGrLump(NULL,"HELP1");
+  LoadGrLump(NULL,"AQCONC14");
+  LoadGrLump(NULL,"M_HURT");
+  LoadGrLump(NULL,"M_DOOM");
+  LoadGrLump(NULL,"RW1_3");
+  LoadGrLump(NULL,"RW12_3");
+  LoadGrLump(NULL,"M_SKILL");
+  LoadGrLump(NULL,"M_JKILL");
+  LoadGrLump(NULL,"M_ROUGH");
+  LoadGrLump(NULL,"M_ULTRA");
+  LoadGrLump(NULL,"M_NMARE");
+  LoadGrLump(NULL,"M_EPI1");
+  LoadGrLump(NULL,"M_EPI2");
+  LoadGrLump(NULL,"M_EPI3");
+  LoadGrLump(NULL,"M_EPI4");
+  LoadGrLump(NULL,"M_EPISOD");
+  LoadGrLump(NULL,"M_SGTTL");
 
   //numbers
-  LoadGrLump(wad,"STCFN048");
-  LoadGrLump(wad,"STCFN049");
-  LoadGrLump(wad,"STCFN050");
-  LoadGrLump(wad,"STCFN051");
-  LoadGrLump(wad,"STCFN052");
-  LoadGrLump(wad,"STCFN053");
-  LoadGrLump(wad,"STCFN054");
-  LoadGrLump(wad,"STCFN055");
-  LoadGrLump(wad,"STCFN056");
-  LoadGrLump(wad,"STCFN057");
+  LoadGrLump(NULL,"STCFN048");
+  LoadGrLump(NULL,"STCFN049");
+  LoadGrLump(NULL,"STCFN050");
+  LoadGrLump(NULL,"STCFN051");
+  LoadGrLump(NULL,"STCFN052");
+  LoadGrLump(NULL,"STCFN053");
+  LoadGrLump(NULL,"STCFN054");
+  LoadGrLump(NULL,"STCFN055");
+  LoadGrLump(NULL,"STCFN056");
+  LoadGrLump(NULL,"STCFN057");
 
   //letters
-  LoadGrLump(wad,"STCFN065");
-  LoadGrLump(wad,"STCFN066");
-  LoadGrLump(wad,"STCFN067");
-  LoadGrLump(wad,"STCFN068");
-  LoadGrLump(wad,"STCFN069");
-  LoadGrLump(wad,"STCFN070");
-  LoadGrLump(wad,"STCFN071");
-  LoadGrLump(wad,"STCFN072");
-  LoadGrLump(wad,"STCFN073");
-  LoadGrLump(wad,"STCFN074");
-  LoadGrLump(wad,"STCFN075");
-  LoadGrLump(wad,"STCFN076");
-  LoadGrLump(wad,"STCFN077");
-  LoadGrLump(wad,"STCFN078");
-  LoadGrLump(wad,"STCFN079");
-  LoadGrLump(wad,"STCFN080");
-  LoadGrLump(wad,"STCFN081");
-  LoadGrLump(wad,"STCFN082");
-  LoadGrLump(wad,"STCFN083");
-  LoadGrLump(wad,"STCFN084");
-  LoadGrLump(wad,"STCFN085");
-  LoadGrLump(wad,"STCFN086");
-  LoadGrLump(wad,"STCFN087");
-  LoadGrLump(wad,"STCFN088");
-  LoadGrLump(wad,"STCFN089");
-  LoadGrLump(wad,"STCFN090");
+  LoadGrLump(NULL,"STCFN065");
+  LoadGrLump(NULL,"STCFN066");
+  LoadGrLump(NULL,"STCFN067");
+  LoadGrLump(NULL,"STCFN068");
+  LoadGrLump(NULL,"STCFN069");
+  LoadGrLump(NULL,"STCFN070");
+  LoadGrLump(NULL,"STCFN071");
+  LoadGrLump(NULL,"STCFN072");
+  LoadGrLump(NULL,"STCFN073");
+  LoadGrLump(NULL,"STCFN074");
+  LoadGrLump(NULL,"STCFN075");
+  LoadGrLump(NULL,"STCFN076");
+  LoadGrLump(NULL,"STCFN077");
+  LoadGrLump(NULL,"STCFN078");
+  LoadGrLump(NULL,"STCFN079");
+  LoadGrLump(NULL,"STCFN080");
+  LoadGrLump(NULL,"STCFN081");
+  LoadGrLump(NULL,"STCFN082");
+  LoadGrLump(NULL,"STCFN083");
+  LoadGrLump(NULL,"STCFN084");
+  LoadGrLump(NULL,"STCFN085");
+  LoadGrLump(NULL,"STCFN086");
+  LoadGrLump(NULL,"STCFN087");
+  LoadGrLump(NULL,"STCFN088");
+  LoadGrLump(NULL,"STCFN089");
+  LoadGrLump(NULL,"STCFN090");
 
   //WEAPONS
   //PUNCH
-  LoadGrLump(wad,"PUNGA0");
-  LoadGrLump(wad,"PUNGB0");
-  LoadGrLump(wad,"PUNGC0");
-  LoadGrLump(wad,"PUNGD0");
+  LoadGrLump(NULL,"PUNGA0");
+  LoadGrLump(NULL,"PUNGB0");
+  LoadGrLump(NULL,"PUNGC0");
+  LoadGrLump(NULL,"PUNGD0");
 
   //PISTOL
   for(idx='A';idx<='E';idx++) {
     lump_name[0]=0;
     CatPrint(lump_name,"PISG%c0",idx);
-    LoadGrLump(wad,lump_name);
+    LoadGrLump(NULL,lump_name);
   }
 //SHOTGUN   
   for(idx='A';idx<='D';idx++) {
     lump_name[0]=0;
     CatPrint(lump_name,"SHTG%c0",idx);
-    LoadGrLump(wad,lump_name);
+    LoadGrLump(NULL,lump_name);
   }
 //CHAINGUN
   for(idx='A';idx<='B';idx++) {
     lump_name[0]=0;
     CatPrint(lump_name,"CHGG%c0",idx);
-    LoadGrLump(wad,lump_name);
+    LoadGrLump(NULL,lump_name);
   }
 //MISSILELAUNCHER
   for(idx='A';idx<='B';idx++) {
     lump_name[0]=0;
     CatPrint(lump_name,"MISG%c0",idx);
-    LoadGrLump(wad,lump_name);
+    LoadGrLump(NULL,lump_name);
   }
   for(idx='A';idx<='D';idx++) {
     lump_name[0]=0;
     CatPrint(lump_name,"MISF%c0",idx);
-    LoadGrLump(wad,lump_name);
+    LoadGrLump(NULL,lump_name);
   }
 //CHAINSAW
   for(idx='A';idx<='D';idx++) {
     lump_name[0]=0;
     CatPrint(lump_name,"SAWG%c0",idx);
-    LoadGrLump(wad,lump_name);
+    LoadGrLump(NULL,lump_name);
   }
 //PLASMAGUN
   for(idx='A';idx<='B';idx++) {
     lump_name[0]=0;
     CatPrint(lump_name,"PLSG%c0",idx);
-    LoadGrLump(wad,lump_name);
+    LoadGrLump(NULL,lump_name);
   }
 //BFG
   for(idx='A';idx<='B';idx++) {
     lump_name[0]=0;
     CatPrint(lump_name,"BFGG%c0",idx);
-    LoadGrLump(wad,lump_name);
+    LoadGrLump(NULL,lump_name);
   }
   return ret;
 }
@@ -867,11 +883,12 @@ CDC *GetFlatDC(U8 *name) {
 }
 extern U0 LoadLightingThinkers(CDoomLevel *l);
 extern U0 InitPosDataForThing(CDoomLevel *l,CDoomThing *t);
-CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name,I64 skill=1) {
+CDoomLevel *LoadWadLevel(U8 *level_name,I64 skill=1) {
   I64 idx,cnt,x,y,min,max;
   U16 *offs;
   U8 name[STR_LEN];
   CDC **arr;
+  CWad *wad;
   CDoomLevel *level=CAlloc(sizeof CDoomLevel);
   CDoomThing *dthing;
   CWadThing *wthing;
@@ -899,11 +916,15 @@ CDoomLevel *LoadWadLevel(CWad *wad,U8 *level_name,I64 skill=1) {
   QueInit(&level->subsectors);
   level->skill=skill;
   name[8]=0;
-  wad_dir=wad->body+wad->directory_ptr;
-  for(idx=0;idx!=wad->lump_cnt;idx++) {
-    if(!StrCmp8(wad_dir->lump_name,level_name))
-      goto found;
-    wad_dir++;
+  cnt=wad_cnt;
+  while(--cnt>=0) {
+    wad=wads[cnt];
+    wad_dir=wad->body+wad->directory_ptr;
+    for(idx=0;idx!=wad->lump_cnt;idx++) {
+      if(!StrCmp8(wad_dir->lump_name,level_name))
+        goto found;
+      wad_dir++;
+    }
   }
   Free(level);
   return NULL;
@@ -1320,6 +1341,7 @@ U0 DumpWad(CWad *wad) {
 }
 
 //
-CDoomGr *dgr=LoadWadGr(wads[0]);
+I64 cnt=wad_cnt;
+CDoomGr *dgr=LoadWadGr;
 CDoomLevel *l=NULL;
 #endif

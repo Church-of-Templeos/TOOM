@@ -23,7 +23,7 @@ in the church I had rather speak five words with my understanding,
 that by my voice I might teach others also, than ten thousand words in
 an unknown tongue.
 
-14:20 Brethren, be not children in understanding: howbeit in malice be
+14:20 Brethren, be not children in understanding: howbeit in malice be
 ye children, but in understanding be men.
 */
 

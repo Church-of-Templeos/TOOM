@@ -129,7 +129,7 @@ CDC *ReadDoomFlat(U8 *flat,CRGB *pal) {
   Free(dith);
   return ret;
 }
-CRGB *LoadPLAYPALFromLump(U8 *lump) {
+CRGB *LoadPLAYPALFromLump(U8 *lump) {
   CRGB *ret=CAlloc(sizeof(CRGB)*256);
   I64 cnt;
   for(cnt=0;cnt!=256;cnt++) {

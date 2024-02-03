@@ -86,7 +86,7 @@ retry:
       start:
         msx=ms.pos.x;
         msy=ms.pos.y;
-        for(idx=0;idx!=cnt;idx++) {
+        for(idx=0;idx!=cnt;idx++) {
 	  y=items[idx].y;
           if(items[idx].gr!=NULL){
 	  if(y<=msy<=y+items[idx].gr->height) {
@@ -219,7 +219,7 @@ againm:;
 
         active_menu=NULL;
 	oldl=l;
-        l=LoadWadLevel(wad,level,s-'1'+1);
+        l=LoadWadLevel(level,s-'1'+1);
         if(!l) {
 	  l=oldl;
 	  state=8;

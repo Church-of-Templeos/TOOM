@@ -1170,7 +1170,7 @@ U0 BossDeath(CDoomLevel *l,CMonsterThinker *t) {
 	break;
 	case '8':
         dummy.special_type=action_sector_types[38]; //lowest
-        TriggerLinedef(l,&dummy,WACTIVATE_WALK,p);
+        TriggerLinedef(l,&dummy,WACTIVATE_WALK,p);
 	break;
       }
     }  //-1 for all types

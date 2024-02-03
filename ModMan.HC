@@ -12,3 +12,6 @@ else if(FileFind("freedoom1.wad"))
 
 if(FileFind("TOOM.wad"))
  LoadWad("TOOM.wad");
+/*if(FileFind("TRINITY.WAD")) {
+  LoadWad("TRINITY.WAD");
+}*/

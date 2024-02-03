@@ -593,7 +593,7 @@ U0 LoadDoors() {
   //Monster
   if(!StrCmp(monster,"Yes"))
     door->monster=TRUE;
-  else if(!StrCmp(monster,"No"))
+  else if(!StrCmp(monster,"No"))
     door->monster=FALSE;
   else
     throw('Door');//Action

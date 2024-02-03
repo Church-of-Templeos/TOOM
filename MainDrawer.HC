@@ -478,7 +478,7 @@ skip:;
         dist=DIST_SCALE/((dummyb.y-GR_HEIGHT/2)/(cam->h-level));
         dist/=ray_cast_table_cos[ToI64(x)>>1];
 	if(wall_skip=IsBlockedByWallReverse(cam,x,dummyb.y-2,dist,NULL)) {
-	  if(2+wall_skip>=scrn_points[idx2+1]-scrn_points[idx2])
+	  if(2+wall_skip>=scrn_points[idx2+1]-scrn_points[idx2])
 	    goto next;
 	  dummyb.y-=2+wall_skip;
 	}
@@ -3756,7 +3756,7 @@ ent:;
 play_again:
 	    screen_melt=TRUE;
 	    transition=FALSE;
-	    next_lvl=LoadWadLevel(wads[0],l->map_name,l->skill);
+	    next_lvl=LoadWadLevel(l->map_name,l->skill);
 	    FreeLevel(l);
 	    l=next_lvl;
 	    PlayLevel(TRUE);
@@ -3790,7 +3790,7 @@ ret:
     Finale(doom_scrn,l->map_name[1]-'0');
     goto fin_level;
   }
-  l2=LoadWadLevel(wad,next_lvl,l->skill);  
+  l2=LoadWadLevel(next_lvl,l->skill);  
  if(music_task)
     Kill(music_task,FALSE);
   music_task=Spawn(&SongTaskDOOM,l->map_name[3]-'1',"Song",0,Fs);
@@ -3902,3 +3902,4 @@ while(TRUE) {
   }
 }
 #endif
+	

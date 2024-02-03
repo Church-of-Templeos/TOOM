@@ -365,7 +365,7 @@ U0 LoadGame(U8 *filename) {
   ptr=StrScan(ptr,"SKILL:%d\n",&i64);
   if(l) FreeLevel(l);
   l=NULL;
-  l=LoadWadLevel(wad,buf,i64);
+  l=LoadWadLevel(buf,i64);
   head=&l->things;
   for(thing=head->next;thing!=head;thing=next) {
     next=thing->next;

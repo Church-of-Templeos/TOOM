@@ -239,7 +239,7 @@ U0 TransformPointToCamera(CDoomCamera *cam,CD2 *p) {
   p->y=dist*FSin(angle);
 }
 
-Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *out_of_view=NULL) {
+Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *out_of_view=NULL,Bool clamp=TRUE) {
   CD2 s,e,at,*ptr,debug;
   Bool dummy;
   I64 cnt,fail_cnt;
@@ -267,27 +267,29 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
       *out_of_view=TRUE;
   e.y=-e.y;
 
+  if(clamp) {
 //Use intersect if above the line
-  PlaneIntersect(&at,&s,&e,p,p2,FALSE);
-  if(p->x*e.y-e.x*p->y<-.1) {
-    p->x=at.x;
-    p->y=at.y;
-  }
-  if(p2->x*e.y-e.x*p2->y<-.1) {
-    p2->x=at.x;
-    p2->y=at.y;
-  }
+    PlaneIntersect(&at,&s,&e,p,p2,FALSE);
+    if(p->x*e.y-e.x*p->y<-.1) {
+      p->x=at.x;
+      p->y=at.y;
+    }
+    if(p2->x*e.y-e.x*p2->y<-.1) {
+      p2->x=at.x;
+      p2->y=at.y;
+    }
 
-//Use intersect if below the line
-  e.y=-e.y;
-  PlaneIntersect(&at,&s,&e,p,p2,FALSE);
-  if(p->x*e.y-e.x*p->y>.1) {
-    p->x=at.x;
-    p->y=at.y;
-  }
-  if(p2->x*e.y-e.x*p2->y>.1) {
-    p2->x=at.x;
-    p2->y=at.y;
+    //Use intersect if below the line
+    e.y=-e.y;
+    PlaneIntersect(&at,&s,&e,p,p2,FALSE);
+    if(p->x*e.y-e.x*p->y>.1) {
+      p->x=at.x;
+      p->y=at.y;
+    }
+    if(p2->x*e.y-e.x*p2->y>.1) {
+      p2->x=at.x;
+      p2->y=at.y;
+    }
   }
 
   for(cnt=0;cnt!=2;cnt++) {
@@ -843,8 +845,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *_
   Bool god_mode=GodModeFilter;
   copy.x=_p->x,copy.y=_p->y;
   copy2.x=_p->x,copy2.y=_p->y;
-  if(!ClipLineToScrenCoords(cam,&copy,&copy2,level))
-    return;
+  ClipLineToScrenCoords(cam,&copy,&copy2,level,,FALSE);
   angle=(ToF64(copy.x)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
   angle=Clamp(angle,-cam->fov/2,cam->fov/2);
   dist=Sqrt(1+Sqr(_p->x-cam->x)+Sqr(_p->y-cam->y));

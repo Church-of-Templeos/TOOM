@@ -509,6 +509,7 @@ Bool CanSeeTarget(CDoomLevel *l,CMonsterThinker *t) {
   if(!t->target) return FALSE;
   CDoomThing *self=t->self;
   CDoomThing *tar=t->target;
+  if(!self->template||!tar->template) return FALSE;
   F64 dist=Sqrt(Sqr(self->x-tar->x)+Sqr(self->y-tar->y)),dist2;
   F64 angle=FArg(tar->x-self->x,tar->y-self->y);
 //Returns -1 if we Pushin P didnt hit a wall

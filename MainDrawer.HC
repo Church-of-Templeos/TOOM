@@ -2181,8 +2181,9 @@ U0 BuildStairs(CDoomLevel *l,CDoomLinedef *ld) {
   I64 idx;
   for(s=l->sectors.next;s!=&l->sectors;s=s->next) {
     if(ld->sector_tag==s->tag_number) {
-      if(s->cur_action_linedef)
+      if(s->cur_action_linedef) {
         goto nxt;
+      }
       s->cur_action_linedef=ld;
       step=s->floor_height;
       s2=s;
@@ -2197,16 +2198,15 @@ loop:
       for(idx=0;idx!=s2->linedef_cnt;idx++) {
         ld2=s2->linedefs[idx];
         if(ld2->front&&ld2->back) {
-	  if(ld2->front->sector!=s2)
-	    new=ld2->front->sector;
-	  else
+	  if(ld2->front->sector==s2) {
 	    new=ld2->back->sector;
-	  if(new!=s2&&!new->cur_action_linedef)
-	    if(new->floor_dc[0]==s2->floor_dc[0]) {
-	      new->cur_action_linedef=ld;
-	      s2=new;
-	      goto loop;
-	    }
+	    if(!new->cur_action_linedef)
+	      if(new->floor_dc[0]==s2->floor_dc[0]) {
+	        new->cur_action_linedef=ld;
+	        s2=new;
+	        goto loop;
+	      }
+	  }
         }
       }
     }
@@ -2436,6 +2436,7 @@ crush_activate:
         }
       } else if(type->type=='Stairs') {
         tp=type;
+//ld->a
         switch(tp->trigger) {
 	    break;case 'P1':
 stairs_activate1:

@@ -21,6 +21,8 @@ Left mouse button to fire
 
 Arrow keys or WASD to move around
 
+Shift to Run
+
 0-9 or mousewheel to change weapons
 
 Spacebar to activate buttons and doors

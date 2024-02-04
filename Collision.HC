@@ -8,6 +8,7 @@
 #define COLLISF_MONSTER 8
 #define COLLISF_ADJUST_FOR_RADIUS 0x10
 #define COLLISF_PROJECTILE 0x20
+#define COLLISF_PUSH_WALL 0x40
 extern Bool MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 tallness,F64 radius=64.,F64 cur_height=0.,I64 flags=0,CFifoI64 *walked_over_hot=NULL,CDoomThing *exclude=NULL,CDoomThing **hit=NULL);
 
 //https://stackoverflow.com/questions/14176776/find-out-if-2-lines-intersect
@@ -354,14 +355,19 @@ CDoomLinedef *MoveInLevel(CDoomLevel *l,CD2 *at,F64 angle,F64 dist,F64 tallness,
 	    for(lds=l->block_map_data+o;*lds;lds++,i++) {
 	      if(wall_idx<64)
 	        walls[wall_idx++]=*lds;
-	      if(lds[0]->flags&WAD_LINEDEFF_WALL&&!(flags&COLLISF_PROJECTILE))
-	        goto fail_walk;
-	      if(lds[0]->flags&WAD_LINEDEFF_WALL_MONSTER&&flags&COLLISF_MONSTER)
-	        goto fail_walk;
 	      vector->data[0]=lds[0]->end->x-lds[0]->start->x;
 	      vector->data[1]=lds[0]->end->y-lds[0]->start->y;
 	      dummy.x=move1.x-lds[0]->start->x;
 	      dummy.y=move1.y-lds[0]->start->y;
+	      if(flags&COLLISF_PUSH_WALL) {
+	        if(IsFrontSideOfVector2D(vector,&dummy)) 
+		  goto pass_wall;
+	        goto fail_walk;
+	      }
+	      if(lds[0]->flags&WAD_LINEDEFF_WALL&&!(flags&COLLISF_PROJECTILE))
+	        goto fail_walk;
+	      if(lds[0]->flags&WAD_LINEDEFF_WALL_MONSTER&&flags&COLLISF_MONSTER)
+	        goto fail_walk;
 	      if(lds[0]->front^^lds[0]->back) {
 	        ceil_height=I16_MAX;
 	        floor_height=I16_MAX;
@@ -397,7 +403,7 @@ fail_walk:
 		  }
 	        }
 	      } else {
-//W1/WR
+pass_wall:
 	        if(lds[0]->special_type) {
 		  if(walked_over_idx<64) {
 		    if(CrosesLine(lds[0],&move1,&move2))  {
@@ -611,6 +617,16 @@ pass:
       --recur_depth;
     }
   }
+
+  if(flags&COLLISF_PUSH_WALL) {
+    for(idx=0;idx!=walked_over_idx;idx++) {
+      if(best=walked_over[idx]) {
+        break;
+      }
+    }
+  }
+
+
   if(!best&&walked_over_hot) {
     min_dist=I16_MAX;
     goto look_for_hot;

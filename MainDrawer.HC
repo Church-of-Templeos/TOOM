@@ -3322,7 +3322,7 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
   Vector *ldv;
   dummy.x=where->x;
   dummy.y=where->y;
-  ld=MoveInLevel(l,&dummy,angle,64,1,1,height,0);
+  ld=MoveInLevel(l,&dummy,angle,64,1,1,height,COLLISF_PUSH_WALL);
   if(ld) {
     if(ld->front^^ld->back) {
       which_texture=1;
@@ -3355,6 +3355,7 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
     for(idx=0;idx!=2;idx++)
       switch(which_texture) {
         case 2:
+
 	  if(ld->special_type&&AltSwitchTexture(sd->upper_texture[0],idx,&is_on)) {
 pass:
 	    if(ld->special_type->type=='Door')

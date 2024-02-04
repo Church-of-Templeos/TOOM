@@ -1390,7 +1390,7 @@ U0 SongTaskDOOM(I64 LEVEL)
 
   Fs->task_end_cb=&SndTaskEndCB;
   MusicSettingsRst;
-  if(LEVEL==0||LEVEL>=3||LEVEL>=4)
+  if(LEVEL==0||LEVEL>=3)
     {
     while (TRUE) {
       music.stacatto_factor = .75;
@@ -1441,7 +1441,7 @@ U0 SongTaskDOOM(I64 LEVEL)
       Play("1AA2C1AA2B1AAtt3DB2G#EDB1G#E3E3DB2G#EDB..");
       Play("1G#2A");
     }
-  } else if(LEVEL==1||LEVEL==2) {
+  } else if(LEVEL==1) {
 
     while(TRUE){ //original song by Jamiroquai
       music.stacatto_factor = .9;
@@ -1502,6 +1502,47 @@ U0 SongTaskDOOM(I64 LEVEL)
       Play("q2F#B3ttF#A#4hD#r..");
       Play("q2F#A#3ttG#4wDw4D#rr");
     }
+  } else if(LEVEL==2) {
+  //original by Mick Gordon
+   while(TRUE)
+   {
+
+    //I64 i,j;
+    SndRst;
+    music.tempo = 1.2;
+    music.staca$IV,0$tto_factor=.9;
+
+    Play("e4C#3C#C#C#tttD...C#");
+    Play("ttt4CD..C#.3C#C#D4D3tttF#G..4C#.");
+    Play("3C#C#C#tttD...C#");
+    Play("ttt4CD..C#.3C#ttC#G#4C#C2ErErEr");
+
+
+    Play("");
+
+
+    Play("tt4E3CG#CD..");
+    Play("4C3CCCDC#");
+    Play("4tttCD..C#.3C#C#D4D3F#G4C#3C#C#C#DC#");
+    Play("4tttCD..C#.3C#C#G#4C#C3CC4C3C4C#3C#C#C#DC#");
+    Play("4tttCD..C#.3C#C#D4D3F#G4C#3C#C#C#DC#");
+    Play("4tttCD..C#.3C#C#G#4C#C3CC4C3CC#C#C#DC#");
+  
+    Play("4eC#etttttDFG#B5qCettttt4BA#qAqG#etttttAA#B5CqC#");
+    Play("5qCettttt4BA#qAG#etttttGqF#w4F");
+
+    Play("etttttD#DC#C3BA#AG#GF#FED#DC#C2BA#AG#GF#FD#DC#C");
+
+    Play("4C#etttttDFG#B5qCettttt4BA#qAqG#etttttAA#B5CqC#Cettttt4BA#qA");
+    Play("4etttttA#B5CC#q5DwC#");
+    Play("etttttD#DC#C3BA#AG#GF#FED#DC#C2BA#AG#GF#FD#DC#C");
+  
+    //Play("4tttCD..C#.3C#C#G#4C#C3CC4C3CC#C#C#DC#"); 
+
+
+   }
+
+
   }
 }
 
@@ -3789,13 +3830,13 @@ ret:
   next_lvl=NextLevel(l->map_name,l->ended_special);
   if(!next_lvl) {
 //EXM9
-    Finale(doom_scrn,l->map_name[1]-'0');
+    Finale(doom_scrn,l->map_name[1]-'0');
     goto fin_level;
   }
   l2=LoadWadLevel(next_lvl,l->skill);  
  if(music_task)
     Kill(music_task,FALSE);
-  music_task=Spawn(&SongTaskDOOM,l->map_name[3]-'1',"Song",0,Fs);
+  music_task=Spawn(&SongTaskDOOM,l2->map_name[3]-'1',"Song",0,Fs);
   FreeLevel(l);
   l=NULL;
   l=l2;

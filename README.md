@@ -152,4 +152,4 @@ U0 Thinker(CDoomLevel *,U8 *self) {
 See [World.HC](World.HC). `action_sector_types` is incorrectly named but easily can be fixed. These are used from the `special_type` feild in `CDoomLinedef`. You activate them via `TriggerLinedef`.
 
 ## The Rest?
-Read the source code. The above was most of the overview. The above was meant to give you an overview,not a comprehensive guide to reading the source code.
+Read the source code. The above was most of the overview. The above was meant to give you an overview,not a comprehensive guide to reading the source code. DOOM is a copyright of Id Software

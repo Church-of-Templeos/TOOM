@@ -2,9 +2,43 @@
 A TempleOS source port of the DOOM engine
 
 ![TITLEPICTOOM](https://github.com/austings/TOOM/blob/4e6dfe75987af22f88d2dd718f2151d9dae820ae/TITLEPICTOOM.png)
+Introducing the Ultimate DOOM Experience on TempleOS: Elevate Your Gaming with a New Perspective
 
+Unlock a thrilling journey into the world of classic gaming with the remake of DOOM designed exclusively for TempleOS. Immerse yourself in a nostalgic yet revitalized adventure, as the iconic DOOM title takes on a new life within the unique environment of TempleOS. This groundbreaking remake seamlessly combines the timeless allure of DOOM with the innovative features of TempleOS, delivering an unparalleled gaming experience for enthusiasts and newcomers alike.
+
+TempleOS Meets DOOM: A Fusion of Tradition and Innovation
+
+TempleOS, renowned for its simplicity and speed, now hosts the legendary DOOM, creating a harmonious blend of tradition and innovation. Rediscover the adrenaline-pumping action, demonic hordes, and adrenaline-fueled battles that made DOOM a gaming legend, now with a fresh twist in the TempleOS universe. Imbued with the spirit of both retro and modern gaming, this remake promises a gaming encounter like never before.
+
+Immersive Gaming on TempleOS: Redefining the DOOM Experience
+
+The union of DOOM and TempleOS introduces a gaming environment that transcends boundaries. Dive into the revamped graphics, enhanced gameplay mechanics, and seamless controls tailored specifically for TempleOS. Whether you are a seasoned DOOM veteran or a newcomer to the franchise, the TempleOS remake guarantees an immersive, intuitive, and visually stunning adventure through the iconic corridors of hell.
+
+Unleashing the Power of New DOOM: A Gaming Revolution
+
+Experience the thrill of a new era in gaming with the TempleOS remake of DOOM. This release signifies more than just a nostalgic journey; it marks a gaming revolution. Engage in the pulse-pounding excitement of DOOM with cutting-edge features, unleashing the potential of TempleOS to redefine how you perceive and interact with this legendary title.
+
+Why Choose DOOM on TempleOS?
+
+    TempleOS Optimization: Tailored to run seamlessly on TempleOS, this DOOM remake ensures a smooth and responsive gaming experience, optimizing the power of the platform.
+
+    Enhanced Graphics: Immerse yourself in the revamped visual spectacle, showcasing the dark and immersive atmosphere of DOOM with enhanced graphics on TempleOS.
+
+    Innovative Controls: Navigate the treacherous terrain of DOOM with precision and ease, thanks to the intuitive controls designed specifically for TempleOS.
+
+    Timeless Nostalgia, Modern Appeal: The TempleOS remake preserves the essence of DOOM's nostalgia while infusing modern elements, creating a gaming experience that appeals to both old-school enthusiasts and contemporary gamers.
+
+Embark on a gaming adventure like never before – download the TempleOS remake of DOOM now and witness the fusion of classic and modern gaming in action. Brace yourself for an unparalleled journey through hell, where tradition meets innovation, and gaming reaches new heights.
 # Install
+
+You will need to compile the game by writing the source code to a disk. One way to achieve this is with a compiler like aiwnios https://github.com/nrootconauto/Aiwnios/
+
+Run the command to compile to a disk
+
+>RedSeaISO("TOOM.ISO.C","T:/TOOM-main"); //or whatever your directory is
+
 Run the following command to copy the game to your C drive. Then play the game with Load.HC
+
 
 >#include "T:/Install.HC";
 >

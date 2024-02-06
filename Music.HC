@@ -140,6 +140,8 @@ U0 PlaySoundTask(U8 *name) {
   CWadDirectory *wad_dir;
   I64 s;
   StrPrint(buf,"DP%s",name);
+  if(!W_GetLumpPtrFromName(buf))
+    return name;
 again:
   CPCSpkSnd *freqs=FramePtr(buf,doom_task);
   if(freqs) {
@@ -154,11 +156,8 @@ again:
     Snd;
     music.mute--;
   } else {
-    wad_dir=wad->body+wad->directory_ptr;
-    if(0>W_CheckNumForName(buf,wad))
-      return;
-    wad_dir+=W_CheckNumForName(buf,wad);
-    FramePtrAdd(buf,wad->body+wad_dir->ptr,doom_task);
+    
+    FramePtrAdd(buf,W_GetLumpPtrFromName(buf),doom_task);
     goto again;
   }
   cur_snd_task=NULL;

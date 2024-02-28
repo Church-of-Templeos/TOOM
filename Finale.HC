@@ -11,7 +11,7 @@
 "you're stuck on The Shores of Hell.\n"\
 "The only way out is through.\n"\
 "\n"\
-"To continue the DOOM experience, play\n"\
+"To continue the TOOM experience, play\n"\
 "The Shores of Hell and its amazing\n"\
 "sequel, Inferno!\n"
 
@@ -32,7 +32,7 @@
 "Hell.\n"\
 "\n" \
 "Now, it's on to the final chapter of\n"\
-"DOOM! -- Inferno."
+"TOOM! -- Inferno."
 
 #define E3TEXT \
 "The loathsome spiderdemon that\n"\
@@ -54,7 +54,7 @@
 "door with you ..."
 
 #define E4TEXT \
-"the spider mastermind must have sent forth\n"\
+"the demon frasier must have sent forth\n"\
 "its legions of hellspawn before your\n"\
 "final confrontation with that terrible\n"\
 "beast from hell.  but you stepped forward\n"\
@@ -63,11 +63,11 @@
 "would in the face of something so evil.\n"\
 "\n"\
 "besides, someone was gonna pay for what\n"\
-"happened to daisy, your pet rabbit.\n"\
+"happened to diana, your girlfriend.\n"\
 "\n"\
 "but now, you see spread before you more\n"\
 "potential pain and gibbitude as a nation\n"\
-"of demons run amok among our cities.\n"\
+"of cia demons run amok among our cities.\n"\
 "\n"\
 "next stop, hell on earth!"
 

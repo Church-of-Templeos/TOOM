@@ -3,6 +3,9 @@ A TempleOS source port of the DOOM engine
 
 ![TITLEPICTOOM](https://github.com/austings/TOOM/blob/4e6dfe75987af22f88d2dd718f2151d9dae820ae/TITLEPICTOOM.png)
 
+Watch the trailer here!
+https://www.youtube.com/watch?v=LugPHQm1EUA
+
 # Introducing the Ultimate DOOM Experience on TempleOS: Elevate Your Gaming with a New Perspective
 
 Unlock a thrilling journey into the world of classic gaming with the remake of DOOM designed exclusively for TempleOS. Immerse yourself in a nostalgic yet revitalized adventure, as the iconic DOOM title takes on a new life within the unique environment of TempleOS. This groundbreaking remake seamlessly combines the timeless allure of DOOM with the innovative features of TempleOS, delivering an unparalleled gaming experience for enthusiasts and newcomers alike.

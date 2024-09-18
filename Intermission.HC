@@ -274,7 +274,9 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
   I64 sc,ch,hit,y;
   CDC *dc;
   U8 *next=NextLevel(lev->map_name);
+#ifdef __AIWNIOS__
   AIWNIOS_SetCaptureMouse(0);
+#endif
 #ifndef DOOM2
   IntermessionLoadData(ep,l);
 #endif

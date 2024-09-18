@@ -2651,7 +2651,7 @@ factivate:
         }
       } else if(type->type=='Door') {
         door=type;
-        switch(door->trigger) {
+        switch(door->trigger) {
 	  case 'P1':
 	    if(!ld->back)
 	      break;
@@ -3848,7 +3848,9 @@ play_again:
         }
       }
     } else {
+#ifdef __AIWNIOS__
       AIWNIOS_SetCaptureMouse(0);
+#endif
       mr=MainMenu;
       if(!mr) {
         Unpause;

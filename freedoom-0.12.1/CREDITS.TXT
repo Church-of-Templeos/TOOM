@@ -1,7 +1,7 @@
 TOOM
-Lead Programming by nrootconauto@gmail.com
+Lead Programming by Clayton Rhodes
 Design by Austin Sierra
-Published by Church of AI Christ
+Published by Church of AI Christ for the promotion of Davisanism
 
 DOOM is a registered trademark of Id Software
 FreeDOOM WAD Credits:

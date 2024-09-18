@@ -9,9 +9,9 @@ U0 I64SetDel(CI64Set *s) {
   Free(s);
 }
 CI64Set *I64SetNew() {
-  CI64Set *s=CAlloc(sizeof(CI64Set),doom_task);
+  CI64Set *s=CAlloc(sizeof(CI64Set));
   s->cap=16;
-  s->body=CAlloc(16*8,doom_task);
+  s->body=CAlloc(16*8);
   return s;
 }
 Bool I64SetHas(CI64Set *s,I64 v) {
@@ -21,18 +21,17 @@ Bool I64SetHas(CI64Set *s,I64 v) {
       return TRUE;
   return FALSE;
 }
-Bool I64SetAdd(CI64Set *s,I64 v) {
-  if(I64SetHas(s,v)) return FALSE;
+U0 I64SetAdd(CI64Set *s,I64 v) {
+  if(I64SetHas(s,v)) return;
   I64 *new;
   if(s->cnt+1>=s->cap) {
-     new=CAlloc(MSize(s->body)+16*8,doom_task);
+     new=CAlloc(MSize(s->body)+16*8);
      s->cap+=16;
      MemCpy(new,s->body,s->cnt*8);
      Free(s->body);
      s->body=new;
   }
   s->body[s->cnt++]=v;
-  return TRUE;
 }
 U0 I64SetRem(CI64Set *s,I64 v) {
   I64 idx,ptr=0,del=0;

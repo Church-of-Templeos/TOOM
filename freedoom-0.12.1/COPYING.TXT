@@ -1,6 +1,6 @@
-Copyright © 2001-2024
+﻿Copyright © 2001-2019
 Contributors to the Freedoom project.  All rights reserved.
-Source code produced by nrootconauto@gmail.com and Austin Sierra
+Source code produced by Clayton Rhodes and Austin Sierra
 This product is a copyrighted project published by the Church of AI Christ
 and is not for commercial purposes.
 

@@ -1,4 +1,3 @@
-#ifndef DOOM_MAIN
 #define DOOM_MAIN "Doom" 
 #exe {Cd(__DIR__);};;
 #ifndef PrintI 
@@ -9,19 +8,45 @@ U0 DbgPrint(U8*,...) {}
 #ifndef MemSetI64
 #define MemSetI64 MemSetU64
 #endif
+#define mp_cnt 1
+#define SKY_PIXEL 0xb0
 Bool in_level=FALSE,screen_melt=FALSE;
 CDC *doom_scrn=DCNew(GR_WIDTH,GR_HEIGHT);
 doom_scrn->flags|=DCF_NO_TRANSPARENTS;
-
+extern U0 PlaySound(U8 *name);
+CTask *doom_task=Fs;
 #include "ScreenMelt.HC"
 #include "Serialize.HC";
 #include "FastTrig.HC";
 #include "Wad.HC";
 #include "Intermission.HC";
-CTask *doom_task=Fs;
 #include "Thinker.HC";
 #include "Music.HC";
+F64 DistFromLine(CD2 *p,CD2 *l1,CD2 *l2) {
+  return Abs((l2->y-l1->y)*p->x-(l2->x-l1->x)*p->y+(l2->x*l1->y)-(l1->x*l2->y)
+    )/ApproxDist(l2->x-l1->x,l2->y-l1->y);
+}
+
 #define MUZZLE_FLASH_LIGHT 50
+
+extern Bool IsNetworkGameServer();
+extern Bool IsNetworkGameClient();
+extern U0 ClientPressAWall(CDoomLevel *l,CDoomThing *p);
+extern U0 ClientPlayerSpawnMissile(CDoomLevel *l,CDoomThing *p,CDoomThing *target,U64 type);
+extern U0 ClientPlayerLineAttack(CDoomLevel *l,CDoomThing *p,CDoomThing *target,F64 rnage,F64 angle,F64 damage,Bool melee=FALSE);
+extern Bool ClientTriggerLinedef(CDoomLevel *l,CDoomLinedef *ld,I64 flags=0,CDoomThing *t);
+extern U0 ClientPlaySound(U8 *name);
+extern U0 ClientUpdate(CDoomLevel *l);
+
+Bool IsPlayer(CDoomThing *p) {
+  if(!p) return FALSE;
+  if(p->template)
+    if(1<=p->template->type<=4)
+      return TRUE;
+  return FALSE;
+}
+
+
 extern U0 ThingDel(CDoomLevel *l,CDoomThing *t);
 extern U0 TeleportThingToPos(CDoomLevel *l,CDoomThing *t,F64,F64,F64);
 extern U0 ST_Message(U8*,U8*); //Frist is CDoomPlayer
@@ -34,7 +59,7 @@ U0 TallBlot(CDC *to,I64 x,I64 y,I64 h,CDC *from) {
   U8 *src,*dst;
   for(i=0;i<h;i++) {
     dst=&to->body[x+(y+i)*to->width_internal];
-    src=&from->body[ToI64(i/ToF64(h)*from->height)*from->width_internal];
+    src=&from->body[ToI64(i/ToF64(h)*(from->height-2))*from->width_internal];
     MemCpy(dst,src,w);
   }
 }
@@ -64,7 +89,7 @@ class CJobRunnerData {
   U0 (*fptr)(U8*);
 };
 I64 doom_scrn_in_draw=0;
-CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
+CDoomSector *GetSectorForCoord(CDoomLevel *level,F64 x,F64 y) {
   CDoomSubsector *ss;
   CDoomBSPNode *node=DoomWhichBSPNode(x,y,level,&ss);
   if(ss) {
@@ -75,6 +100,7 @@ CDoomSector *GetSectorForCoord(CDoomLevel *level,I64 x,I64 y) {
 
 class AmmoType{
   U64 ammo;
+  U64 ammo2; //Used for server stuff
   Bool splash;  
 };
 
@@ -90,10 +116,14 @@ class CDoomPlayer:CDoomThing {
 //These are used for screen palete effects
   F64 hurt_amt,pickup_amt;
   F64 muzzle_flash_end_tS;
+  I64 weapon_bob_x,weapon_bob_y,camera_bob;
+  F64 movement_start_tS;
+  F64 side_movement_start_tS;
 //When you die,the player stares at the thing that killed the player
   CDoomThing *stare_at;
-  GunAvail arsenal[8];
-  Bool running,made_a_sound,has_backpack,pad[5];
+  GunAvail arsenal[9];
+  Bool moving,side_moving;
+  Bool running,made_a_sound,has_backpack,pad[3];
   U8 message[STR_LEN];
 //Private
 #define WEAPON_IDLE 0
@@ -120,56 +150,28 @@ class CVisplane {
   I32 sector_limits[GR_WIDTH/2]; 
 };
 
-I64 class CWallCommand {
-  I16 start,end;
-  I32 dist;
-  CDoomLinedef *ld;
-};
-
-
 class CDoomCamera {
   F64 x,y,h;
   F64 angle,fov;
 //Private
-//These are used for rejecting places to draw
-  I64 wall_command_cnts[GR_WIDTH/2];
-  CWallCommand wall_commands[GR_WIDTH/2][0x80];
   CDC *floor_dc; //This is black or white,this is used for reducing floor overdraw
   I64 visplane_cnt;
+  CI64Set *draw_walls;
   CVisplane visplanes[256];
+  F64 cutoff_dists[GR_WIDTH/2];
+  F64 min_ceils[GR_WIDTH/2];
+  F64 max_floors[GR_WIDTH/2];
+  F64 max_cutoff_per_core[mp_cnt];
+  I64 seg_cnts_per_core[mp_cnt]; //Only draw 128 segs per core
 } cam;
 cam.fov=pi/4;
-
-I64 IsBlockedByWall(CDoomCamera *cam,I64 x,I64 y,I64 dist,CDoomSidedef *self=INVALID_PTR) {
-  I64 i,cnt=cam->wall_command_cnts[x>>1];
-  CWallCommand *cmd=cam->wall_commands[x>>1];
-  for(i=0;i!=cnt;i++,cmd++) {
-    if(cmd->dist<=dist&&cmd->ld!=self) {
-      if(cmd->start<y<cmd->end) {
-	return cmd->end-y;
-      }
-    }
-  }
-  return 0;
-}
-
-I64 IsBlockedByWallReverse(CDoomCamera *cam,I64 x,I64 y,I64 dist,CDoomSidedef *self=INVALID_PTR) {
-  I64 i,cnt=cam->wall_command_cnts[x>>1];
-  CWallCommand *cmd=cam->wall_commands[x>>1];
-  for(i=0;i!=cnt;i++,cmd++) {
-    if(cmd->dist<=dist&&cmd->ld!=self) {
-      if(cmd->start<y<cmd->end) {
-	return y-cmd->start;
-      }
-    }
-  }
-  return 0;
-}
+cam.draw_walls=I64SetNew;
 
 
 U0 InsertVisplane(CDoomCamera *cam,CDoomSector *s) {
   I64 cnt=cam->visplane_cnt;
   CVisplane *vp;
+  if(Gs->num) return;
   if(cnt<255) {
     vp=&cam->visplanes[cnt];
     vp->fminx=GR_WIDTH;
@@ -210,7 +212,7 @@ I64 PointToLinedefSegment(CDoomCamera *cam,CDoomLinedef *def,CD2 *coord) {
   line_s.x=cam->x;
   line_s.y=cam->y;
   PlaneIntersect(&at,&line_s,coord,def->start,def->end);
-  dist=Sqrt(Sqr(at.x-def->start->x)+Sqr(at.y-def->start->y));
+  dist=Sqrt(Sqrt(at.x-def->start->x)+Sqr(at.y-def->start->y));
   return ToI64(dist);
 }
 
@@ -234,7 +236,7 @@ I64 YSort(CD2 *a,CD2 *b) {
 U0 TransformPointToCamera(CDoomCamera *cam,CD2 *p) {
   F64 x,y;
   F64 angle=FArg(x=p->x-cam->x,y=p->y-cam->y)-cam->angle;
-  F64 dist=Sqrt(x*x+y*y);
+  F64 dist=Sqrt(x*x+y*y); //TODO
   p->x=dist*FCos(angle);
   p->y=dist*FSin(angle);
 }
@@ -298,7 +300,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
     angle=FArg(ptr->x,ptr->y);
 
     at.x=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2);
-    at.y=GR_HEIGHT/2+DIST_SCALE/(Sqrt(Sqr(ptr->x)+Sqr(ptr->y))*Cos(angle))*(cam->h-level);
+    at.y=GR_HEIGHT/2+DIST_SCALE/(Sqrt(ptr->x*ptr->x+ptr->y*ptr->y)*Cos(angle))*(cam->h-level);
     ptr->x=at.x;
     ptr->y=at.y;
   }
@@ -360,7 +362,7 @@ CD4 *GetFlatPoints(CDoomCamera *cam,CDoomSector *s,F64 level,I64 *cnt) {
     ret[idx2].start.x=ret[idx2].start.x;
     ret[idx2].end.x=ret[idx2].end.x;
 
-    if(ret[idx2].start.x>ret[idx2].end.x) {
+    if(ret[idx2].start.x>=ret[idx2].end.x) {
       SwapI64(&ret[idx2].start.x,&ret[idx2].end.x);
       SwapI64(&ret[idx2].start.y,&ret[idx2].end.y);
     }
@@ -384,6 +386,7 @@ U0 SectorPlot(CDC *dc,CDC *texture,I64 x,I64 y,F64 level,F64 cos2,F64 sin2,I64 l
   if(y>GR_HEIGHT-2) return;
   U16 *to=&dc->body[x+y*dc->width_internal];
   I32 *db_z=&dc->depth_buf[x+y*dc->width_internal];
+  if(AbsI64(y-GR_HEIGHT/2)<=1) return;
   F64 dist=DIST_SCALE/((ToF64(y)-GR_HEIGHT/2)/(cam.h-level));
   F64 cos=ray_cast_table_cos[x>>1];
   dist/=cos;
@@ -452,12 +455,12 @@ U0 FillPoly(CDC *dc,CDoomCamera *cam,CDoomSector *s,CDC *texture,CD4 *points,I64
   }
 
   minx=minx&~1; //Avoids Templeos bug with &=~1;
+
+  minx=ClampI64(minx,GR_WIDTH/mp_cnt*Gs->num,GR_WIDTH/mp_cnt*(Gs->num+1));
+  maxx=ClampI64(maxx,GR_WIDTH/mp_cnt*Gs->num,GR_WIDTH/mp_cnt*(Gs->num+1));
+
   for(x=minx-2;x<maxx+2;x+=2) {
     idx3=0;
-    if(maxx>GR_WIDTH-2)
-      break;
-    else if(maxx<0)
-      maxx=0;
     for(idx2=0;idx2!=lines->cnt;idx2++) {
       ln=lines->body[idx2];
       if(!(ln.sx<=x<=ln.ex))
@@ -477,20 +480,10 @@ skip:;
       if(floor) {
         dist=DIST_SCALE/((dummyb.y-GR_HEIGHT/2)/(cam->h-level));
         dist/=ray_cast_table_cos[ToI64(x)>>1];
-	if(wall_skip=IsBlockedByWallReverse(cam,x,dummyb.y-2,dist,NULL)) {
-	  if(2+wall_skip>=scrn_points[idx2+1]-scrn_points[idx2])
-	    goto next;
-	  dummyb.y-=2+wall_skip;
-	}
       } else {
 //In ceils,the upper cordante is the nearest(idx2+0)
         dist=DIST_SCALE/((dummya.y-GR_HEIGHT/2)/(cam->h-level));
         dist/=ray_cast_table_cos[ToI64(x)>>1];
-	if(wall_skip=IsBlockedByWall(cam,x,dummya.y+2,dist,NULL)) {
-	  if(2+wall_skip>=scrn_points[idx2+1]-scrn_points[idx2])
-	    goto next;
-	  dummya.y+=2+wall_skip;
-	}  
       }
       dist=DIST_SCALE/(((dummya.y+dummyb.y)/2-GR_HEIGHT/2)/(cam->h-level));
       if(dist>0.) {
@@ -500,9 +493,13 @@ skip:;
         if(GetSectorForCoord(l,wxf,wyf)==s) {
 	  y=MinI64(dummya.y,dummyb.y);
 	  cap=MaxI64(dummya.y,dummyb.y);
-	  y=ClampI64(y-1,0,GR_HEIGHT-2);
-	  cap=ClampI64(cap+2,0,GR_HEIGHT-2);
+	  y=ToI64(y)&~1;
+	  cap=ToI64(cap)&~1;
+	  y=ClampI64(y-4,0,GR_HEIGHT-2);
+	  cap=ClampI64(cap+4,0,GR_HEIGHT-2);
 	  for(;y<cap;y+=2) {
+            if(cam->cutoff_dists[ToI64(x)>>1]<dist)
+              goto next;
 	    SectorPlot(dc,texture,x,y,
 		  level,
 		  cos_table[x],
@@ -517,15 +514,6 @@ next:;
   }
   I64SetDel(lines);
 }
-U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
-  if(!texture) return;
-  if(GetFlatDC("F_SKY1")==texture) return;
-  I64 in_view;
-  CD4 *poodle=GetFlatPoints(cam,sector,at,&in_view);
-  FillPoly(to_dc,cam,sector,texture,poodle,in_view,at,floor);
-  Free(poodle);
-}
-
 
 U0 PopulateTables() {
   I64 inc=0;
@@ -541,7 +529,7 @@ PopulateTables;
 //floor is 1 for middle
 //floor is 2 for ceil
 //floor is 3 if visplane only
-U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd,Bool same_side) {
+Bool RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd,Bool same_side) {
   I64 light=sd->sector->cur_light_level;
   if(ld->front==sd&&ld->back)
     light=MaxI64(light,ld->back->sector->cur_light_level);
@@ -550,6 +538,16 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   light+=LightOffset;
   CD2 clone_st,clone_en,zero,clone_ld_st,clone_ld_en;
   CD2 scrn_st,scrn_en;
+  F64 start_angle=FArg(st->x,st->y);
+  F64 end_angle=FArg(en->x,en->y),tmp,tyf,sy,ey,slope;
+  F64 view_cos,view_sin;
+  CD2 ray,hit,*sw;
+  I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex,dir,skip,sx;
+  CVisplane *vp;
+  I32 *db_z,idist,ex2;
+  U32 dither_px;
+  F64 dist,ratio,dist2;
+  F64 *dists_ptr;
   scrn_st.x=st->x;
   scrn_st.y=st->y;
   scrn_en.x=en->x;
@@ -567,21 +565,13 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
   TransformPointToCamera(cam,&clone_ld_en);
   st=&clone_st;
   en=&clone_en;
-  F64 start_angle=FArg(st->x,st->y);
-  F64 end_angle=FArg(en->x,en->y),tmp,tyf,sy,ey,slope;
-  CD2 ray,hit,*sw;
-  I64 ix,iy,ih=0,tx,ty,ih2,xoff=sd->xoff-texture->x,yoff=sd->yoff-texture->y,ex,dir,skip,sx;
-  CVisplane *vp;
-  I32 *db_z,idist;
-  U32 dither_px;
-  CWallCommand *wall_cmd;
-  F64 dist,ratio;
-  Bool repeat=FALSE,onesided=ld->front^^ld->back;
+  Bool repeat=FALSE,onesided=ld->front^^ld->back,drawn=FALSE;
   Bool is_sky=FALSE,clipped=FALSE,recompute_ty,is_sky2=FALSE;
   Bool god_mode=GodModeFilter;
   I64 low_ih,high_ih;
   CDoomSidedef *opposite;
   U16 *color,*to;
+  I64 cutoff_changed=FALSE;
   CDoomScroller1 *scroll1;
   if(ld->special_type&&ld->special_type->type=='Scroll1'&&sd==ld->front) {
     scroll1=ld->special_type;
@@ -605,44 +595,77 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 //Upper walls arent drawn between 2 sky sectors
     //is_sky will trigger no drawing wall 
   if(opposite&&floor==2&&opposite->sector->ceil_dc[0]==GetFlatDC("F_SKY1")) {
-    return;
+    return TRUE;
   }
+  ClipLineToScrenCoords(cam,&scrn_st,&scrn_en,level,&clipped);
   repeat=TRUE;
 
-  ClipLineToScrenCoords(cam,&scrn_st,&scrn_en,level,&clipped);
-  if(clipped) return;
+
+  if(clipped) return TRUE;
+
+  start_angle=FArg(en->x-st->x,en->y-st->y);
 
   sy=scrn_st.y;
   ey=scrn_en.y;
   sx=scrn_st.x;
   ex=scrn_en.x;
 
-  ix=sx;
+  ex2=ClampI64(ex,GR_WIDTH/mp_cnt*Gs->num,GR_WIDTH/mp_cnt*(1+Gs->num));
+  ix=ClampI64(sx,GR_WIDTH/mp_cnt*Gs->num,GR_WIDTH/mp_cnt*(1+Gs->num));
 //Avoids Templeos bug with &=~1;
   ix=ix&~1;
-  ex=ex&~1;
-  if(ix<ex) {
+  ex2=ex2&~1;
+  
+  if(ix<ex2) {
     dir=2;
   }else {
     dir=-2;
   }
-  for(;ix!=ex;ix+=dir) {
+
+  view_cos=Cos(start_angle);
+  view_sin=Sin(start_angle);
+
+
+  for(;ix!=ex2;ix+=dir) {
     if(ix>GR_WIDTH) {
       break;
     } else if(ix<0) {
       break;
     }
     tyf=(ey-sy)/ToF64(ex-sx)*(ix-sx)+sy;
-    dist=DIST_SCALE/((tyf-GR_HEIGHT/2)/(cam->h-level));
-    dist/=ray_cast_table_cos[ix>>1];
+    if(Abs(tyf-GR_HEIGHT/2)<=2.) {
+      ray.x=I16_MAX*ray_cast_table_cos[ix/2];
+      ray.y=I16_MAX*ray_cast_table_sin[ix/2];
+      PlaneIntersect(&hit,&zero,&ray,st,en);
+      dist=Sqrt(hit.x*hit.x+hit.y*hit.y);
+    } else {
+      dist=DIST_SCALE/((tyf-GR_HEIGHT/2)/(cam->h-level));
+      dist/=ray_cast_table_cos[ix>>1];
+    }
+    hit.x=ray_cast_table_cos[ix/2]*dist;
+    hit.y=ray_cast_table_sin[ix/2]*dist;
+    if(cam->cutoff_dists[ix>>1]+2.5<dist) { //+2.5 for margin
+      goto next;
+    }
     if(dist>0.) {
-      hit.x=dist*ray_cast_table_cos[ix>>1];
-      hit.y=dist*ray_cast_table_sin[ix>>1];
+      drawn=TRUE;
       idist=dist;
       if(dist<=0.) dist=1;
-      tx=ToI64(Sqrt(Sqr(hit.x-clone_ld_st.x)+Sqr(hit.y-clone_ld_st.y)))*2+xoff*2;
+//Use larger value to avoid nigh-zero
+      if(Abs(view_cos)>Abs(view_sin))
+        tx=ToI64((hit.x-clone_ld_st.x)/view_cos)*2+xoff*2;
+      else
+        tx=ToI64((hit.y-clone_ld_st.y)/view_sin)*2+xoff*2;
       iy=DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-(height+level))+GR_HEIGHT/2;
       ih=(DIST_SCALE/(dist*ray_cast_table_cos[ix/2])*(cam->h-level)+GR_HEIGHT/2)-iy;
+      if(texture->flags&DCF_NO_TRANSPARENTS) {
+//Middle walls cut off rendering
+        if(floor==1) { //Solid wall
+//2x2 dithering super pixels
+	  cutoff_changed=TRUE;
+	  cam->cutoff_dists[ix>>1]=dist;
+        }
+      }
       if(ih&1) ih++;
       if(iy&1) ih++,iy--;
 //Avoids Templeos bug with &=~1;
@@ -696,43 +719,23 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
       }
       if(0<=ix<=GR_WIDTH-2) {
         if(is_sky2) {
-	  ih2=ClampI64(ih2+iy,0,GR_HEIGHT-2);
+	  ih2=ClampI64(iy,0,GR_HEIGHT-2);
 	  while(ih2>=0) {
 	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+ih2*to_dc->width_internal];
 	    to=&to_dc->body[GR_WIDTH-2-ix+ih2*to_dc->width_internal];
 	    if(db_z[0]>idist+1) {
 	      db_z[0]=idist+1;
 	      db_z[1]=idist+1;
-	      *to=TRANSPARENT|TRANSPARENT<<8;
+	      *to=SKY_PIXEL|SKY_PIXEL<<8;
 	      db_z+=to_dc->width_internal;
-	      to+=to_dc->width_internal;
+	      to(U8*)+=to_dc->width_internal;
 	      db_z[0]=idist+1;
 	      db_z[1]=idist+1;
-	      *to=TRANSPARENT|TRANSPARENT<<8;
+	      *to=SKY_PIXEL|SKY_PIXEL<<8;
 	    }
 	    ih2-=2;
 	  }
-	  wall_cmd=&cam->wall_commands[ix>>1][cam->wall_command_cnts[ix>>1]++];
-	  wall_cmd->start=0;
-	  wall_cmd->end=ClampI64(ih2+iy,0,GR_HEIGHT);
-	  wall_cmd->ld=ld;
-	  wall_cmd->dist=idist+1;
         }
-
-        if(texture->flags&DCF_NO_TRANSPARENTS) {
-	  wall_cmd=&cam->wall_commands[ix>>1][cam->wall_command_cnts[ix>>1]++];
-	  wall_cmd->ld=ld;
-	  wall_cmd->end=ClampI64(iy+ih2,0,GR_HEIGHT);
-	  wall_cmd->start=ClampI64(iy,0,GR_HEIGHT);;
-	  wall_cmd->dist=idist;
-	  if(floor==0)
-	    wall_cmd->end=GR_HEIGHT; //All the way down(we dont need to drawn benith the floor)
-	  else if(floor==1)
-	    wall_cmd->start=0,wall_cmd->end=GR_HEIGHT;
-	  else if(floor==2)
-	    wall_cmd->start=0; //All the way up(We dont need to draw past the ceiling)
-        }
-
 	  {
 	  tx%=texture->width;
 	  if(tx<0)
@@ -779,26 +782,19 @@ U0 RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 leve
 	      goto skip_p;
 	    }
 	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
-	    if(*db_z<idist) {
-	      if((skip=IsBlockedByWall(cam,ix,iy+ih2,idist,ld))>2) {
-	        tyf+=2*ratio*(skip-2); // *2 for dither super pixel
-	        ih2+=skip-2;
-	        goto skip_p;
-	      }
-            }
-	    ty=tyf;
-	    if(repeat)
-	      ty=ty%texture->height;
-	    if(ty<0) ty=-ty;
-	    ty=ClampI64(ty,0,texture->height-2);
-//Avoids Templeos bug with &=~1;
-	    ty=ty&~1;
-	    color=texture->body[tx+ty*texture->width_internal](U16);
-	    dither_px=LookupLighting(color,light,dist,god_mode);
-	    to=&to_dc->body[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
-	    db_z=&to_dc->depth_buf[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
 	    if(*db_z>idist) {
+	      ty=tyf;
+	      if(repeat)
+	        ty=ty%texture->height;
+	      if(ty<0) ty=-ty;
+	      ty=ClampI64(ty,0,texture->height-2);
+//Avoids Templeos bug with &=~1;
+	      ty=ty&~1;
+	      color=texture->body[tx+ty*texture->width_internal](U16);
+	      dither_px=LookupLighting(color,light,dist,god_mode);
+	      to=&to_dc->body[GR_WIDTH-2-ix+(iy+ih2)*to_dc->width_internal];
 	      if(color&0xff!=TRANSPARENT) {
+	        ld->seen=TRUE;
 	        db_z[0]=idist;
 	        db_z[1]=idist;
 	        db_z+=to_dc->width_internal;
@@ -816,18 +812,38 @@ skip_p:;
     }
 next:;
   }
+  sd->sector->drawn=TRUE;
+  if(cutoff_changed) {
+    ix=0,ex=GR_WIDTH;
+    dist=0;
+    ix=GR_WIDTH/mp_cnt*Gs->num,ex=GR_WIDTH/mp_cnt*(1+Gs->num);
+//+1/-1 for off-by-1 margins
+    for(ix=ix>>1+1;ix<ex>>1-1;ix++) {
+      dist=Max(dist,cam->cutoff_dists[ix]);
+      if(dist>=U16_MAX) break;
+    }
+    cam->max_cutoff_per_core[Gs->num]=dist;
+  }
+
+  return TRUE;
 }
 class CRayJobData:CJobRunnerData {
   CDC *to_dc,*texture;
   CD2 *st,*en;
   CDoomCamera *cam;
   I64 level,height,flrh,ceilh,floor;
+  F64 dist_from_cam;
   CDoomLinedef *ld;
   CDoomSidedef *sd;
   Bool same_side;
 };
-U0 RayCastJob(CRayJobData *data) {
-  RayCastWall(
+I64 DistFromCamSort(CRayJobData *a,CRayJobData *b) {
+  if(a->dist_from_cam>b->dist_from_cam) return 1;
+  if(a->dist_from_cam<b->dist_from_cam) return -1;
+  return 0;
+}
+Bool RayCastJob(CRayJobData *data) {
+  return RayCastWall(
 	data->to_dc,data->texture,data->st,data->en,data->cam,
 	data->level,
 	data->height,
@@ -838,11 +854,10 @@ U0 RayCastJob(CRayJobData *data) {
 	data->sd,
 	data->same_side
 	);
-  Free(data);
 }
-U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd,Bool same_side) {
+Bool QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 level,I64 height,I64 flrh,I64 ceilh,U8 floor,CDoomLinedef *ld,CDoomSidedef *sd,Bool same_side) {
   I64 core=0;
-  CRayJobData *j=CAlloc(sizeof(CRayJobData),adam_task);
+  CRayJobData *j=CAlloc(sizeof(CRayJobData));
   j->fptr=&RayCastJob;
   j->to_dc=to_dc;
   j->texture=texture;
@@ -858,8 +873,9 @@ U0 QueRayCastJob(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 le
   j->sd=sd;
   j->fptr=&RayCastJob;
   j->same_side=same_side;
-  RayCastJob(j);
-
+  Bool ret=RayCastJob(j);
+  Free(j);
+  return ret;
 }
 U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *_p,F64 level,Bool reflect=FALSE,Bool transparent=FALSE,I64 light=255) {
   if(!sprite) return;
@@ -875,7 +891,7 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *_
   ClipLineToScrenCoords(cam,&copy,&copy2,level,,FALSE);
   angle=(ToF64(copy.x)-GR_WIDTH/2)/(GR_WIDTH/2)*(cam->fov/2);
   angle=Clamp(angle,-cam->fov/2,cam->fov/2);
-  dist=Sqrt(1+Sqr(_p->x-cam->x)+Sqr(_p->y-cam->y));
+  dist=1+Sqrt(Sqr(_p->x-cam->x)+Sqr(_p->y-cam->y));
   new_height=DIST_SCALE/(ToF64(1+dist)*FCos(angle))*sprite->height/2;
   new_width=new_height/sprite->height*sprite->width;
   fromx=copy.x-new_width/2;
@@ -883,42 +899,40 @@ U0 PlotSpriteIn3DSpace(CDC *to_dc,F64 height,CDC *sprite,CDoomCamera *cam,CD2 *_
   fromy=copy.y-new_height;
   toy=ClampI64(copy.y,0,GR_HEIGHT-2);
 //&~1 aligns to 2 for dithering super pixels
-//Avoids Templeos bug with &=~1;
+  //Avoids Templeos bug with &=~1;
   fromy=fromy&~1;
   toy=toy&~1;
   fromx=fromx&~1;
   tox=tox&~1;
-  for(y=fromy;y<toy;y+=2) {
-    if(y<0) y=0;
-    if(y>toy) break;
-    for(x=fromx;x<tox;x+=2) {
-      if(x<0) x=0;
-      if(x>tox) break;
-      db_z=&to_dc->depth_buf[GR_WIDTH-2-x+y*to_dc->width_internal];
-      if(*db_z>dist) {
-        if(!reflect)
-	  ix=Lerp((x-fromx)/new_width,0,sprite->width-2);
-        else
-	  ix=Lerp((x-fromx)/new_width,sprite->width-2,0);
-        iy=Lerp((y-fromy)/new_height,0,sprite->height-2);
-        from=&sprite->body[(ix&~1)+(iy&~1)*sprite->width_internal];
-        if(transparent) {
-	  if(RandU16<ToI64(0x10000*.75)) {
-	    if(*from!=trans_pixel)
-	      from=&black;
-	    else
+  for(x=MaxI64(fromx,0);x<tox;x+=2) {
+    if(cam->cutoff_dists[x>>1]>dist) {
+      for(y=MaxI64(fromy,0);y<toy;y+=2) {
+        db_z=&to_dc->depth_buf[GR_WIDTH-2-x+y*to_dc->width_internal];
+        if(*db_z>dist) {
+	  if(!reflect)
+	    ix=Lerp((x-fromx)/new_width,0,sprite->width-2);
+	  else
+	    ix=Lerp((x-fromx)/new_width,sprite->width-2,0);
+	  iy=Lerp((y-fromy)/new_height,0,sprite->height-2);
+	  from=&sprite->body[(ix&~1)+(iy&~1)*sprite->width_internal];
+	  if(transparent) {
+	    if(RandU16<ToI64(0x10000*.75)) {
+	      if(*from!=trans_pixel)
+	        from=&black;
+	      else
+	        from=&trans_pixel;
+	    } else
 	      from=&trans_pixel;
-	  } else
-	    from=&trans_pixel;
+	  }
+	  dst=&to_dc->body[GR_WIDTH-2-x+y*to_dc->width_internal];
+	  dither_px=LookupLighting(*from,light,dist,god_mode);
+	  if(from->u8[0]!=TRANSPARENT)
+	    *dst=dither_px&0xffff,*db_z=dist,db_z[1]=dist;
+	  dst(U8*)+=to_dc->width_internal;
+	  db_z+=to_dc->width_internal;
+	  if(from->u8[0]!=TRANSPARENT)
+	    *dst=dither_px>>16,*db_z=dist,db_z[1]=dist;
         }
-        dst=&to_dc->body[GR_WIDTH-2-x+y*to_dc->width_internal];
-	dither_px=LookupLighting(*from,light,dist,god_mode);
-        if(from->u8[0]!=TRANSPARENT)
-	  *dst=dither_px&0xffff,*db_z=dist,db_z[1]=dist;
-        dst(U8*)+=to_dc->width_internal;
-        db_z+=to_dc->width_internal;
-        if(from->u8[0]!=TRANSPARENT)
-	  *dst=dither_px>>16,*db_z=dist,db_z[1]=dist;
       }
 nextx:;
     }
@@ -927,12 +941,14 @@ nextx:;
 
 
 U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
-  if(!thing->template) return; //???
-  if(thing->template==doom_thing_types[1]) return; //Dont render player
+  if(!thing->template) return;
+  if(thing==p) {return;} //Dont render player
   if(!thing->animation) thing->animation=thing->template->_animation;
-  if(!thing->animation) return; //???
+  if(!thing->animation)  {
+     return; //???
+  }
   I64 anim_frame=(Server_tS-thing->anim_start_tS)*4,frame_cnt,face;
-  if(anim_frame<0) anim_frame=0;
+  if(anim_frame<0)  anim_frame=0;
   F64 angle,gap,diff;
   CDoomSector *sec;
   CDC *sprite;
@@ -941,7 +957,8 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   frame_cnt=0;
   while(thing->animation[frame_cnt].chr)
     frame_cnt++;
-  if(!frame_cnt) return;
+  if(!frame_cnt)
+    return;
   if(thing->anim_no_repeat)
     anim_frame=MinI64(frame_cnt-1,anim_frame);
   else
@@ -951,14 +968,16 @@ U0 DrawAThing(CDC *to_dc,CDoomThing *thing,CDoomCamera *cam) {
   angle+=pi;
   face=1;   
   for(gap=0.;gap<2*pi;gap+=2.*pi/8.) {
-    diff=(angle-gap+3*pi)%(2*pi)-pi;
+    diff=(angle-gap)%(2*pi);
+    if(diff<0) diff+=2*pi;
+    diff=(diff+3*pi)%(2*pi)-pi;
 //https://stackoverflow.com/questions/12234574/calculating-if-an-angle-is-between-two-angles
     if(-2*pi/8./2<=diff<=2*pi/8./2)
       break;
     face++;
   }
   if(face>8)
-    face=8;
+    face=1;
   reflect=thing->animation[anim_frame].reflect[face-1];
   sprite=thing->animation[anim_frame].faces[face-1];
   sec=GetSectorForCoord(l,thing->x,thing->y);
@@ -1014,20 +1033,22 @@ CDC *GetLowerTexture(CDoomSidedef *s) {
   I64 t=ToI64(Server_tS*4)%FrameCnt(s->lower_texture);
   return s->lower_texture[t];
 }
-U0 DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
+Bool DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
+  if(cam->seg_cnts_per_core[Gs->num]>=0x100) return FALSE;
   CD2 start_floor,start_ceil;
   CD2 end_floor,end_ceil;
   I64 seg_idx,wall,fail_cnt;
   CDC *texture;
   F64 h,h2;
-  Bool no_draw;
+  Bool no_draw,keep_draw=FALSE;
   CDoomBSPSeg *seg;
   CDoomSidedef *sidedef,*opposite;
   CDoomSector *sector,*sector2;
   Vector *wall_vect=CreateVector(2);
-  CD2 cam_cord;
+  CD2 cam_cord,to;
   I64 miss_cnt=0;
   I64 aframe=Server_tS*4;
+  I64 drawn=0;
   F64 floor,ceil,highest_ceil;
   for(seg_idx=0;seg_idx!=ss->cnt;seg_idx++) {
     seg=&ss->first[seg_idx];
@@ -1072,27 +1093,22 @@ draw_wall:
 	    fail_cnt++;
 	  h=Abs(start_floor.y-start_ceil.y);
 	  h2=Abs(end_ceil.y-end_floor.y);
-	  if(ToI64(h)&&ToI64(h2)) {
-	    if(fail_cnt!=2) {
-	      if(!sector->drawn) {
-	        sector->drawn=TRUE;
-	        InsertVisplane(cam,sector);
-	      }
-	      if(opposite&&opposite->sector&&!opposite->sector->drawn) {
-	        opposite->sector->drawn=TRUE;
-	        InsertVisplane(cam,opposite->sector);
-	      }
+	  if(1) {
+	     if(fail_cnt!=2) {
 	      if(!no_draw) {
+		InsertVisplane(cam,sector);
+		if(wall==3) drawn++;
 	        if(seg->back_side)
-		  QueRayCastJob(to_dc,texture,seg->end,seg->start,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,TRUE);
+		  keep_draw|=QueRayCastJob(to_dc,texture,seg->end,seg->start,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,TRUE);
 	        else
-		  QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,FALSE);
+		  keep_draw|=QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,FALSE);
 	        if(wall==3&&opposite&&opposite->sector) {
 		  sector=opposite->sector;
 		  sidedef=opposite;
 		  floor=sector->floor_height;
 		  ceil=sector->ceil_height;
-		  QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,opposite,FALSE);
+		  InsertVisplane(cam,opposite->sector);
+		  keep_draw|=QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,opposite,FALSE);
 	        }
 	      }
 	    }
@@ -1107,8 +1123,8 @@ draw_wall:
         ceil=Max(sector->ceil_height,CeilDepress(seg->linedef,sector));
         goto draw_wall;
       } else if(wall==1&&(texture=GetMiddleTexture(sidedef))) {
-        floor=sector->floor_height;
-        ceil=sector->ceil_height;
+        floor=Max(sector->floor_height,FloorRaise(seg->linedef,sector));
+        ceil=Min(sector->ceil_height,CeilDepress(seg->linedef,sector));
         goto draw_wall;
       } else if(wall==3) { //This is for generating visplanes
         texture=gr.dc; //Dummy texture
@@ -1120,23 +1136,24 @@ draw_wall:
 skip:;
   }
   DestroyVector(wall_vect);
+  cam->seg_cnts_per_core[Gs->num]+=drawn;
+  return keep_draw||!drawn;
 }
 Bool FrontSide(Vector *v,CD2 *p) {
   return v->data[0]*p->y-v->data[1]*p->x>=0.;
 }
-
 
 //box will either inteserect viewport,or point will be inside of it
 Bool HitsBBox(CDoomCamera *cam,CBoundBoxF64 *bbox) {
   F64 x=cam->x,y=cam->y,angle,base;
   Vector *v,*v2;
   Bool ret=FALSE;
-  CD2 a,b,c,d,zero,ra,rb;
+  CD2 a,b,c,d,zero,ra,rb,*p1,*p2,dummya,dummyb;
+  F64 closest,xd,yd,py,py2;
+  I64 iter,dir,sx,ex,ix;
   zero.x=0,zero.y=0;
-  if(InRange(bbox->x,x,bbox->x2))
-    if(InRange(bbox->y,y,bbox->y2)) {
-      return TRUE;
-    }
+  if(InRange(bbox->x,x,bbox->x2)&&InRange(bbox->y,y,bbox->y2))
+    return TRUE;
   ra.x=I16_MAX*Cos(cam->angle-cam->fov/2.);
   ra.y=I16_MAX*Sin(cam->angle-cam->fov/2.);
   rb.x=I16_MAX*Cos(cam->angle+cam->fov/2.);
@@ -1150,7 +1167,6 @@ Bool HitsBBox(CDoomCamera *cam,CBoundBoxF64 *bbox) {
   c.y=bbox->y2-y;
   d.x=bbox->x-x;
   d.y=bbox->y2-y;
-
   v=CreateVector(2);
   v2=CreateVector(2);
   v2->data[0]=rb.x;
@@ -1165,15 +1181,15 @@ Bool HitsBBox(CDoomCamera *cam,CBoundBoxF64 *bbox) {
     ret=TRUE;
   } else if(!FrontSide(v2,&d)&&FrontSide(v,&d)) {
     ret=TRUE;
-  } else if(PlaneIntersect(NULL,&a,&b,&zero,&ra)||
-	PlaneIntersect(NULL,&b,&c,&zero,&ra)||
-	PlaneIntersect(NULL,&c,&d,&zero,&ra)||
-	PlaneIntersect(NULL,&d,&a,&zero,&ra)) {
+  } else  if(PlaneIntersect(NULL,&a,&b,&zero,&ra)||
+        PlaneIntersect(NULL,&b,&c,&zero,&ra)||
+        PlaneIntersect(NULL,&c,&d,&zero,&ra)||
+        PlaneIntersect(NULL,&d,&a,&zero,&ra)) {
     ret=TRUE;
   } else if(PlaneIntersect(NULL,&a,&b,&zero,&rb)||
-	PlaneIntersect(NULL,&b,&c,&zero,&rb)||
-	PlaneIntersect(NULL,&c,&d,&zero,&rb)||
-	PlaneIntersect(NULL,&d,&a,&zero,&rb)) {
+        PlaneIntersect(NULL,&b,&c,&zero,&rb)||
+        PlaneIntersect(NULL,&c,&d,&zero,&rb)||
+        PlaneIntersect(NULL,&d,&a,&zero,&rb)) {
     ret=TRUE;
   }
   DestroyVector(v);
@@ -1181,89 +1197,34 @@ Bool HitsBBox(CDoomCamera *cam,CBoundBoxF64 *bbox) {
   return ret;
 }
 
-//https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-F64 DistFromLine(CD2 *p,CD2 *l1,CD2 *l2) {
-  return Abs((l2->x-l1->x)*(l1->y-p->y)-(l2->y-l1->y)*(l1->x-p->x))/Sqrt(Sqr(l1->x-l2->x)+Sqr(l1->y-l2->y));
-}
-
-U0 WallCmdSort(CWallCommand *a,CWallCommand *b) {  
-  if(a->start==b->start) {
-    return a->end-b->end;
-  }
-  return a->start-b->start;
-}
-Bool WallCmdIsCovered(CWallCommand *others,CWallCommand *wall,I64 cnt) {
-  I64 idx;
-  Bool visible=FALSE;
-  I64 y=ClampI64(wall->start,0,GR_HEIGHT/2),ey=ClampI64(wall->end,0,GR_HEIGHT/2);
-  I64 a,b;
-  CWallCommand *other;
-  for(idx=0;idx!=cnt;idx++) {
-    other=&others[idx];
-    if(other!=wall&&other->dist<wall->dist&&other->ld!=wall->ld) {
-      a=ClampI64(other->start,0,GR_HEIGHT/2);
-      b=ClampI64(other->end,0,GR_HEIGHT/2);
-      if(a<=y<=b&&a<=ey<=b)
-       return TRUE;
-    }
-  }
-  return FALSE;
-}
-U0 MergeWallCommands(CDoomCamera *cam) {
-  I64 i=0,i2,cnt,new_cnt;
-  CWallCommand *cmds;
-  for(i=0;i!=GR_WIDTH/2;i++) {
-    cmds=&cam->wall_commands[i];
-    QSort(cmds,cnt=cam->wall_command_cnts[i],sizeof(CWallCommand),&WallCmdSort);
-    new_cnt=0;
-    for(i2=0;i2!=cnt;i2++) {
-      if(WallCmdIsCovered(cmds,&cmds[i2],cnt)) {
-        ; //Exclude from result
-      } else {
-        if(new_cnt!=i2)
-	  MemCpy(&cmds[new_cnt],&cmds[i2],sizeof CWallCommand);
-        new_cnt++;
-      }
-    }
-    cam->wall_command_cnts[i]=new_cnt;
-  }
-}
-
-
-U0 DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
+//Returns TRUEon keep rendering
+Bool DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
+//Assumes we drew all the closest things as we cant draw anymore
+  if(cam->max_cutoff_per_core[Gs->num]<U16_MAX) return FALSE;
+  if(cam->seg_cnts_per_core[Gs->num]>=0x100) return FALSE;
   if(node->signature!='NODE') {
     DrawSubsector(to_dc,cam,node);
-    return;
+    return TRUE;
   }
-  if(node->visited) return;
-  node->visited=TRUE;
-  F64 left_dist,right_dist;
+  if(Bt(&node->visited,Gs->num)) return TRUE;
+  LBts(&node->visited,Gs->num);
   CD2 other;
 //Pick the closer node
-  node->left_child->x;
-  other.x=node->left_child->x+node->left_child->dx;
-  other.y=node->left_child->y+node->left_child->dy;
-  left_dist=DistFromLine(&cam->x,&node->left_child->x,&other);
-  other.x=node->right_child->x+node->right_child->dx;
-  other.y=node->right_child->y+node->right_child->dy;
-  right_dist=DistFromLine(&cam->x,&node->right_child->x,&other);
-  if(left_dist<right_dist) {
-    if(HitsBBox(cam,&node->left))
-      DrawBSP0(to_dc,cam,node->left_child);
-    if(HitsBBox(cam,&node->right))
-      DrawBSP0(to_dc,cam,node->right_child);
+  if(node->dx*(cam->y-node->y)-node->dy*(cam->x-node->x)<0.) {
+    if(HitsBBox(cam,&node->left)) DrawBSP0(to_dc,cam,node->left_child);
+    if(HitsBBox(cam,&node->right)) DrawBSP0(to_dc,cam,node->right_child);
   } else {
-    if(HitsBBox(cam,&node->right))
-      DrawBSP0(to_dc,cam,node->right_child);
-    if(HitsBBox(cam,&node->left))
-      DrawBSP0(to_dc,cam,node->left_child);
+    if(HitsBBox(cam,&node->right)) DrawBSP0(to_dc,cam,node->right_child);
+    if(HitsBBox(cam,&node->left)) DrawBSP0(to_dc,cam,node->left_child);
   }
-  if(node->parent) DrawBSP0(to_dc,cam,node->parent);
-  node->visited=FALSE;
+  if(node->parent)
+    DrawBSP0(to_dc,cam,node->parent);
+  LBtr(&node->visited,Gs->num);
+  return TRUE;
 }
 
 U0 DrawBSP(CDC *to_dc,CDoomCamera *cam,CDoomLevel *level) {
-  DrawBSP0(to_dc,cam,DoomWhichBSPNode(cam->x,cam->y,level));
+  DrawBSP0(to_dc,cam,level->root_node); //DoomWhichBSPNode(cam->x,cam->y,level)
 }
 
 I64 FloorSort(CVisplane *va,CVisplane *vb)  {
@@ -1285,8 +1246,19 @@ I64 CeilSort(CVisplane *va,CVisplane *vb)  {
 }
 
 
-U0 DrawSky(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
+U0 DrawSkyAndFillHoles(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
   CDC *texture;
+  I64 nm;
+  U16 fill_color;
+#ifdef DOOM2
+  StrScan(l->map_name,"MAP%d",&nm);
+  if(nm<12)
+     texture=GetGrLump("RSKY1");
+  else if(nm<21)
+     texture=GetGrLump("RSKY2");
+  else
+     texture=GetGrLump("RSKY3");
+#else
   switch(l->episode) {
    case 1:
      texture=GetGrLump("SKY1");
@@ -1301,16 +1273,25 @@ U0 DrawSky(CDC *to_dc,CDoomLevel *l,CDoomCamera *cam) {
      texture=GetGrLump("SKY4");
    break;
   }
+#endif
   I64 iy,ix,off=texture->width*cam->angle/pi,tx,ty;
   U16 *to,*from;
   for(iy=0;iy!=GR_HEIGHT;iy+=2) {
+    fill_color=BLACK|BLACK<<8;
     ty=iy/ToF64(GR_HEIGHT)*texture->height;
     if(ty>texture->height-2)
       ty=texture->height-2;
     for(ix=0;ix!=GR_WIDTH;ix+=2) {
       to=&to_dc->body[GR_WIDTH-2-ix+iy*to_dc->width_internal];
-      if(*to&TRANSPARENT!=TRANSPARENT)
+      if(*to&0xff!=SKY_PIXEL) {
+	if(iy&&*to&0xff==TRANSPARENT) {
+	  fill_color=(to(U8*)-to_dc->width_internal)[0](U16);
+	  *to=fill_color;
+          to(U8*)+=to_dc->width_internal;
+	  *to=fill_color;
+	}
         goto skip;
+      }
       tx=(ix+off)/ToF64(GR_WIDTH)*texture->width;
 //Avoids Templeos bug with &=~1;
       tx=tx&~1;
@@ -1326,13 +1307,62 @@ skip:;
   }
 }
 
+U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
+  if(!texture) return;
+  if(GetFlatDC("F_SKY1")==texture) return;
+  I64 in_view;
+  CD4 *poodle=GetFlatPoints(cam,sector,at,&in_view);
+  FillPoly(to_dc,cam,sector,texture,poodle,in_view,at,floor);
+  Free(poodle);
+}
+class CMPDrawJob {
+  CDoomCamera *cam;
+  CDoomLevel *level;
+  CDC *to_dc;
+};
+I64 mp_done=0;
+U0 MPDrawJob(CMPDrawJob *j) {
+  DrawBSP(j->to_dc,j->cam,j->level);
+  LBts(&mp_done,Gs->num);
+}
+U0 MPDrawFlatsJob(CMPDrawJob *md) {
+  CDoomLevel *level=md->level;
+  CDoomSector *sector;
+  CDoomCamera *cam=md->cam;
+  I64 af=Server_tS*4;
+  for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next) {
+    if(sector->drawn) {
+      if(sector->floor_dc)
+        if(sector->floor_height<cam->h&&sector->ceil_height!=sector->floor_height)
+	  DrawTexturedFlat(l,md->to_dc,cam,sector,sector->floor_height,sector->floor_dc[af%FrameCnt(sector->floor_dc)],TRUE);
+      if(sector->ceil_dc)
+        if(sector->ceil_height>cam->h&&sector->ceil_height!=sector->floor_height)
+	  DrawTexturedFlat(l,md->to_dc,cam,sector,sector->ceil_height,sector->ceil_dc[af%FrameCnt(sector->ceil_dc)],FALSE);
+    }
+  }
+  LBts(&mp_done,Gs->num);
+}
+extern U0 WorldLock();
+extern U0 WorldUnlock();
 U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
+  WorldLock;
   CDoomSector *sector;  
   CDoomThing *thing;
   CVisplane *sorted[256];
+  CMPDrawJob mpj;
   I64 idx=0,idx2,af,tf;
   LBts(&doom_scrn_in_draw,0);
   cam->visplane_cnt=0;
+  idx=GR_WIDTH/2;
+//F64
+  while(--idx>=0) {
+    cam->cutoff_dists[idx]=I32_MAX;
+    cam->min_ceils[idx]=I32_MAX;
+    cam->max_floors[idx]=I32_MIN;
+  }
+  MemSetI64(cam->seg_cnts_per_core,0,mp_cnt);
+  idx=mp_cnt;
+  while(--idx>=0) cam->max_cutoff_per_core[idx]=I32_MAX;
   if(!cam->floor_dc) {
     cam->floor_dc=DCNew(GR_WIDTH/2,GR_HEIGHT/2);
     DCDepthBufAlloc(cam->floor_dc);
@@ -1342,47 +1372,63 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   DCFill(cam->floor_dc,BLACK);
   for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next)
     sector->drawn=FALSE;
-  MemSetI64(cam->wall_command_cnts,0,GR_WIDTH/2);
   if(!to_dc->depth_buf)
     DCDepthBufAlloc(to_dc);
   else
     DCDepthBufRst(to_dc);
-  DrawBSP(to_dc,cam,level);
 
-  MergeWallCommands(cam);
+  mpj.to_dc=to_dc;
+  mpj.level=level;
+  mpj.cam=cam;
+  mp_done=0;
+
+
+  mpj.to_dc=to_dc;
+  mpj.level=level;
+  mpj.cam=cam;
+  mp_done=0;
+//This ques the Cast Jobs
+  for(idx=mp_cnt-1;idx>=1;idx--) {
+    JobQue(&MPDrawJob,&mpj,idx);
+  }
+  DrawBSP(to_dc,cam,level);
+  for(idx=1;idx<mp_cnt;idx++) {
+    while(!Bt(&mp_done,idx))
+#ifdef __AIWNIOS__
+      __Sleep(3);
+#else
+     PAUSE;
+#endif
+  }
+  cam->draw_walls->cnt=0;
 
   af=Server_tS*4;
   for(idx2=0;idx2!=cam->visplane_cnt;idx2++) {
     sorted[idx2]=&cam->visplanes[idx2];
   }
   QSortI64(sorted,cam->visplane_cnt,&FloorSort);
-  for(idx2=0;idx2!=cam->visplane_cnt;idx2++) {
-    sector=sorted[idx2]->sector;
-    if(sector->floor_dc)
-      if(sector->floor_height<cam->h&&sector->ceil_height!=sector->floor_height)
-        DrawTexturedFlat(l,to_dc,cam,sector,sector->floor_height,sector->floor_dc[af%FrameCnt(sector->floor_dc)],TRUE);
+  mp_done=0;
+  for(idx=mp_cnt-1;idx>=1;idx--) {
+    JobQue(&MPDrawFlatsJob,&mpj,idx);
   }
-  QSortI64(sorted,cam->visplane_cnt,&CeilSort);
-  for(idx2=0;idx2!=cam->visplane_cnt;idx2++) {
-    sector=sorted[idx2]->sector;
-    if(sector->ceil_dc) {
-      if(sector->ceil_height>cam->h&&sector->ceil_height!=sector->floor_height)
-        DrawTexturedFlat(l,to_dc,cam,sector,sector->ceil_height,sector->ceil_dc[af%FrameCnt(sector->ceil_dc)],FALSE);
-    }
+  MPDrawFlatsJob(&mpj);
+  for(idx=1;idx<mp_cnt;idx++) {
+    while(!Bt(&mp_done,idx))
+#ifdef __AIWNIOS__
+      __Sleep(3);
+#else
+     PAUSE;
+#endif
   }
+
   for(thing=level->things.next;thing!=&level->things;thing=thing->next) {
     sector=GetSectorForCoord(level,thing->x,thing->y);
     if(sector->drawn)
       DrawAThing(to_dc,thing,cam);
   }
-  DrawSky(to_dc,l,cam);
-  for(idx=0;idx!=GR_WIDTH/2;idx++) {
-    for(idx2=0;idx2!=cam->wall_command_cnts[idx];idx2++) {
-//Earlier we trimmed out the hidden wall commands that are behind walls
-	cam->wall_commands[idx][idx2].ld->seen=TRUE;
-    }
-  }
+  DrawSkyAndFillHoles(to_dc,l,cam);
   LBtr(&doom_scrn_in_draw,0);
+  WorldUnlock;
 }
 
 U0 SongTaskDOOM(I64 LEVEL)
@@ -1390,160 +1436,6 @@ U0 SongTaskDOOM(I64 LEVEL)
 
   Fs->task_end_cb=&SndTaskEndCB;
   MusicSettingsRst;
-  if(LEVEL==0||LEVEL>=3)
-    {
-    while (TRUE) {
-      music.stacatto_factor = .75;
-      music.tempo = 8;
-      I64 i =3;
-      while(i!=0)
-        {
-        Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
-        Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#");   
-        i--;
-      }
-      Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
-      Play("1AA2A1AA2G1AAtt3BA2F#3BDCB2F#3BCDEDCB2F#..");
-
-      Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
-      Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#");   
-      Play("1AA2A1AA2G1AA2F1AA2D#1A2EF");
-      Play("1AA2A1AA2G1AAtt3ECACECEAECECEA..");
-
-      Play("1DD2D1DD2C1DDA#1DDG#DDAA#");
-      Play("1DD2D1DD2C1DDA#1DDG#G#G#G#");
-      Play("1DD2D1DD2C1DDA#1DDG#DDAA#");
-      Play("1DD2D1DD2C1DDtt4AGFAFDFADAFAFAFAFD.."); 
-
-      Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
-      Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#D#");    
-      Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
-      Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#D#");
-
-      Play("1F#F#2F#1F#F#2E1F#F#2D1F#F#2C1F#F#2C#D");
-      Play("1EE2E1EE2D1EE2C1D#D1A#A#A#A#");
-
-      Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
-      Play("1AA2A1AA2G1AA2tt3AC2EC3A2E3CACA2EC3ACEA..");
-
-      Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
-      Play("1AA2A1AA2G1AA2F1AA2D#D#D#D#D#");    
-      Play("1AA2A1AA2G1AA2F1AA2D#1AA2EF");
-
-      Play("1AA2A1AA2G1AAtt2G#FEB3B2G#ED3DB2G#E3EDB2G#..");
-      Play("1AA2C1AA2B1AAG#AAGAAG2A");
-      Play("1AA2C1AA2B1AAEAAF#F#F#F#");
-
-      Play("1F#F#3C1F#F#3B1F#F#3A1F#F#2F#1F#F#2F#A");
-      Play("1EE3B1EE3A1EE2G#1D#D2EEEE");
-
-      Play("1AA2C1AA2B1AAG#AAGAAG2A");
-      Play("1AA2C1AA2B1AAtt3DB2G#EDB1G#E3E3DB2G#EDB..");
-      Play("1G#2A");
-    }
-  } else if(LEVEL==1) {
-
-    while(TRUE){ //original song by Jamiroquai
-      music.stacatto_factor = .9;
-      music.tempo = 6;
-      Play("q2A#D#3ttF#A#4hD#r..");
-      Play("q2A#G#3ttF#4ChD#r..");
-      Play("q2D#C#ttB4FhG#r..");
-      Play("q2G#F#3ttA#4C#hFr..");
-      Play("q3C#CttF#A#4hD#r..");
-      Play("q2F#B3ttF#A#4hD#r..");
-      Play("q2F#A#3ttG#4wDtq5F#G#A#hA#..");
-      Play("q2D#A#5G#2ttC#F#..5F#");
-      Play("5C#D#2G#5D#3ttD#F#4C..5hF#");
-      Play("5qD#tt2C#..5G#tt2G#..5G#tt2B3F5F#..C#D#2F#5D#tt2C#5hD#q2FhA#q");
-      Play("2C5C#D#tt2F#A#3D#..5hF#q");
-      Play("2B5C#D#tt3F#A#3D#..5hF#q");
-      Play("5F#2A#3F5F3G#4D5D#FF#2D#5D#");
-      Play("2A#C#F#5D#D#hAq2D#5G#2ttA#3C#F#..5F#G#G#2hG#q5ttD#2D#F#3C..5hF#hG#q");
-      Play("2C#ttG#B3F..5C#D#F#2F#5D#tt3C#FA#5hF#q..");
-      Play("tt3C5C#D#tt3F#A#4D#..5hF#q");
-      Play("2B5C#D#tt3F#A#D#..5hF#q");
-      Play("5hF#q2A#5F3ttFG#D..5D#FF#2D#5hD#q");
-      Play("ttt2D#A#3C#F#2hF#...5qC#tt2D#..5D#F#D#tt2A#3C#F#..5D#C#4A#A#hG#q2ttG#D#F#C#..");
-      Play("5C#D#F#D#tt2C#G#B3F..5C#4A#A#hG#F#qA#tt2F#3C#FA#..");
-      Play("5C#D#F#D#tt3CF#A#4D#..5C#4A#A#hG#qtt2B3F#A#4D#..A#5C#hD#q");
-      Play("tt2A#3FG#B..5BhA#q2ttD#A#3C#F#..5G#F#G#F#hAqtt2D#G#A#3C#F#..5G#F#F#");
-      Play("tt2C#G#B3F..5D#D#F#F#G#2ttF#3C#FA#..5D#F#D#F#D#tt3CF#A#D#..5F#D#F#D#3ttCF#A#3D#..5F#D#F#D#");
-      Play("tt2B3F#A#4D#..5F#G#hG#qF#tt2A#3FG#D..5F#D#tt3FG#4D..");
-      Play("tt2B4B5F#.B5hD#qtt3F#A#4D#3F#A#4D#2A#4A#5F4A#5hDqtt3FG#4D3FG#4D..");
-      Play("tt2D#4A#5D#2A#3C#F#4A#5D#4A#5D#2A#3C#F#4A#5F4B5F#F2G#3D#F#B4B5D#2A#3FG#4DA#5Fr..");
-      Play("tt2B4B5G#4B5hD#qtt3F#A#4D#3F#A#4D#A#..4A#5F4A#5hDqtt3FG#4D3FG#4D..");
-      Play("tt2D#A#C#F#4A#5F#4A#5F4A#5D#4A#5F2A#C#F#4B5F#2G#3D#F#B4B5F4B5F2A#3FG#4DB5D#2B");
-      Play("4B5F#4B5hD#qttt3F#A4#D3#F#A4#D#3A#4A#5F4hA#5hDqtt3FG#4D3FG#4D2D#A#3C#F#4A#5D#4A#5D#4A#5D#2A#3C#F#4A#5F4B5F#2G#3D#F#B4F#5D#4F#5D#2A#3FG#4D");
-      Play("G#5C#2B4F#5D#4A#G#A#3F#A#4D#3F#A#4D#2A#3FG#4D5hC#4qA#t");
-      Play("3FG#4DG#F#G#A#2D#A#3C#F#2A#3C#tF#5C#D#hF#.q");
-      Play("tt2G#3D#F#B2A#3FG#4D5hD#qtD#AG#t2D#A#3C#F#..5hG#q");
-      Play("5D#F#D#F#tt2C#G#B3F..5F#F#F#F#tt2F#C#FA#..5F#D#");
-      Play("tt3CF#A#4D#..5C#D#F#rtt2B3F#A#4D#..5C#D#F#D#F#rtt2A#3FG4D..5D#D#Ftt2D#A#3C#F#..");
-      Play("5D#hAqtt2G#3D#F#4C3D#F#4C..5#G#G#hF#hG#qtt2C#G#tB3F2B3F...5hF#qtt2G#B3F2F#..5hG#qttF#2F#3C#FA#..5D#F#D#tt3CF#A#4D#..");
-      Play("tt2B3F#A#4D#..5C#D#F#tt2A#3FG#4D..5C#D#F#D#F#D#");
-      Play("tt2D#A#C#F#F#..5C#rD#F#D#C#4A#tt2G#3D#F#4C3D#F#4C..4A#G#");
-      Play("tt2C#G#B3F3G#B4F..5C#D#F#D#C#4A#tt2F#3C#FA#C#FA#..4A#G#");
-      Play("tt3CD#F#A#D#F#A#..5C#D#F#D#C#4A#tt2B3F#A#4D#3F#A#D#..4A#G#tt2A#3FG#4D3FG#4D..4A#5C#D#"); 
-      Play("tt2D#A#3C#F#..5wA#qtt2G#3D#F#4C..5G#G#F#tt2C#G#B3F..5D#F#F#D#D#F#F#D#tt2F#3C#FA#.."); 
-      Play("tt3CF#A#4D#..5D#F#D#F#D#F#tt2B3F#A#4D#..5D#A#D#F#D#tt2A#3FG#4D3FG#4D2B....");
-      Play("tt2B4B5F#.B5hD#qtt3F#A#4D#3F#A#4D#2A#4A#5F4A#5hDqtt3FG#4D3FG#4D..");
-      Play("tt2D#4A#5D#2A#3C#F#4A#5D#4A#5D#2A#3C#F#4A#5F4B5F#F2G#3D#F#B4B5D#2A#3FG#4DA#5Fr..");
-      Play("tt2B4B5G#4B5hD#qtt3F#A#4D#3F#A#4D#A#..4A#5F4A#5hDqtt3FG#4D3FG#4D..");
-      Play("tt2D#A#C#F#4A#5F#4A#5F4A#5D#4A#5F2A#C#F#4B5F#2G#3D#F#B4B5F4B5F2A#3FG#4DB5D#2B");
-      Play("4B5F#4B5hD#qttt3F#A4#D3#F#A4#D#3A#4A#5F4hA#5hDqtt3FG#4D3FG#4D2D#A#3C#F#4A#5D#4A#5D#4A#5D#2A#3C#F#4A#5F4B5F#2G#3D#F#B4F#5D#4F#5D#2A#3FG#4D");
-      Play("G#5C#2B4F#5D#4A#G#A#3F#A#4D#3F#A#4D#2A#3FG#4D5hC#4qA#t");
-      Play("3FG#4DG#F#G#A#2D#A#3C#F#2A#3C#tF#5C#D#hF#.q");
-      Play(".q2A#D#3ttF#A#4hD#r..");
-      Play("q2A#G#3ttF#4ChD#r..");
-      Play("q2D#C#ttB4FhG#r..");
-      Play("q2G#F#3ttA#4C#hFr..");
-      Play("q3C#CttF#A#4hD#r..");
-      Play("q2F#B3ttF#A#4hD#r..");
-      Play("q2F#A#3ttG#4wDw4D#rr");
-    }
-  } else if(LEVEL==2) {
-  //original by Mick Gordon
-   while(TRUE)
-   {
-
-    //I64 i,j;
-    SndRst;
-    music.tempo = 1.2;
-    music.staca$IV,0$tto_factor=.9;
-
-    Play("e4C#3C#C#C#tttD...C#");
-    Play("ttt4CD..C#.3C#C#D4D3tttF#G..4C#.");
-    Play("3C#C#C#tttD...C#");
-    Play("ttt4CD..C#.3C#ttC#G#4C#C2ErErEr");
-
-
-    Play("");
-
-
-    Play("tt4E3CG#CD..");
-    Play("4C3CCCDC#");
-    Play("4tttCD..C#.3C#C#D4D3F#G4C#3C#C#C#DC#");
-    Play("4tttCD..C#.3C#C#G#4C#C3CC4C3C4C#3C#C#C#DC#");
-    Play("4tttCD..C#.3C#C#D4D3F#G4C#3C#C#C#DC#");
-    Play("4tttCD..C#.3C#C#G#4C#C3CC4C3CC#C#C#DC#");
-  
-    Play("4eC#etttttDFG#B5qCettttt4BA#qAqG#etttttAA#B5CqC#");
-    Play("5qCettttt4BA#qAG#etttttGqF#w4F");
-
-    Play("etttttD#DC#C3BA#AG#GF#FED#DC#C2BA#AG#GF#FD#DC#C");
-
-    Play("4C#etttttDFG#B5qCettttt4BA#qAqG#etttttAA#B5CqC#Cettttt4BA#qA");
-    Play("4etttttA#B5CC#q5DwC#");
-    Play("etttttD#DC#C3BA#AG#GF#FED#DC#C2BA#AG#GF#FD#DC#C");
-  
-    //Play("4tttCD..C#.3C#C#G#4C#C3CC4C3CC#C#C#DC#"); 
-
-
-   }
-
-
-  }
 }
 
 CTask *music_task=NULL;
@@ -1560,10 +1452,10 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type,Bool going_up=TRUE) {
     case LIFT_LOWEST_FLOOR:
       for(idx=0;idx!=floor->linedef_cnt;idx++) {
         sd=floor->linedefs[idx]->front;
-        if(sd&&sd!=floor)
+        if(sd&&sd->sector!=floor)
 	  lowest=Min(lowest,sd->sector->floor_height);
         sd=floor->linedefs[idx]->back;
-        if(sd&&sd!=floor)
+        if(sd&&sd->sector!=floor)
 	  lowest=Min(lowest,sd->sector->floor_height);
       }
       up=floor->floor_height==lowest;
@@ -1587,7 +1479,7 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type,Bool going_up=TRUE) {
 	    sd=floor->linedefs[idx]->front;
 	  else
 	    sd=floor->linedefs[idx]->back;
-	  if(sd&&sd!=floor)
+	  if(sd&&sd->sector!=floor)
 	    if(sd->sector->floor_height>floor->floor_height)
 	      diff=Min(diff,sd->sector->floor_height-floor->floor_height);
         }
@@ -1596,27 +1488,34 @@ F64 GetTargetLiftHeight(CDoomSector *floor,I64 type,Bool going_up=TRUE) {
         return floor->base_floor_height;
       return diff+floor->floor_height;
     case LIFT_LOW_HIGH_REPEAT:
+//In DOOM,the LOW_HIGH_REPEAT runs forever but can be stopped temporary.
+    //Keep on using base_floor_height as our "intitial" height
+      highest=floor->base_floor_height;
+      lowest=floor->base_floor_height;
       if(going_up) {
         for(idx=0;idx!=floor->linedef_cnt;idx++) {
 	  sd=floor->linedefs[idx]->front;
-	  if(sd&&sd!=floor)
+	  if(sd&&sd->sector!=floor)
 	    highest=Max(highest,sd->sector->base_floor_height);
 	  sd=floor->linedefs[idx]->back;
-	  if(sd&&sd!=floor)
+	  if(sd&&sd->sector!=floor)
 	    highest=Max(highest,sd->sector->base_floor_height);
         }
-        return highest;
+        if(highest!=floor->floor_height)
+	  return highest;
       } else {
         for(idx=0;idx!=floor->linedef_cnt;idx++) {
 	  sd=floor->linedefs[idx]->front;
-	  if(sd&&sd!=floor)
+	  if(sd&&sd->sector!=floor)
 	    lowest=Min(lowest,sd->sector->base_floor_height);
 	  sd=floor->linedefs[idx]->back;
-	  if(sd&&sd!=floor)
+	  if(sd&&sd->sector!=floor)
 	    lowest=Min(lowest,sd->sector->base_floor_height);
         }
-        return lowest;
+        if(lowest!=floor->floor_height)
+	  return lowest;
       }
+      return floor->floor_height;
     case LIFT_CEIL_TOGGLE:
       if(floor->base_floor_height==floor->floor_height)
         return floor->base_ceil_height;
@@ -1708,14 +1607,14 @@ U0 CeilThinker(CDoomLevel *l,CCeilThinker *t) {
     s->ceil_height=t->target_end;
     t->going_up=FALSE;
     s->cur_action_linedef=NULL;
-    Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
+    ClientPlaySound("PSTOP");
     QueRem(t);
     Free(t);
   } else if(t->going_down&&s->ceil_height<=t->target_end) {
     s->ceil_height=t->target_end;
     t->going_down=FALSE;
     s->cur_action_linedef=NULL;
-    Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
+    ClientPlaySound("PSTOP");
     QueRem(t);
     Free(t);
   }
@@ -1762,7 +1661,7 @@ U0 LiftThinker(CDoomLevel *l,CLiftThinker *t) {
 	  s->floor_height=t->target_end;
 lift_again:
 	  t->target_start=s->floor_height;
-	  Spawn(&PlaySoundTask,"PSTART","snd",0,Fs);
+          ClientPlaySound("PSTART");
 	  t->start_tS=Server_tS;
 	  t->target_end=GetTargetLiftHeight(s,action->target,!t->going_up);
 	  t->going_up=!t->going_up;
@@ -1793,34 +1692,38 @@ floor_defacto:
       if(s->floor_height>=t->target_end) {
         s->floor_height=t->target_end;
         t->going_up=FALSE;
+        t->going_down=TRUE;
 floor_en:
         if(action->type=='Lift'&&!t->reverting) {
 	  if(!t->waiting) {
 	    t->waiting=TRUE;
-	    Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
+            ClientPlaySound("PSTOP");
 	    t->start_tS=Server_tS;
 	  }
-	  if(t->wait_time+t->start_tS>Server_tS||t->wait_time<0.) {
+	  if(t->wait_time<0.) goto fin;
+	  if(t->wait_time+t->start_tS>Server_tS) {
 	    return;
 	  }
 	  t->waiting=FALSE;
 	  t->start_tS=Server_tS;
 	  t->reverting=TRUE;
+	  t->target_end=t->target_start;
 	  t->target_start=s->floor_height;
-	  t->target_end=s->base_floor_height;
         } else {
+fin:;
 	  t->reverting=FALSE;
 	  s->cur_action_linedef=NULL;
+	  t->going_up=FALSE,t->going_down=FALSE;
 	  QueRem(t);
 	  Free(t);
-	  t->going_up=FALSE,t->going_down=FALSE;
-	  Spawn(&PlaySoundTask,"PSTOP","snd",0,Fs);
+          ClientPlaySound("PSTOP");
         }
       }
     } else if(t->going_down) {
       if(s->floor_height<=t->target_end) {
         s->floor_height=t->target_end;
         t->going_down=FALSE;
+        t->going_up=TRUE;
         goto floor_en;
       }
     }
@@ -1893,7 +1796,7 @@ U0 CrushThingsInSector(CDoomLevel *l,CDoomSector *s) {
         case 7:
         case 84:
         case 3004:
-          Spawn(&PlaySoundTask,"SLOP",,0,Fs);
+          ClientPlaySound("PSLOP");
 	  thing->template=doom_thing_types[24];
 	  thing->animation=NULL; //Will be set automatically(quit current animation)
       }
@@ -1933,7 +1836,7 @@ U0 DoorThinker(CDoomLevel *l,CDoorThinker *t) {
         t->start_tS=Server_tS;
         t->opening=FALSE;
         t->closing=TRUE;
-        Spawn(&PlaySoundTask,"DORCLS",,0,Fs);
+        ClientPlaySound("DORCLS");
         t->wait_time=-1.;
         t->target_start=s->ceil_height;
       } else {
@@ -1964,7 +1867,7 @@ open_again:
         t->start_tS=Server_tS;
         t->opening=TRUE;
         t->closing=FALSE;
-        Spawn(&PlaySoundTask,"DOROPN","snd",0,Fs);
+        ClientPlaySound("DOROPN");
       } else {
         s->cur_action_linedef=NULL;
         QueRem(t);
@@ -2209,22 +2112,23 @@ U0 StairThinker(CDoomLevel *l,CStairsThinker *t) {
   t->s->floor_height=t->start_h+tm*t->speed*30;
   if(t->s->floor_height>t->target_h) {
     t->s->floor_height=t->target_h;
+    t->s->cur_action_linedef=NULL;
     QueRem(t);
     Free(t);
   }
 }
-U0 BuildStairs(CDoomLevel *l,CDoomLinedef *ld) {
+Bool BuildStairs(CDoomLevel *l,CDoomLinedef *ld) {
   CDoomSector *s,*s2,*new;
   CStairsThinker *think;
   CDoomLinedef *ld2;
   CDoomStairs *st=ld->special_type;
   F64 step;
+  Bool activated=FALSE;
   I64 idx;
   for(s=l->sectors.next;s!=&l->sectors;s=s->next) {
     if(ld->sector_tag==s->tag_number) {
-      if(s->cur_action_linedef) {
-        goto nxt;
-      }
+      if(s->cur_action_linedef) goto nxt;
+      activated=TRUE;
       s->cur_action_linedef=ld;
       step=s->floor_height;
       s2=s;
@@ -2253,6 +2157,7 @@ loop:
     }
 nxt:;
   }
+  return activated;
 }
 
 static CDoomThingTemplate *teleport_fog=NULL;
@@ -2276,6 +2181,19 @@ U0 TeleportFogThinker(CDoomLevel *l,CTeleportThinker *t) {
     Free(t);
   }
 }
+extern U0 ServerTeleportPlayer(CDoomThing *p,F64 x,F64 y,F64 angle);
+U0 TeleportFog(CDoomLevel *l,F64 x,F64 y,F64 height) {
+  CDoomThing *fog=CAlloc(sizeof(CDoomThing),doom_task);
+  InitPosDataForThing(l,fog);
+  QueIns(fog,l->things.last);
+  fog->template=teleport_fog;
+  fog->x=x;
+  fog->y=y;
+  fog->height=height;
+  fog->anim_start_tS=Server_tS;
+  fog->thinker=AddThinker(l,&TeleportFogThinker,"CTeleportThinker");
+  fog->thinker(CTeleportThinker*)->fog=fog;
+}
 U0 TeleportThing(CDoomLevel *l,CDoomTeleporter *tp,I64 sector_tag,CDoomThing *who) {
   CDoomThing *cur,*fog;
   CDoomSector *sec;
@@ -2287,17 +2205,11 @@ U0 TeleportThing(CDoomLevel *l,CDoomTeleporter *tp,I64 sector_tag,CDoomThing *wh
 	 TeleportThingToPos(l,who,cur->x,cur->y,cur->height);
 	 if(tp->orient==TP_ORIENT_SET)
 	   who->angle=cur->angle;
+	 if(IsPlayer(who))
+	   ServerTeleportPlayer(who,cur->x,cur->y,cur->angle);
 	 if(!tp->silent) {
-           Spawn(&PlaySoundTask,"TELEPT","snd",0,Fs);
-	   fog=CAlloc(sizeof CDoomThing);
-           InitPosDataForThing(l,fog);
-	   QueIns(fog,l->things.last);
-	   fog->template=teleport_fog;
-	   fog->x=cur->x;
-	   fog->y=cur->y;
-	   fog->anim_start_tS=Server_tS;
-	   fog->thinker=AddThinker(l,&TeleportFogThinker,"CTeleportThinker");
-	   fog->thinker(CTeleportThinker*)->fog=fog;
+           ClientPlaySound("TELEPT");
+	   TeleportFog(l,cur->x,cur->y,cur->height);
 	 }
 	 return;
        }
@@ -2483,8 +2395,7 @@ crush_activate:
 stairs_activate1:
 	    if(ld->activated) return FALSE;
 stairs_activate:
-	    BuildStairs(l,ld);
-	    return TRUE;
+	    return BuildStairs(l,ld);
 	    break; case 'S1':    
 	    if(!(flags&WACTIVATE_SWITCH)) return FALSE;
 	    goto stairs_activate1;
@@ -2515,9 +2426,7 @@ teleport_activate1:
 	    if(ld->activated) return FALSE;
 teleport_activate:
 	    if(tp->dest==TP_DEST_TP_THING) {
-	      if(flags&WACTIVATE_MONSTER&&!tp->monster)
-	        return FALSE;
-	      if(!(flags&WACTIVATE_MONSTER)&&!tp->player)
+	      if((flags&WACTIVATE_MONSTER)&&!tp->monster)
 	        return FALSE;
 //You must be have passed the first sidedef to trigger a tele[P]orter(meaning you are on the backside)
 	      cross=CreateVector(2);
@@ -2567,7 +2476,7 @@ exit_activate:
 	    if(s->cur_action_linedef)
 	      return FALSE;
 	    s->cur_action_linedef=ld;
-	    Spawn(&PlaySoundTask,"SWTCHX","snd",0,Fs);
+            ClientPlaySound("SWTCHX");
 	    l->ended_special=exit->secret;
 	    l->ended=TRUE;
 	    return TRUE;
@@ -2640,7 +2549,7 @@ cactivate1:
 cactivate:
 	    if(s->cur_action_linedef)
 	      return FALSE;
-	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
+	    ClientPlaySound("STNMOV");
 	    AddCeilThinker(l,s,ld,ceil);
 	    return TRUE;
 	    break; case 'S1':
@@ -2678,7 +2587,7 @@ lactivate:
 //LIFT_STOP will remove the thinker in AddLiftThinker
 	    dst=GetTargetLiftHeight(s,lift->target);
 	    AddLiftThinker(l,s->floor_height,dst,s,ld,lift,dst>s->floor_height);
-	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
+	    ClientPlaySound("STNMOV");
 	    ChangeByModel(ld,s,lift->model,lift->texture_change,lift->type_change,lift->zero_type);
 	    return TRUE;
 	    break; case 'S1':
@@ -2715,7 +2624,7 @@ factivate:
 	      return FALSE;
 	    dst=GetTargetFloorHeight(s,fl->target,fl->direction==FLOOR_DIR_UP);
 	    AddLiftThinker(l,s->floor_height,dst,s,ld,fl,dst>s->floor_height);
-	    Spawn(&PlaySoundTask,"STNMOV","snd",0,Fs);
+	    ClientPlaySound("STNMOV");
 	    ChangeByModel(ld,s,fl->model,fl->texture_change,fl->type_change,fl->zero_type);
 	    return TRUE;
 	    break; case 'S1':
@@ -2742,7 +2651,7 @@ factivate:
         }
       } else if(type->type=='Door') {
         door=type;
-        switch(door->trigger) {
+        switch(door->trigger) {
 	  case 'P1':
 	    if(!ld->back)
 	      break;
@@ -2757,33 +2666,33 @@ activate:
 	      return FALSE;
 //Check for keys
 	    if(!l->has_red_key&&(door->key&DOOR_LOCK_RED)) {
-	      ST_Message(p,"You need a red key to open this door");
+	      if(IsPlayer(who)) ST_Message(who,"You need a red key to open this door");
 	      return 0;
 	    }
 	    if(!l->has_blue_key&&(door->key&DOOR_LOCK_BLUE)) {
-	      ST_Message(p,"You need a blue key to open this door");
+	      if(IsPlayer(who)) ST_Message(who,"You need a blue key to open this door");
 	      return 0;
 	    }
 	    if(!l->has_yellow_key&&(door->key&DOOR_LOCK_YELLOW)) {
-	      ST_Message(p,"You need a yellow key to open this door");
+	      if(IsPlayer(who)) ST_Message(who,"You need a yellow key to open this door");
 	      return 0;
 	    }
 //Do the door action
 	    switch(door->action) {
 	      case DOOR_ACTION_OPEN_WAIT_CLOSE:
-	        Spawn(&PlaySoundTask,"DOROPN","snd",0,Fs);
+	        ClientPlaySound("DOROPN");
 	        AddDoorThinker(l,s->ceil_height,0.,s,ld,door,TRUE,door->wait);
 	        break;
 	      case DOOR_ACTION_CLOSE_WAIT_OPEN:
-	        Spawn(&PlaySoundTask,"DORCLS","snd",0,Fs);
+	        ClientPlaySound("DORCLS");
 	        AddDoorThinker(l,s->ceil_height,0.,s,ld,door,FALSE,door->wait);
 	        break;
 	      case DOOR_ACTION_CLOSE:
-	        Spawn(&PlaySoundTask,"DORCLS","snd",0,Fs);
+	        ClientPlaySound("DORCLS");
 	        AddDoorThinker(l,s->ceil_height,0.,s,ld,door,FALSE,-1.);
 	        break;
 	      case DOOR_ACTION_OPEN:
-	        Spawn(&PlaySoundTask,"DOROPN","snd",0,Fs);
+	        ClientPlaySound("DOROPN");
 	        AddDoorThinker(l,s->ceil_height,0.,s,ld,door,TRUE,-1.);
 	        break;
 	    }
@@ -2827,7 +2736,7 @@ CDC *AltSwitchTexture(U8 *txt,Bool on=FALSE,Bool *res_txtr_is_on=NULL) {
   static U8 *switch_textures[40]={
   "SW1BLUE",
         "SW1BRCOM", 
-        "SW1BRI",
+        "SW1BRIK",
         "SW1BRN1",
         "SW1BRN2",
         "SW1BRNGN", 
@@ -2905,6 +2814,7 @@ U0 ButtonThinker(CDoomLevel *l,CButtonThinker *t) {
   I64 which_texture=t->which_part;
   U8 on_off_idx=t->active_state; 
   CDC *dc;
+  if(!sd) return;
   if(!repeat) {
 //active_state will be set as we never turn "off" again
     on_off_idx=t->active_state;
@@ -2935,7 +2845,7 @@ set_and_ret:
   on_off_idx=t->done_state;
   Free(t);
   QueRem(t);
-  Spawn(&PlaySoundTask,"SWTCHX","snd",0,Fs);
+  ClientPlaySound("SWTCHX");
   goto set_and_ret;
 }
 U0 AddButtonThinker(CDoomLevel *l,CDoomSidedef *s,I64 which_part,Bool repeat=TRUE,Bool on) {
@@ -2980,7 +2890,7 @@ extern U0 LineAttack(CDoomLevel *l,CDoomThing *self,CDoomThing *target,F64 range
 #include "Player.HC";
 #include "Enemy.HC";
 #include "Physics.HC";
-U0 CheckPowerupPickup(CDoomLevel *l) {
+U0 _CheckPowerupPickup(CDoomLevel *l,CDoomPlayer *p) {
   CDoomThing *t;
   AmmoType *load;
   GunAvail *avail;
@@ -3280,6 +3190,21 @@ rem:
 	    got_msg="Picked up a yellow keycard.";
 	    l->has_yellow_key=TRUE;
 	    goto rem;
+	  case 82:
+	    picked_up_gun=8;
+	    got_msg="You got the supershotgun!";
+	    new_gun=!p->arsenal[8].available;
+	    load=p->arsenal[8].load;
+	    p->arsenal[8].available=TRUE;
+	    orig=load->ammo;
+	    if(l->skill==0||l->skill==5)
+	      load->ammo+=16;
+	    else
+	      load->ammo+=8;
+	    load->ammo=ClampI64(load->ammo,0,maxBullets);
+	    if(load->ammo!=orig||new_gun)
+	      goto rem;
+	    break;
       }
     }
   }
@@ -3287,7 +3212,37 @@ rem:
     SwapWeapon(p,picked_up_gun);
   I64SetDel(things);
 }
-
+U0 CheckPowerupPickup(CDoomLevel *l) {
+  CDoomPlayer *p,*head=&l->things;
+  I64 old_load_ammo[9],idx,cnt;  
+  for(p=head->next;p!=head;p=p->next) {
+    if(IsPlayer(p)) {
+       if(IsNetworkGameServer) {
+#ifdef DOOM2
+	cnt=9;
+#else
+	cnt=8;
+#endif
+//Heres the deal,in server ->ammo is the addtional amount to be sent to player
+// ->ammo2 is the amount the client has,if we are a server,swap them,then compute difference
+        for(idx=0;idx!=cnt;idx++) {
+	  old_load_ammo[idx]=p->arsenal[idx].load->ammo; //Ammo to add to the client
+	  p->arsenal[idx].load->ammo=p->arsenal[idx].load->ammo2; //Client total ammo
+        }
+        _CheckPowerupPickup(l,p);
+        for(idx=0;idx!=cnt;idx++) {
+//Make the ->ammo a relative ammount to the old value
+          if(idx!=3&&idx!=7&&idx!=8) {
+	    p->arsenal[idx].load->ammo=
+		(p->arsenal[idx].load->ammo-p->arsenal[idx].load->ammo2) //"new" ammo-client ammo
+		  +old_load_ammo[idx]; //Ammo to add to the client
+	  }
+        }
+      } else
+        _CheckPowerupPickup(l,p);
+    }
+  }
+}
 Bool PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U64 rocket_type=0) {
   F64 cooldown=60./shots_per_minute,oa;
   p->weapon_cooldown=cooldown;
@@ -3310,19 +3265,19 @@ Bool PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U
     angle=FArg(target->x-p->x,target->y-p->y);
 //Account for mouse aim
   if(!rocket_type) {
-    if(weaponIndex==2) {//Shotgun
-      for(idx=0;idx!=7;idx++) {
+    if(weaponIndex==2||weaponIndex==8) {//Shotgun
+      for(idx=0;idx!=7+7*(weaponIndex==8);idx++) {
 	if(!idx)
 	  r=0;
 	else
           r=(Rand-.5); 
-        LineAttack(l,p,target,range,angle+r*9.8*pi/360.,damage);
+        ClientPlayerLineAttack(l,p,target,range,angle+r*9.8*pi/360.,damage);
       }
     } else
 //0,5 is fist/chainsaw
-      LineAttack(l,p,target,range,angle,damage,weaponIndex==0||weaponIndex==5);
+        ClientPlayerLineAttack(l,p,target,range,angle,damage,weaponIndex==0||weaponIndex==5);
   } else {
-    SpawnMissile(l,p,target,rocket_type);
+    ClientPlayerSpawnMissile(l,p,target,rocket_type);
   }
   if(weaponIndex!=0&&weaponIndex!=5)
     p->muzzle_flash_end_tS=Server_tS+1/10.;
@@ -3331,41 +3286,57 @@ Bool PlayerAttack(F64 shots_per_minute,F64 min_damage,F64 max_damage,F64 range,U
 }
 
 U0 UpdateLevel(CDoomLevel *l) {
+  CDoomPlayer *p,*thead=&l->things;
+  if(IsNetworkGameClient) {
+    Physics(l);
+    return;
+  }
   CDoomSector *sector,*head=&l->sectors;
   UpdateThinkers(l);
   Physics(l);
   CheckPowerupPickup(l);
-  if(p&&p->rad_suit_time)
-    p->rad_suit_time=Clamp(p->rad_suit_time-1/30.,0.,60.);
-  if(p&&p->bezerk_time)
-    p->bezerk_time=Clamp(p->bezerk_time-1/30.,0.,60.);
-  if(p&&p->light_goggles_time)
-    p->light_goggles_time=Clamp(p->light_goggles_time-1/30.,0.,60.);
-  if(p&&p->invincible_time)
-    p->invincible_time=Clamp(p->invincible_time-1/30.,0.,30.);
-  if(p&&p->invisible_time) {
-    p->flags|=MF_SHADOW;
-    p->invisible_time=Clamp(p->invisible_time-1/30.,0.,60.);
-  } else if(p) {
-    p->flags&=~MF_SHADOW;
+  for(p=thead->next;p!=thead;p=p->next) {
+    if(IsPlayer(p)) {
+      if(p&&p->rad_suit_time)
+        p->rad_suit_time=Clamp(p->rad_suit_time-1/30.,0.,60.);
+      if(p&&p->bezerk_time)
+        p->bezerk_time=Clamp(p->bezerk_time-1/30.,0.,60.);
+      if(p&&p->light_goggles_time)
+        p->light_goggles_time=Clamp(p->light_goggles_time-1/30.,0.,60.);
+      if(p&&p->invincible_time)
+        p->invincible_time=Clamp(p->invincible_time-1/30.,0.,30.);
+      if(p&&p->invisible_time) {
+        p->flags|=MF_SHADOW;
+        p->invisible_time=Clamp(p->invisible_time-1/30.,0.,60.);
+      } else if(p) {
+        p->flags&=~MF_SHADOW;
+      }
+    }
   }
 }
 
-
-
 U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
+  CDoomPlayer *p;
+//Find a player
   CD2 dummy;
   F64 floor,floor2,ceil,ceil2;
-  I64 which_texture=0,idx,activated;
+  I64 which_texture=0,idx,activated,idx2;
   Bool repeat=FALSE,passed=FALSE,is_on;
   U64 trigger;
+  CFifoI64 *hot=FifoI64New(0x8);
   CDoomLinedef *ld;
   CDoomSidedef *sd;
   Vector *ldv;
+  for(p=l->things.next;p!=&l->things;p=p->next) {
+   if(IsPlayer(p))
+     goto found;
+  }
+  return ; //No Player
+found:
   dummy.x=where->x;
   dummy.y=where->y;
-  ld=MoveInLevel(l,&dummy,angle,64,1,1,height,COLLISF_PUSH_WALL);
-  if(ld) {
+  MoveInLevel(l,&dummy,angle,56.,1,1,height,COLLISF_PUSH_WALL,hot);
+  while(FifoI64Rem(hot,&ld)) {
     if(ld->front^^ld->back) {
       which_texture=1;
       if(ld->front) sd=ld->front;
@@ -3400,37 +3371,44 @@ U0 PressAWall(CDoomLevel *l,CD2 *where,F64 angle,F64 height) {
 
 	  if(ld->special_type&&AltSwitchTexture(sd->upper_texture[0],idx,&is_on)) {
 pass:
-	    if(ld->special_type->type=='Door')
-	      trigger=ld->special_type(CDoomDoor*)->trigger;
-	    else if(ld->special_type->type=='Ceil')
-	      trigger=ld->special_type(CDoomCeil*)->trigger;
-	    else if(ld->special_type->type=='Floor')
-	      trigger=ld->special_type(CDoomFloor*)->trigger;
-	    else if(ld->special_type->type=='Lift')
-	      trigger=ld->special_type(CDoomLift*)->trigger;
-	    if(trigger.u8[1]=='P')
-	      activated=TriggerLinedef(l,ld,WACTIVATE_PUSH,p);
-	    else
-	      activated=TriggerLinedef(l,ld,WACTIVATE_SWITCH,p);
-	    passed=TRUE;
-	    if(activated) {
-	      Spawn(&PlaySoundTask,"SWTCHN","snd",0,Fs);
-	      AddButtonThinker(l,sd,which_texture,trigger.u8[1]!='1',is_on);
+//Alt switch texture returns if returned texture is "on"(not the current texture)
+	    if(is_on) {
+	      if(ld->special_type->type=='Door')
+	        trigger=ld->special_type(CDoomDoor*)->trigger;
+	      else if(ld->special_type->type=='Ceil')
+	        trigger=ld->special_type(CDoomCeil*)->trigger;
+	      else if(ld->special_type->type=='Floor')
+	        trigger=ld->special_type(CDoomFloor*)->trigger;
+	      else if(ld->special_type->type=='Lift')
+	        trigger=ld->special_type(CDoomLift*)->trigger;
+//This is handled by the server if networked,otherwise it's called by the non-networked client(if not in an online game)
+	      if(trigger.u8[0]=='P')
+	        activated=ClientTriggerLinedef(l,ld,WACTIVATE_PUSH,p);
+	      else
+//See above note
+	        activated=ClientTriggerLinedef(l,ld,WACTIVATE_SWITCH,p);
+	      passed=TRUE;
+	      if(activated) {
+	        ClientPlaySound("SWTCHN");
+	        AddButtonThinker(l,sd,which_texture,trigger.u8[1]!='1',is_on);
+	      }
 	    }
 	  }
 	  break;
         case 1:
-	  if(ld->special_type&&AltSwitchTexture(sd->middle_texture[0],idx))
+	  if(ld->special_type&&AltSwitchTexture(sd->middle_texture[0],idx,&is_on))
 	    goto pass;
 	  break;
         case 0:
-	  if(ld->special_type&&AltSwitchTexture(sd->lower_texture[0],idx))
+	  if(ld->special_type&&AltSwitchTexture(sd->lower_texture[0],idx,&is_on))
 	    goto pass;
 	  break;
       }
+  if(!passed&&ld) {
+//This(PressAWall) is handled by the server if in a networked game
+    ClientTriggerLinedef(l,ld,WACTIVATE_SWITCH|WACTIVATE_PUSH,p);
   }
-  if(!passed&&ld)
-    TriggerLinedef(l,ld,WACTIVATE_SWITCH,p);
+  }
 }
 
 
@@ -3447,14 +3425,25 @@ U0 AnimateTask(I64)
 
 
 U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
-  F64 angle;
   CDoomSector *s=GetSectorForCoord(l,p->x,p->y);
+  F64 momentum=Sqrt(Sqr(p->momy)+Sqr(p->momx));
+  F64 angle=Arg(p->momx,p->momy);
+  F64 t=Server_tS;
 //if were are dead,sink the camera
   if(p->health<=0.) {
     cam->h=Clamp(cam->h-12*1/30.,p->height+8,p->height+32);
   } else 
     cam->h=p->height+41;
-  if(s) cam->h=Clamp(cam->h,s->floor_height+1.,s->ceil_height-4.);
+  if(momentum>.1) {
+    t-=p->movement_start_tS;
+    p->camera_bob=Sin(t*2*pi)*Min(8,momentum/48.*16);
+    p->weapon_bob_y=Min(1,momentum/48.)*16*Sin(t*2*pi)*Cos(angle-p->angle);
+    p->weapon_bob_x=Min(1,momentum/48.)*16*Sin(t*2*pi)*Sin(angle-p->angle);
+  } else {
+    p->weapon_bob_x=0;
+    p->weapon_bob_y=0;
+  }
+  if(s) cam->h=Clamp(cam->h+p->camera_bob,s->floor_height+1.,s->ceil_height-4.);
   cam->x=p->x;
   cam->y=p->y;
   if(p->stare_at&&p->health<=0.) {
@@ -3465,7 +3454,6 @@ U0 UpdateCameraFromPlayer(CDoomCamera *cam,CDoomPlayer *p) {
     cam->angle=p->angle;
   }
 }
-
 
 
 WinMax;
@@ -3504,10 +3492,11 @@ U0 FreeLevel(CDoomLevel *l) {
   for(s=head->next;s!=head;s=s->next) {
     I64SetDel(s->things);
   }
+  Free(l->reject);
   QueDel(&l->things);
-  QueDel(&l->sidedefs);
   QueDel(&l->subsectors);
   QueDel(&l->thinkers);
+  QueDel(&l->obselete_things);
   Free(l->segs);
   QueDel(&l->sectors);
   QueDel(&l->sidedefs);
@@ -3524,6 +3513,22 @@ extern U0 LoadGame(U8 *filename);
 #include "Automap.HC";
 #include "Menu.HC";
 U8 *NextLevel(U8 *nm,Bool special=FALSE) {
+  static U8 dumbname[STR_LEN];
+#ifdef DOOM2
+  I64 num;
+  StrScan(nm,"MAP%d",&num);
+  if(num+1<10)
+    StrPrint(dumbname,"MAP0%d",num+1);
+  else
+    StrPrint(dumbname,"MAP%d",num+1);
+  if(special) {
+    if(!StrCmp("MAP14",nm))
+      return "MAP31";
+  }
+  if(num+1<=32 )
+    return dumbname;
+  return NULL;
+#else
 //Episode 1
   if(!StrCmp(nm,"E1M1")) 
     return "E1M2";
@@ -3597,17 +3602,23 @@ U8 *NextLevel(U8 *nm,Bool special=FALSE) {
     return "E4M8";
   else if(!StrCmp(nm,"E4M9")) 
     return "E4M3";
+#endif
   //Intermission
   return NULL;
 }
 #include"Finale.HC";
 U0 PlayLevel(Bool init=TRUE) { 
+  MsSet(GR_WIDTH/2,GR_HEIGHT/2);
   WinBorder;
   WinMax;
   DocClear;
   Bool transition=FALSE;
+  Bool old_moving;
+  Bool old_side_moving;
   CDoomThing *t,*head;
   U8 *next_lvl;
+  F64 move_angle,move_angle_side;
+  F64 move_mag,move_mag_side;
   CDC *new,*old;
   if(music_task)
     Kill(music_task,FALSE);
@@ -3684,9 +3695,9 @@ ent:;
       //mouse camera pan.
       cursor_x=ms.pos.x;
       if(cursor_tx!=cursor_x)
-      {
+        {
         if(cursor_x<1)
-	{
+	  {
 	  cursor_x=1;
         }
         cursor_x=ms.pos.x;   
@@ -3697,50 +3708,78 @@ ent:;
       //weapon switch.
       cursor_z=ms.pos.z;
       if(cursor_tz!=cursor_z)
-      {
+        {
 //cursor_z my be greater than 2,so check with previous value for difference
         if(cursor_z-cursor_tz<0)
-	{
+	  {
 	  AddWeaponIndex(TRUE);
         }
         else
-        { 
+	  { 
 	  AddWeaponIndex(FALSE); 
         }   
         cursor_tz = cursor_z;
       }
 
-
-#define SCRN_MARGIN 200
+#ifdef __AIWNIOS__
+     AIWNIOS_SetCaptureMouse(1);
+     p->angle-=ToF64(ms.pos.x-GR_WIDTH/2)*pi/180.;
+     MsSet(GR_WIDTH/2,GR_HEIGHT/2);
+#else
+      #define SCRN_MARGIN 200
       #define SCRN_TURN_RATE (pi/1.5/30.)
       if(SCRN_MARGIN>cursor_x) {
         p->angle+=Lerp((SCRN_MARGIN-cursor_x)/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
       } else if(GR_WIDTH-SCRN_MARGIN<cursor_x) {
         p->angle-=Lerp((cursor_x-(GR_WIDTH-SCRN_MARGIN))/ToF64(SCRN_MARGIN),0,SCRN_TURN_RATE);
       }
-
-
+#endif
+      p->running=FALSE;
+      old_moving=p->moving;
+      old_side_moving=p->side_moving;
+      p->moving=FALSE;
+      p->side_moving=FALSE;
+      move_angle=0;
+      move_angle_side=0;
+      move_mag=0;
+      move_mag_side=0;
       if(p->health>0.) {
         if(Bt(kbd.down_bitmap,SC_CURSOR_UP)||Bt(kbd.down_bitmap,Char2ScanCode('w'))) {
 	  p->running=Bt(kbd.down_bitmap,SC_SHIFT);
-	  PlayerMove(l,p,1);
-	  UpdateCameraFromPlayer(&cam,p);
+	  p->moving=TRUE;
+	  move_angle=0;
+	  move_mag=1;
         }
         if(Bt(kbd.down_bitmap,SC_CURSOR_DOWN)||Bt(kbd.down_bitmap,Char2ScanCode('s'))) {
 	  p->running=Bt(kbd.down_bitmap,SC_SHIFT);
-	  PlayerMove(l,p,-1);
-	  UpdateCameraFromPlayer(&cam,p);
+	  p->moving=TRUE;
+	  move_angle=pi;
+	  move_mag=1;
         }
         if(Bt(kbd.down_bitmap,Char2ScanCode('a'))||Bt(kbd.down_bitmap,SC_CURSOR_LEFT)) {
 	  p->running=Bt(kbd.down_bitmap,SC_SHIFT);
-	  PlayerMove(l,p,1,pi/2);
-	  UpdateCameraFromPlayer(&cam,p);
+	  p->side_moving=TRUE;
+	  move_angle_side=pi/2;
+	  move_mag_side=1;
         }
         if(Bt(kbd.down_bitmap,Char2ScanCode('d'))||Bt(kbd.down_bitmap,SC_CURSOR_RIGHT)) {
 	  p->running=Bt(kbd.down_bitmap,SC_SHIFT);
-	  PlayerMove(l,p,1,-pi/2);
-	  UpdateCameraFromPlayer(&cam,p);
+	  p->side_moving=TRUE;
+	  move_angle_side=-pi/2;
+	  move_mag_side=1;
         }
+        if(move_mag||move_mag_side)
+	  PlayerMove(l,p,Sqrt(move_mag*move_mag+move_mag_side*move_mag_side),Arg(move_mag*Cos(move_angle),move_mag_side*Sin(move_angle_side)));
+
+	UpdateCameraFromPlayer(&cam,p);
+
+	  if(p->moving&&!old_moving) {
+            p->movement_start_tS=Server_tS;
+          }
+	  if(p->side_moving&&!old_side_moving)
+            p->side_movement_start_tS=Server_tS;
+
+
         if(ms.lb) {
 	  ST_Fire(p);
         } else if(weaponIndex==6&&(WEAPON_FIRE==p->weapon_state||WEAPON_REFIRE==p->weapon_state)){ //Account for weapon pause on plasma gun
@@ -3773,15 +3812,17 @@ ent:;
 	  if(Bt(kbd.down_bitmap,Char2ScanCode('7'))) {
 	    SwapWeapon(p,7);
 	  }
-/*	  if(Bt(kbd.down_bitmap,Char2ScanCode('8'))) {
+#ifdef DOOM2
+	  if(Bt(kbd.down_bitmap,Char2ScanCode('8'))) {
 	    SwapWeapon(p,8);
-	  }*/
+	  }
+#endif
 	  if(Bt(kbd.down_bitmap,Char2ScanCode('0'))) {
 	    SwapWeapon(p,0);
 	  }
         }
         if(Bt(kbd.down_bitmap,Char2ScanCode(' ')&0xff)) {
-	  PressAWall(l,&p->x,p->angle,p->height);
+	  ClientPressAWall(l,p);
         }
       } 
 //This accounts for key-press delay
@@ -3792,7 +3833,7 @@ ent:;
 	  FlushMsgs; //Flush Esc msg
 	  break;
         }
-	if(p->health<=0.) {
+        if(p->health<=0.&&!IsNetworkGameClient) {
 	  if(mr==MSG_MS_L_DOWN) {
 	    goto play_again;
 	  } else if(mr==MSG_KEY_DOWN&&a!=CH_ESC) {
@@ -3803,46 +3844,53 @@ play_again:
 	    FreeLevel(l);
 	    l=next_lvl;
 	    PlayLevel(TRUE);
-          }
+	  }
         }
       }
     } else {
+      AIWNIOS_SetCaptureMouse(0);
       mr=MainMenu;
       if(!mr) {
         Unpause;
       }
     }
 
-    if(!paused) {
+    if(!paused||IsNetworkGameClient) {
       UpdateLevel(l);
     }
     GrBlot(,0,0,doom_scrn);
     Refresh;
   }
 ret:
-  p->weapon_state=0;
-  if(l->ended) Intermission(l,l->map_name[1]-'1',l->map_name[3]-'1');
-  DCFill;
-//Dont free the player,we will transfer him across the levels mofo
-  transition=TRUE;
-  QueRem(p);
-//
-  next_lvl=NextLevel(l->map_name,l->ended_special);
-  if(!next_lvl) {
-//EXM9
-    Finale(doom_scrn,l->map_name[1]-'0');
-    goto fin_level;
-  }
-  l2=LoadWadLevel(next_lvl,l->skill);  
- if(music_task)
+  if(music_task)
     Kill(music_task,FALSE);
-  music_task=Spawn(&SongTaskDOOM,l2->map_name[3]-'1',"Song",0,Fs);
-  FreeLevel(l);
-  l=NULL;
-  l=l2;
-  in_level=FALSE;
-  init=TRUE;
-  goto ent;
+  music_task=Spawn(&SongTaskDOOM,l->map_name[3]-'1',"Song",0,Fs);
+  if(!IsNetworkGameClient) {
+    p->weapon_state=0;
+    if(l->ended) Intermission(l,l->map_name[1]-'1',l->map_name[3]-'1');
+    DCFill;
+//Dont free the player,we will transfer him across the levels mofo
+    transition=TRUE;
+    QueRem(p);
+//
+    next_lvl=NextLevel(l->map_name,l->ended_special);
+    if(!next_lvl) {
+//EXM9
+      Finale(doom_scrn,l->map_name[1]-'0');
+      goto fin_level;
+    }
+    l2=LoadWadLevel(next_lvl,l->skill);  
+    FreeLevel(l);
+    l=NULL;
+    l=l2;
+    in_level=FALSE;
+    init=TRUE;
+    goto ent;
+  } else {
+   //TODO network intermission
+    FreeLevel(l);
+    l=NULL;
+  }
 fin_level:
   p->weapon_state=0;
   in_level=FALSE;
@@ -3853,7 +3901,7 @@ U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
   CDoomSector *s=t->s;
   CrushThingsInSector(l,s);
   CDoomThing **crushed=GetCrushedThingsInSector(l,s),*T;
-  I64 idx;
+  I64 idx,idx2;
 //Maybe it was stopped
   if(!s->cur_action_linedef) {
     QueRem(t);
@@ -3881,14 +3929,12 @@ U0 CrushThinker(CDoomLevel *l,CCrushThinker *t) {
     }
   }
 //About 4 times damages a second
-  if(ToI64(tS*32)&0x7==0) {
     for(idx=0;T=crushed[idx];idx++) {
       if(T->health>0.) {
-        DamageMob(l,T,NULL,5);
+        DamageMob(l,T,NULL,5./4);
         SpawnBloodPuff(l,&T->x,T->height,5);
       }
     }
-  }
   Free(crushed);
   s->door_height_offset=s->ceil_height-s->base_floor_height;  
 }
@@ -3902,7 +3948,6 @@ U0 AddCrushThinker(CDoomLevel *l,CDoomSector *s,CDoomLinedef *ld) {
   t->s=s;
   t->going_up=FALSE;
 }
-
 
 CDoomThing **GetCrushedThingsInSector(CDoomLevel *l,CDoomSector *s) {
   I64 cnt=0,idx;
@@ -3929,20 +3974,15 @@ have:
 U0 ThingDel(CDoomLevel *l,CDoomThing *t) {
   RemovePosDataForThing(l,t);
   QueRem(t);
-  Free(t);
-}
-#include "Save.HC";
-U64 r;
-CDC *title=GetGrLump("TITLEPIC");
-while(TRUE) {
-  TallBlot(doom_scrn,0,0,GR_HEIGHT,title);
-  r=MainMenu;
-  GrBlot(,0,0,doom_scrn);
-  Refresh;
-  if(!r) {
-    DCFill;
-    break;
+  if(t->thinker) {
+    if(t->thinker(CMonsterThinker*)->signature!='Monster')
+     goto defacto;
+    QueIns(t,l->obselete_things.last);
+  } else {
+defacto:;
+    Free(t);
   }
 }
+#include "Save.HC";
+#include "Multiplayer.HC";
 #endif
-	

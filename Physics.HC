@@ -1,6 +1,6 @@
 #ifndef PHYSICS
 #define PHYSICS "P Pushin" 
-#define FRICTION .90625
+#define FRICTION .8
 Bool IsCrushed(CDoomSector *s,CDoomThing *t) {
   F64 gap=s->ceil_height-s->floor_height;
   if(gap<=t->template->height)
@@ -10,29 +10,68 @@ Bool IsCrushed(CDoomSector *s,CDoomThing *t) {
 //Accoutns for momentum and falling
 U0 PhysicsOnThing(CDoomLevel *l,CDoomThing *thing) {
   CD2 at;
-  CDoomLinedef *ld=NULL;
+  CDoomLinedef *ld=NULL,*crossed;
   CDoomSector *sec;
   CDoomActionSector *special;
   CDoomThing *target=NULL;
-  F64 angle=FArg(thing->momx,thing->momy),damage;
-  F64 mom_t=Sqrt(Sqr(thing->momx)+Sqr(thing->momy));
-  if(mom_t>=1.)
-    if(ld=MoveThingFinal(l,thing,angle,mom_t,COLLISF_SLIDE|COLLISF_NO_HIT_THING|COLLISF_ADJUST_FOR_RADIUS,,thing,&target)) {
-      if(target&&thing->flags&MF_SKULL_ATTACK) {
-	thing->flags&=~MF_SKULL_ATTACK;
-	DamageMob(l,target,thing,(23-3)*Rand+3);
-      }
+  CMonsterThinker *thinker=thing->thinker;
+  CDoomMonsterTemplate *mt;
+  CFifoI64 *crossed_f=FifoI64New(16);
+  F64 angle=FArg(thing->momx+thing->momx2,thing->momy+thing->momy2),damage;
+  F64 mom_t=Sqrt(Sqr(thing->momx+thing->momx2)+Sqr(thing->momy+thing->momy2));
+  I64 more_flags=0;
+  if(mom_t>.1) {
+    if(!IsPlayer(thing)) { //Move AI momentum between frame
+      thing->angle=angle;
+      more_flags=COLLISF_MONSTER;
+      if(!(thing->flags&TF_FLOATING))
+        more_flags|=COLLISF_NO_DROP;
     }
-  thing->momx*=FRICTION;
-  thing->momy*=FRICTION;
-  if(thing->momy<1.)
+    if(mom_t>=1.)
+      if(ld=MoveThingFinal(l,thing,angle,mom_t,more_flags|COLLISF_SLIDE|COLLISF_NO_HIT_THING|COLLISF_ADJUST_FOR_RADIUS,crossed_f,thing,&target)) {
+        if(target&&thing->flags&MF_SKULL_ATTACK) {
+	  thing->flags&=~MF_SKULL_ATTACK;
+	  DamageMob(l,target,thing,(23-3)*Rand+3);
+        }
+      }
+  }
+  while(FifoI64Rem(crossed_f,&crossed)) {
+    ClientTriggerLinedef(l,crossed,WACTIVATE_WALK,thing);
+  }
+//Monster thikner && hit wall
+  if(thinker&&thing->flags&TF_MONSTER&&ld)
+    NewChaseDir(l,thinker);
+  if(thinker&&thing->flags&TF_MONSTER) {
+    mt=thing->template;
+    if(mt!=doom_thing_types[87]) //Ignore Cube spawner
+      if(mt->see_state)
+        if(FramePtr(mt->see_state)==thinker->state) {
+          --thinker->steps_to_walk;
+          if(thinker->steps_to_walk<=0) {
+//In Enemy.HC,We set time to I16_MAX if STATE_UNTIL_DONE_WALKING
+	    thinker->steps_to_walk=0;
+	    thinker->state_start_tS=-I16_MAX;
+          }
+        }
+  }
+  if(ld&&more_flags&COLLISF_MONSTER) {
+    ClientTriggerLinedef(l,ld,WACTIVATE_MONSTER|WACTIVATE_PUSH,thing);
+  }
+  if(ld) {
+    thing->momx*=FRICTION/3.;
+    thing->momy*=FRICTION/3.;
+  } else {
+    thing->momx*=FRICTION;
+    thing->momy*=FRICTION;
+  }
+  if(Abs(thing->momy)<1.)
     thing->momy=0.;
-  if(thing->momx<1.)
+  if(Abs(thing->momx)<1.)
     thing->momx=0.;
 //Dont make props(?) adjst based on radius size
-  if(thing->template->flags&TF_MONSTER||p==thing)
+  if(thing->template->flags&TF_MONSTER||IsPlayer(thing)) {
     sec=GetHighestSectorInRadius(l,thing->x,thing->y,thing->template->radius);
-  else
+  } else
     sec=GetSectorForCoord(l,thing->x,thing->y);
 //Gravity
   if(!(thing->flags&TF_FLOATING)) {
@@ -47,25 +86,28 @@ U0 PhysicsOnThing(CDoomLevel *l,CDoomThing *thing) {
       }
       thing->height=Clamp(thing->height,sec->floor_height,sec->ceil_height);
       if(thing->height==sec->floor_height) {
-	if(thing==p&&!p(CDoomPlayer*)->rad_suit_time) {
-	  //Damaging fllor
+        if(IsPlayer(thing)&&!thing(CDoomPlayer*)->rad_suit_time) {
+//Damaging fllor
 	  damage=0;
 	  switch(sec->special_type) {
+	    case 9:
+              sec->special_type=0;
+              ++l->stats.have_secrets;
 	    case 7:
-		damage=5;
-	    break;
+	      damage=5;
+	      break;
 	    case 5:
-		damage=10;
-		break;
+	      damage=10;
+	      break;
 	    case 16:
-		damage=20;
-		break;
+	      damage=20;
+	      break;
 	    case 4:
-		damage=20;
-		break;
+	      damage=20;
+	      break;
 	    case 11:
-		damage=20;
-		break;
+	      damage=20;
+	      break;
 	  }
 	  if(!(ToI64(tS*32)&0x1f)&&damage) {
 	    DamageMob(l,p,NULL,damage);
@@ -74,11 +116,12 @@ U0 PhysicsOnThing(CDoomLevel *l,CDoomThing *thing) {
 	      l->ended=TRUE;
 	    }
 	  } 
-	}
+        }
         thing->momz=0;
       }
     }
   }
+  FifoI64Del(crossed_f);
 }
 U0 EchoSound(CDoomLevel *l,CDoomThing *thing,CDoomSector *s,F64 len) {
   I64 cnt=s->linedef_cnt,i;
@@ -115,14 +158,13 @@ U0 Physics(CDoomLevel *l) {
     s->paused=FALSE;
     s->sound_check=FALSE;
   }
-//TODO better sound 
-  if(p(CDoomPlayer*)->made_a_sound) {
-    p(CDoomPlayer*)->made_a_sound=FALSE;
-    s=GetSectorForCoord(l,p->x,p->y);
-    EchoSound(l,p,s,1024);
-  }
   head=&l->things;
   for(t=head->next;t!=head;t=t->next) {
+    if(IsPlayer(t)&&t(CDoomPlayer*)->made_a_sound) {
+      t(CDoomPlayer*)->made_a_sound=FALSE;
+      s=GetSectorForCoord(l,t->x,t->y);
+      EchoSound(l,t,s,1024);
+    }
     PhysicsOnThing(l,t);
   }
 }

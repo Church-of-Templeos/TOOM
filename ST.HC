@@ -55,7 +55,11 @@ Bool AddWeaponIndex(Bool pos)
   I64 idx;
   if(pos)
     {
+#ifdef DOOM2
+    for(idx=weaponIndex+1;idx!=9;idx++)
+#else
     for(idx=weaponIndex+1;idx!=8;idx++)
+#endif
       if(p->arsenal[idx].available)
         {
         weaponIndex=idx;
@@ -116,6 +120,7 @@ static MultiIcon	toom_faces;
 static MultiIcon	weapons;
 
 //weapons
+static CDC*	SHOTGUN2;
 static CDC*		PUNCH;
 static CDC*		PUNCH1;
 static CDC*		PUNCH2;
@@ -249,7 +254,11 @@ U0 DrawNumber(CDoomPlayer *p, U32 x, U32 y, U16 weapon,Bool large,Bool percent=F
 //bullets
 
   U64 ammoNum;
+#ifdef DOOM2
+  if(weapon>=9)
+#else
   if(weapon>=8)
+#endif
     {
     switch(weapon)
       {
@@ -356,17 +365,14 @@ U0 ST_refreshBackground(CDoomPlayer *p)
     //
     weapons.y=(200./480)*480-120;
 
-
-    //TODO account for lighting
-
     if(dc=weapons.icon_dc)
-      BlotWithLighting(doom_scrn,weapons.x+weapons.x_off-dc->x*2,
-	    weapons.y+weapons.y_off-dc->y*2,
+      BlotWithLighting(doom_scrn,weapons.x+weapons.x_off-dc->x*2+p->weapon_bob_x*2,
+	    weapons.y+weapons.y_off-dc->y*2+p->weapon_bob_y*2+16*2, //Maximum weapon bob is 16
 	    dc,s->cur_light_level+add,ToBool(p->flags&MF_SHADOW));//weapon
     if(dc=weapons.flash_dc)
       BlotWithLighting(doom_scrn,
-	    weapons.x+weapons.flash_x_off+weapons.x_off-dc->x*2,
-	    weapons.y+weapons.y_off-dc->y*2,
+	    weapons.x+weapons.flash_x_off+weapons.x_off-dc->x*2+p->weapon_bob_x*2,
+	    weapons.y+weapons.y_off-dc->y*2+p->weapon_bob_y*2+16*2,  //Maximum weapon bob is 16
 	    dc,s->cur_light_level+add,ToBool(p->flags&MF_SHADOW));
 
       //STATUSBAR
@@ -524,13 +530,13 @@ U0 AnimateFire(CDoomPlayer *p)
   switch(weaponIndex)
     {
     case 0://punch
-      if(p->weapon_state) Spawn(&PlaySoundTask,"PUNCH","snd",0,Fs);
+      if(p->weapon_state) ClientPlaySound("PUNCH");
       anim="BCDCB";
       template="PUNG%c0";
       idle_anim="A";
       break;
     case 1://pistol
-      if(p->weapon_state) Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
+      if(p->weapon_state) ClientPlaySound("PISTOL");
       anim="ABC";
       template="PISG%c0";
       flash_template="PISF%c0";
@@ -539,7 +545,7 @@ U0 AnimateFire(CDoomPlayer *p)
       idle_anim="A";
       break;
     case 2://shotgun
-      if(p->weapon_state) Spawn(&PlaySoundTask,"SHOTGN","snd",0,Fs);
+      if(p->weapon_state) ClientPlaySound("SHOTGN");
       anim="AABCDCBAA";
       template="SHTG%c0";
       flash_template="SHTF%c0";
@@ -548,7 +554,7 @@ U0 AnimateFire(CDoomPlayer *p)
       idle_anim="A";
       break;
     case 3://chaingun
-      if(p->weapon_state) Spawn(&PlaySoundTask,"PISTOL","snd",0,Fs);
+      if(p->weapon_state) ClientPlaySound("PISTOL");
       anim="ABB";
       template="CHGG%c0";
       flash_template="CHGF%c0";
@@ -557,7 +563,7 @@ U0 AnimateFire(CDoomPlayer *p)
       flash_off=0;
       break;
     case 4://missile launcher
-      if(p->weapon_state) Spawn(&PlaySoundTask,"RLAUNC","snd",0,Fs);      
+      if(p->weapon_state) ClientPlaySound("RLAUNC");
       template="MISG%c0";
       anim="BBB";
       flash_template="MISF%c0";
@@ -566,13 +572,13 @@ U0 AnimateFire(CDoomPlayer *p)
       idle_anim="A";
       break;
     case 5://chainsaw
-      if(p->weapon_state) Spawn(&PlaySoundTask,"SAWFUL","snd",0,Fs);      
+      if(p->weapon_state) ClientPlaySound("SAWFUL"); 
       template="SAWG%c0";
       anim="ABB";
       idle_anim="CD";
       break;
     case 6://plasma gun
-      if(p->weapon_state) Spawn(&PlaySoundTask,"PLASMA","snd",0,Fs);      
+      if(p->weapon_state) ClientPlaySound("PLASMA");
       template="PLSG%c0";
       anim="A";
       pause_anim="B";
@@ -582,13 +588,23 @@ U0 AnimateFire(CDoomPlayer *p)
       idle_anim="A";
       break;
     case 7://BFG
-      if(p->weapon_state) Spawn(&PlaySoundTask,"BFG","snd",0,Fs);      
+      if(p->weapon_state) ClientPlaySound("BFG");
       template="BFGG%c0";
       anim="ABBB";
       flash_template="BFGF%c0";
       flash_anim="AB";
       flash_off=1;
       idle_anim="A";
+      break;
+    case 8:
+      if(p->weapon_state) ClientPlaySound("DSHTGN");
+      template="SHT2%c0";
+      anim="AABCDEFGHA";
+      flash_template="SHT2%c0";
+      flash_anim="IJ";
+      flash_off=5;
+      idle_anim="A";
+      break;
   }
   weapons.flash_dc=NULL;
   ostate=p->weapon_state;
@@ -687,7 +703,7 @@ U0 ST_Fire(CDoomPlayer *p)
         }
         break;
       case 5: //Chainsaw
-        PlayerAttack(525,2,20,70);
+        PlayerAttack(525,2,20, 70);
         break;
       case 6: //Plsmaa
         if(p->arsenal[weaponIndex].load->ammo>0) {
@@ -696,7 +712,6 @@ U0 ST_Fire(CDoomPlayer *p)
         }
         break;
       case 7: //Big poopin gun
-//TODO tracer
         if(p->arsenal[weaponIndex].load->ammo>=20) {
 	  if(PlayerAttack(52.5,100,800,200*64.,'BFG')) {
             AddBFGTracers(l,p);
@@ -704,6 +719,12 @@ U0 ST_Fire(CDoomPlayer *p)
 	  }
         }
         break;
+	case 8: //Suoper Shotgun
+        if(p->arsenal[weaponIndex].load->ammo>=2) {
+	  if(PlayerAttack(56.8,5,15,200*64.))
+	    p->arsenal[weaponIndex].load->ammo-=2;
+        }
+	break;
     end:
       p->made_a_sound=TRUE;
   }

@@ -1,23 +1,19 @@
 
 
 U0 PlayerMove(CDoomLevel *l,CDoomPlayer *p,F64 dir=1,F64 angle=0) {
-  F64 speed=dir;
-  if(p->running) speed*=30*.60;
-  else speed*=20*.60;
+  F64 speed=dir,mag,dot;
+  if(p->running) speed*=20.;
+  else speed*=9.;
+  F64 max=30.;
+  if(!p->running)
+     max*=.49;
   angle+=p->angle;
-  CFifoI64 *crossed_f=FifoI64New(16);
-  CDoomSector *s=GetSectorForCoord(l,p->x,p->y);
-  CDoomLinedef *crossed;
-  CDoomLinedef *hit=MoveThingFinal(l,p,angle,speed,COLLISF_NO_HIT_THING|COLLISF_SLIDE|COLLISF_ADJUST_FOR_RADIUS,crossed_f,p);
-  while(FifoI64Rem(crossed_f,&crossed)) {
-    TriggerLinedef(l,crossed,WACTIVATE_WALK,p);
-  }
-//Walking includes "walking into a wall"?
-  if(hit) TriggerLinedef(l,hit,WACTIVATE_PUSH|WACTIVATE_WALK,p);
-  FifoI64Del(crossed_f);
-  if(s&&s->special_type==9) {
-    s->special_type=0;
-    ++l->stats.have_secrets;
+  p->momx+=Cos(angle)*speed*dir*.75;
+  p->momy+=Sin(angle)*speed*dir*.75;
+  mag=Sqrt(p->momx*p->momx+p->momy*p->momy);
+  if(mag>max) {
+    p->momx=Cos(angle)*max;
+    p->momy=Sin(angle)*max;
   }
 }
 
@@ -27,13 +23,13 @@ U0 PlayerLook(CDoomPlayer *p,F64 angle) {
 
 CDoomPlayer *PlayerNew(CDoomLevel *l) {
   U16 gunsInit=0;
-  CDoomPlayer *p=CAlloc(sizeof(CDoomPlayer));
+  CDoomPlayer *p=CAlloc(sizeof(CDoomPlayer),doom_task);
   QueIns(p,&l->things);
   p->template=doom_thing_types[1];
   p->flags|=TF_SHOOTABLE;
   p->health=100;
   p->armor=0;
-  for(gunsInit=0;gunsInit<8;gunsInit++)
+  for(gunsInit=0;gunsInit<9;gunsInit++)
   {
     //p->arsenal[gunsInit]->load = CAlloc(sizeof(AmmoType));
     //p->arsenal[gunsInit]->load->ammo=999;
@@ -44,20 +40,20 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
     {
       case 0://fists
 	p->arsenal[gunsInit].available = TRUE;
-        p->arsenal[gunsInit].load = CAlloc(sizeof(AmmoType));
+        p->arsenal[gunsInit].load = CAlloc(sizeof(AmmoType),doom_task);
         p->arsenal[gunsInit].load->ammo=0;
         p->arsenal[gunsInit].baseDamage=2;
         p->arsenal[gunsInit].load->splash=FALSE;   
         break;
       case 1://pistol
 	p->arsenal[gunsInit].available = TRUE;
-        p->arsenal[gunsInit].load = CAlloc(sizeof(AmmoType));
+        p->arsenal[gunsInit].load = CAlloc(sizeof(AmmoType),doom_task);
         p->arsenal[gunsInit].load->ammo=50;
         p->arsenal[gunsInit].baseDamage=4;
         p->arsenal[gunsInit].load->splash=FALSE;   
         break;
       case 2://shotgun
-        p->arsenal[gunsInit].load = CAlloc(sizeof(AmmoType));
+        p->arsenal[gunsInit].load = CAlloc(sizeof(AmmoType),doom_task);
         p->arsenal[gunsInit].load->ammo=0;
         p->arsenal[gunsInit].baseDamage=4;
         p->arsenal[gunsInit].load->splash=FALSE;   
@@ -67,7 +63,7 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
         p->arsenal[gunsInit].baseDamage=4;
         break;
       case 4://rocket launcher
-        p->arsenal[gunsInit].load = CAlloc(sizeof(AmmoType));
+        p->arsenal[gunsInit].load = CAlloc(sizeof(AmmoType),doom_task);
         p->arsenal[gunsInit].load->ammo=0;
         p->arsenal[gunsInit].baseDamage=20;
         p->arsenal[gunsInit].load->splash=TRUE;
@@ -77,13 +73,17 @@ CDoomPlayer *PlayerNew(CDoomLevel *l) {
         p->arsenal[gunsInit].baseDamage=3;
         break;
       case 6://plasma
-        p->arsenal[gunsInit].load = CAlloc(sizeof(AmmoType));
+        p->arsenal[gunsInit].load = CAlloc(sizeof(AmmoType),doom_task);
         p->arsenal[gunsInit].load->ammo=0;
         p->arsenal[gunsInit].baseDamage=5;
         p->arsenal[gunsInit].load->splash=FALSE;
         break;
       case 7://bfg
         p->arsenal[gunsInit].load = p->arsenal[6].load;
+        p->arsenal[gunsInit].baseDamage=100;
+        break;
+      case 8://Super shotgun
+        p->arsenal[gunsInit].load = p->arsenal[2].load;
         p->arsenal[gunsInit].baseDamage=100;
         break;
     }
@@ -110,9 +110,11 @@ CDoomThing *PlayerPickTarget(CDoomLevel *l,CDoomPlayer *p) {
   h2=p->template->height/2;
   for(cur=head->next;head!=cur;cur=cur->next) 
     if(cur->flags&TF_SHOOTABLE&&cur!=p) {
-      dist=Sqrt(Sqr(cur->x-p->x)+Sqr(cur->y-p->y));
+      dist=ApproxDist(cur->x-p->x,cur->y-p->y);
       if(dist<=16.*64) {
 	a2=FArg(cur->x-p->x,cur->y-p->y);
+	a2%=2*pi;
+	p->angle%=2*pi;
         angle=(a2-p->angle)%(2*pi);
         if(-margin<=angle<=margin) {
 	  has=Abs(Cos(a2-p->angle));

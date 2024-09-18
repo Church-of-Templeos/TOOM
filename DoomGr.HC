@@ -7,10 +7,6 @@
  * Dont ask me how to choose a proper palette.
  */
 
-U32 class CRGB {
-  U8 r,g,b,a;
-};
-
 static U8 *doom_palette_dithered=NULL;
 
 U8 *DitherPalette(CRGB *data) {
@@ -60,7 +56,7 @@ U8 *DitherPalette(CRGB *data) {
 }
 
 CDC *PaletteizeImage(I64 w,I64 h,U8 *dith_data) {
-  CDC *ret=DCNew(w*2,h*2);
+  CDC *ret=DCNew(w*2,h*2,doom_task);
   DCFill(ret,TRANSPARENT);
   I64 x,y;
   for(y=0;y!=h;y++) {
@@ -88,7 +84,6 @@ class CDoomImageCol {
   U8 rowstart,px_cnt,silly_bye;
   U8 data[0];
 };
-
 //https://doomwiki.org/wiki/Picture_format
 CDC *ReadDoomImage(CDoomImage *header) {
   I64 w=header->w,h=header->h,rowstart,i,j,px_cnt;

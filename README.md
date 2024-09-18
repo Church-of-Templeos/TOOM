@@ -10,7 +10,7 @@ Run the following command to copy the game to your C drive. Then play the game w
 >
 >Cd("C:/Home/TOOM");
 >
->#include "Load.HC";
+>#include "SinglePlayer.HC";
 
 
 # Controls

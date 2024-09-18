@@ -2,6 +2,16 @@
 #define DOOM_WAD" Whats Poppin"
 #define DEBUG 1
 #include "Set.HC";
+U32 class CRGB {
+  U8 r,g,b,a;
+};
+class CDoomGr {
+  CRGB *palette;
+  I64 pname_cnt;
+  U64 *pnames;
+  CI64Set *sprite_names;
+} *dgr;
+
 #include "Serialize.HC";
 class CWad {
   U8 body[0];
@@ -128,12 +138,16 @@ class CWadSubsector {
 //extern class CDoomAnimationFrame;
 class CDoomThing:CQue {
   F64 x,y,angle,height,health;
+  F64 spawn_x,spawn_y; //For Nightmare
+  F64 died_at_tS;
+  F64 momx2,momy2,momz2; //Monster momentum  per game-tick
   F64 momx,momy,momz; //Move momentum
   F64 anim_start_tS;
   CDoomAnimationFrame *animation;
   U16 thing_type,pad[3];
   CDoomThingTemplate *template;
   I64 flags;
+  I64 hash;
   Bool solid,anim_no_repeat,pad[6];
   U8 *thinker;
 };
@@ -219,13 +233,6 @@ class CDoomSubsector:CQue {
   CDoomSector *sector;
   CDoomBSPSeg *first;
 };
-
-class CDoomGr {
-  CRGB *palette;
-  I64 pname_cnt;
-  U64 *pnames;
-};
-
 class CDoomSector:CQue {
   CDC *floor_dc[4];
   CDC *ceil_dc[4];
@@ -276,10 +283,12 @@ class CDoomLevel {
   I64 vertice_cnt;
   CD2 *vertices;
   CQue linedefs;
+  CQue obselete_things; //Dont Free because we need them to stay resident in memory
  I64 block_map_x_off,block_map_y_off;
   I64 block_map_cols,block_map_rows;
   I64 *block_map_offsets;
   I64 skill,episode;
+
   CI64Set **block_map_things;
   CDoomSector **block_map_data;
   CDoomLinedef **action_linedefs;
@@ -287,7 +296,9 @@ class CDoomLevel {
 //ended is TRUE if we exited the level by pressing a button etc
   Bool has_red_key,has_blue_key,has_yellow_key,ended,ended_special;
   Bool has_map;
-  U8 map_name[5]; //EXMY
+  U8 *reject;
+  I64 sector_cnt;
+  U8 map_name[8]; //EXMY
 };
 
 class CWadTexturePatch {
@@ -323,7 +334,7 @@ CDC *TextureName2DC(U8 *name) {
   MemCpy(name2,name,8);
   Upper8(name2);
   StrPrint(buf,"Txr.%s",name2);
-  return FramePtr(buf);
+  return FramePtr(buf,doom_task);
 }
 
 CDC *SpriteName2DC(U8 *name) {
@@ -333,7 +344,7 @@ CDC *SpriteName2DC(U8 *name) {
   MemCpy(name2,name,8);
   Upper8(name2);
   StrPrint(buf,"Spr.%s",name2);
-  return FramePtr(buf);
+  return FramePtr(buf,doom_task);
 }
 
 
@@ -343,7 +354,7 @@ CDC *PNameIndexToDC(I64 idx,CDoomGr *gr) {
   MemCpy(name,&gr->pnames[idx],8);
   Upper8(name);
   StrPrint(buf,"Pat.%s",name);
-  return FramePtr(buf);
+  return FramePtr(buf,doom_task);
 }
 
 
@@ -376,7 +387,7 @@ fin:
     Upper8(name);
     StrPrint(buf,"Txr.%s",name);
     UH(buf,result);
-    FramePtrAdd(buf,result);
+    FramePtrAdd(buf,result,doom_task);
   }
 }
 
@@ -540,18 +551,17 @@ U0 LoadGrLump(CWad *wad,U8 *name) {
   return ;
 pass:
   CWadDirectory *wad_dir=wad->body+wad->directory_ptr;
-  wad_dir+=W_CheckNumForName(name,wad);
-  Upper8(name);
   U8 lump_name[9],buf[16];
-  lump_name[8]=0;
+  wad_dir+=W_CheckNumForName(name,wad);
   MemCpy(lump_name,wad_dir->lump_name,8);
   Upper8(lump_name);
+  lump_name[8]=0;
   StrPrint(buf,"Gr.%s",lump_name);
-  if(FramePtr(buf))
+  if(FramePtr(buf,doom_task))
     return;
   CDC *gr=ReadDoomImage(wad->body+wad_dir->ptr);
   UH(buf,gr);
-  FramePtrAdd(buf,gr);
+  FramePtrAdd(buf,gr,doom_task);
 }
 
 CDC *GetGrLump(U8 *name) {
@@ -559,11 +569,12 @@ CDC *GetGrLump(U8 *name) {
   U8 name2[9],buf[16];
   name2[8]=0;
   MemCpy(name2,name,8);
+  Upper8(name2);
   StrPrint(buf,"Gr.%s",name2);
-  if(ret=FramePtr(buf)) 
+  if(ret=FramePtr(buf,doom_task)) 
     return ret;
-  LoadGrLump(wad,name);
-  return FramePtr(buf);
+  LoadGrLump(wad,name2);
+  return FramePtr(buf,doom_task);
 }
 
 
@@ -577,6 +588,7 @@ CDoomGr *LoadWadGr() {
   U8 lump_name[9],*tmp,buf[16];
   CWadPnames *pnames;
   CDC *gr;
+  ret->sprite_names=I64SetNew;
 //Load Player palett
   ret->palette=LoadPLAYPALFromLump(W_GetLumpPtrFromName("PLAYPAL",NULL));
 //Find the sprites start
@@ -596,7 +608,8 @@ found_sstart:
       gr=ReadDoomImage(W_GetLumpPtrFromName(lump_name,NULL)); //See note above funcrtion
       Upper8(lump_name);
       StrPrint(buf,"Spr.%s",lump_name);
-      FramePtrAdd(buf,gr);
+      I64SetAdd(ret->sprite_names,StrNew(lump_name));
+      FramePtrAdd(buf,gr,doom_task);
       goto found_sstart;
     }
     pass++;
@@ -620,8 +633,8 @@ found_fstart:
         gr=ReadDoomFlat(W_GetLumpPtrFromName(lump_name,NULL),ret->palette); //See note above funcrtion
         tmp=MStrPrint("F.%s",lump_name);
         Upper8(tmp);
-        UH(buf,gr);
-        FramePtrAdd(tmp,gr);
+        UH(tmp,gr);
+        FramePtrAdd(tmp,gr,doom_task);
         Free(tmp);
       }
       goto found_fstart;
@@ -655,7 +668,7 @@ found_pstart:
 	  gr=ReadDoomImage(W_GetLumpPtrFromName(lump_name,NULL)); //See note above funcrtion
 	  StrPrint(buf,"Pat.%s",lump_name);
 	  UH(buf,gr);
-	  FramePtrAdd(buf,gr);
+	  FramePtrAdd(buf,gr,doom_task);
         }
       }
 try_text:
@@ -814,6 +827,11 @@ try_text:
   LoadGrLump(NULL,"PUNGC0");
   LoadGrLump(NULL,"PUNGD0");
 
+//
+#ifdef DOOM2
+  LoadGrLump(NULL,"HELP1");
+#endif
+
   //PISTOL
   for(idx='A';idx<='E';idx++) {
     lump_name[0]=0;
@@ -879,14 +897,14 @@ CDC *GetFlatDC(U8 *name) {
   U8 tmp_name[16];
   StrPrint(tmp_name,"F.%s",name);
   Upper8(tmp_name);
-  return FramePtr(tmp_name);
+  return FramePtr(tmp_name,doom_task);
 }
 extern U0 LoadLightingThinkers(CDoomLevel *l);
 extern U0 InitPosDataForThing(CDoomLevel *l,CDoomThing *t);
 CDoomLevel *LoadWadLevel(U8 *level_name,I64 skill=1) {
   I64 idx,cnt,x,y,min,max;
   U16 *offs;
-  U8 name[STR_LEN];
+  U8 name[STR_LEN],*reject;
   CDC **arr;
   CWad *wad;
   CDoomLevel *level=CAlloc(sizeof CDoomLevel);
@@ -912,6 +930,7 @@ CDoomLevel *LoadWadLevel(U8 *level_name,I64 skill=1) {
   QueInit(&level->sectors);
   QueInit(&level->things);
   QueInit(&level->linedefs);
+  QueInit(&level->obselete_things);
   QueInit(&level->bsp_nodes);
   QueInit(&level->subsectors);
   level->skill=skill;
@@ -973,6 +992,8 @@ pass_thing:
     if(dthing->template->flags&TF_MONSTER)
       level->stats.max_kills++;
     dthing->flags=dthing->template->flags;
+PrintI("dthing",dthing);
+PrintI("tt",wthing->thing_type);
     QueIns(dthing,level->things.last);
 skip_thing:
     wthing++;
@@ -1072,6 +1093,7 @@ skip_thing:
       }
     }
     dside_list[idx]=dside;
+    QueIns(dside,level->sidedefs.last);
     wside++;
   }  
 //LINEDEFS
@@ -1180,6 +1202,7 @@ skip_thing:
   level->root_node=dnode_list[cnt-1];
 //SECTORS
   cnt=wad_dir[7].lump_size/sizeof(CWadSector);
+  level->sector_cnt=cnt;
   wsect=wad_dir[7].ptr+wad(U8*);
   dsect_list=CAlloc(cnt*8);
   if(StrCmp8("SECTORS",wad_dir[7].lump_name)) throw('Wad');
@@ -1230,6 +1253,30 @@ skip_thing:
         arr[1]=GetFlatDC("BLOOD2");
         arr[2]=GetFlatDC("BLOOD3");
       }
+      if(!StrNCmp(name,"RROCK",5)){
+        arr[0]=GetFlatDC("RROCK05");
+        arr[1]=GetFlatDC("RROCK06");
+        arr[2]=GetFlatDC("RROCK07");
+        arr[3]=GetFlatDC("RROCK08");
+      }
+      if(!StrNCmp(name,"SLIME01",7)){
+        arr[0]=GetFlatDC("SLIME01");
+        arr[1]=GetFlatDC("SLIME02");
+        arr[2]=GetFlatDC("SLIME03");
+        arr[3]=GetFlatDC("SLIME04");
+      }
+      if(!StrNCmp(name,"SLIME05",7)){
+        arr[0]=GetFlatDC("SLIME05");
+        arr[1]=GetFlatDC("SLIME06");
+        arr[2]=GetFlatDC("SLIME07");
+        arr[3]=GetFlatDC("SLIME08");
+      }
+      if(!StrNCmp(name,"SLIME09",7)){
+        arr[0]=GetFlatDC("SLIME09");
+        arr[1]=GetFlatDC("SLIME10");
+        arr[2]=GetFlatDC("SLIME11");
+        arr[3]=GetFlatDC("SLIME12");
+      }
     }
     dsect->base_light_level=wsect->light_level;
     dsect->cur_light_level=wsect->light_level;
@@ -1266,6 +1313,11 @@ skip_thing:
 	    );
     }
   }
+//REJECT
+  reject=wad_dir[8].ptr+wad(U8*);
+  cnt=CeilI64(level->sector_cnt*level->sector_cnt,8)/8;
+  level->reject=MAlloc(cnt);
+  MemCpy(level->reject,reject,cnt);
 //BLOCKMAP
   wbmh=wad_dir[9].ptr+wad(U8*);
   if(StrCmp8("BLOCKMAP",wad_dir[9].lump_name)) throw('Wad');
@@ -1322,7 +1374,6 @@ skip_thing:
 U0 DumpWad(CWad *wad) {
   I64 lump,ptr,lump_sz,ptr2;
   U8 *name;
-  "IDENT:%s\n",wad->ident;
   ptr=wad->directory_ptr;
   for(lump=0;lump!=wad->lump_cnt;lump++) {
     "LUMP:%c(%X)\n",(name=(wad->body+ptr)(CWadDirectory*)->lump_name)(U64*)[0],
@@ -1342,6 +1393,6 @@ U0 DumpWad(CWad *wad) {
 
 //
 I64 cnt=wad_cnt;
-CDoomGr *dgr=LoadWadGr;
+dgr=LoadWadGr;
 CDoomLevel *l=NULL;
 #endif

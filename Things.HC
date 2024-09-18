@@ -30,8 +30,11 @@ class CDoomThingTemplate {
 #define MF_MISSILE (0x10<<16)
 //Partial invisiblity
 #define MF_SHADOW (0x20<<16)
+//Added by Nroot,used with NewChaseDir to avoid getting stuck in a corner without attacking
+#define MF_JUST_TURNED (0x40<<16)
   I64 code;
   I64 flags;
+  F64 mass;
 } *doom_thing_types[0x10000];
 
 class CDoomProjectileTemplate:CDoomThingTemplate {
@@ -43,7 +46,7 @@ class CDoomProjectileTemplate:CDoomThingTemplate {
 class CDoomMonsterTemplate:CDoomThingTemplate {
   F64 x,y,angle,pain_chance,pain_time,reaction_time;
   F64 damage;
-  F64 health,speed,mass,skull_attack_speed;
+  F64 health,speed,skull_attack_speed;
 //These P Pushers are used with FramePtr("state name");
 //See CState Enemy.HC
   U8 *spawn_state;
@@ -53,6 +56,8 @@ class CDoomMonsterTemplate:CDoomThingTemplate {
   U8 *missile_state;
   U8 *death_state;
   U8 *gib_state; 
+  U8 *resurrect_state; 
+  U8 *heal_state; 
 //These are NULL terminated
   CDoomAnimationFrame *_idle_frames;
   CDoomAnimationFrame *_chase_frames;
@@ -61,6 +66,8 @@ class CDoomMonsterTemplate:CDoomThingTemplate {
   CDoomAnimationFrame *_hurt_frames;
   CDoomAnimationFrame *_dying_frames;
   CDoomAnimationFrame *_gib_frames;
+  CDoomAnimationFrame *_heal_frames;
+  CDoomAnimationFrame *_resurrect_frames;
 };
 
 U8 *ReadALine(U8 **fbuf) {
@@ -105,7 +112,7 @@ U0 ParseThingProps() {
 	  &flagsp,
 	  &descp
 	  );
-    if(StrOcc(version,'2'))
+    if(StrOcc(version,'2')&&!HashFind("DOOM2",Fs->hash_table,HTT_DEFINE_STR))
       goto skip;
     template=CAlloc(sizeof CDoomMonsterTemplate);
     MemCpy(template->spr_base_name,sprite,4);
@@ -147,38 +154,21 @@ skip:
   Free(o);
 }
 CDC *_GetThingFaceSprite(CDoomThingTemplate *template,I64 face,U8 ani_frame='A',Bool *reflect=NULL) {
-  I64 try_face,tf2;
-  CDC *ret=NULL;
-  if(reflect) *reflect=FALSE;
-  U8 buttplate[9];
-  buttplate[8]=0;
-  MemCpy(buttplate,template->spr_base_name,4);
-  buttplate[4]=ani_frame;
-//TROO[frame]0 //All roations
-  buttplate[5]='0';
-  buttplate[6]=0;
-  if(ret=SpriteName2DC(buttplate))
-    return ret;
-//TROO[frame][rotaionface]
-  buttplate[5]='0'+face;
-  if(ret=SpriteName2DC(buttplate))
-    return ret;
-//TROO[frame][rotaionface][frame][reflected_face]
-  buttplate[6]=ani_frame;
-  for(tf2=0;tf2!=9;tf2++) {
-    buttplate[5]=tf2+'0';
-    buttplate[7]=face+'0';
-    if(ret=SpriteName2DC(buttplate)) {
-      if(reflect) *reflect=TRUE;
-      return ret;
-    }
-  }
-//Try opposite order
-  for(tf2=0;tf2!=9;tf2++) {
-    buttplate[5]=face+'0';
-    buttplate[7]=tf2+'0';
-    if(ret=SpriteName2DC(buttplate)) {
-      return ret;
+  I64 idx;
+  U8 *name;
+  idx=dgr->sprite_names->cnt;
+  while(--idx>=0) {
+    name=dgr->sprite_names->body[idx];
+    if(!StrNICmp(name,template->spr_base_name,4)) {
+      if(name[4]==ani_frame&&(name[5]=='0'+face||name[5]=='0')) {
+	if(reflect) *reflect=FALSE;
+	return SpriteName2DC(name);
+      } else if(name[6]) {
+        if(name[6]==ani_frame&&(name[7]=='0'+face||name[7]=='0')) {
+	  if(reflect) *reflect=TRUE;
+	  return SpriteName2DC(name);
+	}
+      }
     }
   }
   return NULL; 
@@ -187,27 +177,27 @@ static CDoomAnimationFrame *GenerateCacheFrames(CDoomThingTemplate *t,U8 *frames
   if(!frames) return NULL;
   I64 cnt=StrLen(frames);
   CDoomAnimationFrame *ret=CAlloc(sizeof(CDoomAnimationFrame)*(cnt+1));
-  CDC *last_dc;
-  Bool last_reflect;
+  CDC *last_dc=NULL;
+  Bool last_reflect=FALSE;
   I64 face,idx,idx2,idx3;
   for(idx=0,idx2=0;idx2!=cnt;idx2++)  {
-    if(!Bt(char_bmp_alpha,frames[idx2]))
+    if(!frames[idx2])
       goto skip;
     ret[idx].chr=frames[idx2];
     for(face=1;face<=8;face++) {
       last_dc=_GetThingFaceSprite(t,face,frames[idx2],&ret[idx].reflect[face-1]);
       ret[idx].faces[face-1]=last_dc;
     }
-    //Fill in "missing" faces
+//Fill in "missing" faces
     for(idx3=0;idx3!=2;idx3++)
-    for(face=1;face<=8;face++) {
-      if(ret[idx].faces[face-1]) {
-	last_dc=ret[idx].faces[face-1];
-	last_reflect=ret[idx].reflect[face-1];
-      } else {
-        ret[idx].faces[face-1]=last_dc,ret[idx].reflect[face-1]=last_reflect;
+      for(face=1;face<=9;face++) {
+        if(ret[idx].faces[face-1]) {
+	  last_dc=ret[idx].faces[face-1];
+	  last_reflect=ret[idx].reflect[face-1];
+        } else {
+	  ret[idx].faces[face-1]=last_dc,ret[idx].reflect[face-1]=last_reflect;
+        }
       }
-    }
     idx++;
 skip:;
   }

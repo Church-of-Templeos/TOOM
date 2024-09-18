@@ -189,7 +189,11 @@ againm:;
     case 0:
       r=MenuInteract(doom_scrn,items,97,67);
       if(r=='NGAME') {
+#ifdef DOOM2
+        state=2;
+#else
         state=1;
+#endif
       } else if(r=='LOADG') {
         state=7;
         active_menu_item=0;
@@ -200,6 +204,7 @@ againm:;
         state=4;
       } else if(r=='QUITG') {
         DCFill;
+	Snd;
         Exit;
       } else if(!r)
         return 0;
@@ -215,6 +220,14 @@ againm:;
       s=NewGameMenu;
       if(s&&s!=INVALID_PTR) {
         state=0;
+#ifdef DOOM2
+        if(l) {FreeLevel(l);l=NULL;}
+        l=LoadWadLevel("MAP01",s-'1'+1);
+        screen_melt=TRUE;
+//This will check if we are in a level,otherwise the world is just swapped with l
+        PlayLevel;
+        return 0;
+#else
         StrPrint(level,"E%cM1",ep);
 
         active_menu=NULL;
@@ -231,8 +244,13 @@ againm:;
 //This will check if we are in a level,otherwise the world is just swapped with l
         PlayLevel;
         return 0;
+#endif
       } else if(!s)
+#ifdef DOOM2
+        state=0;
+#else
         state=1;
+#endif
       break;
     start:
       switch(ScanMsg(&a,&b)) {
@@ -247,6 +265,14 @@ againm:;
 	  break;
       }
       case 4:
+#ifdef DOOM2
+        dc=GetGrLump("HELP");
+        GrBlot(doom_scrn,0,0,dc);
+        if(next) {
+	  state=0;
+	  FlushMsgs;
+        }
+#else
         dc=GetGrLump("HELP1");
         GrBlot(doom_scrn,0,0,dc);
         if(next) {
@@ -254,6 +280,7 @@ againm:;
 	  FlushMsgs;
         }
         break;
+#endif
       case 5:
         dc=GetGrLump("HELP2");
         if(dc) {

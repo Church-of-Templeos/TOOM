@@ -1,3 +1,5 @@
+#ifndef SAVE_H
+#define SAVE_H "Christ Saves"
 //
 // 12/13/23 Nrootconauto if feeling like saying fuck alot today
 //
@@ -53,7 +55,7 @@ I64 GetSidedefIndex(CDoomLevel *l,U8 *t) {
 }
 //DONT FUCKIN FREE 
 U8 *GetUNStr(U8 *ptr) {
-  CHashTable *tab=Fs->hash_table;
+  CHashTable *tab=doom_task->hash_table;
   U8 buf[STR_LEN],*buf_ptr=buf;
   U8 **value,*new_ptr;
   I64 bucket;
@@ -89,6 +91,10 @@ U0 SaveGame(U8 *filename,U8 *title) {
       DocPrint(doc,"[player]:\n");
     else
       DocPrint(doc,"[thing]:\n");
+    if(l->skill==5) {
+      DocPrint(doc,"%n\n",cur(CDoomThing*)->spawn_x);
+      DocPrint(doc,"%n\n",cur(CDoomThing*)->spawn_y);
+    }
     DocPrint(doc,"%n\n",cur(CDoomThing*)->x);
     DocPrint(doc,"%n\n",cur(CDoomThing*)->y);
     DocPrint(doc,"%n\n",cur(CDoomThing*)->angle);
@@ -117,7 +123,12 @@ U0 SaveGame(U8 *filename,U8 *title) {
   DocPrint(doc,"THINKER_CNT:%d\n",QueCnt(head));
   for(cur=head->next;cur!=head;cur=cur->next) {
     DocPrint(doc,"[Thinker:%s]:\n",cur(CDoomThinker*)->cls_name);
-    if(!StrCmp(cur(CDoomThinker*)->cls_name,"CBarrelThinker")) {
+    if(!StrCmp(cur(CDoomThinker*)->cls_name,"CFireThinker")) {
+      DocPrint(doc,"%d\n",GetThingIndex(l,cur(CFireThinker*)->self));
+      DocPrint(doc,"%d\n",GetThingIndex(l,cur(CFireThinker*)->vile));
+      DocPrint(doc,"%d\n",GetThingIndex(l,cur(CFireThinker*)->target));
+      DocPrint(doc,"%n\n",cur(CFireThinker*)->end_tS);     
+    } else if(!StrCmp(cur(CDoomThinker*)->cls_name,"CBarrelThinker")) {
       DocPrint(doc,"%d\n",GetThingIndex(l,cur(CBarrelThinker*)->self));
       DocPrint(doc,"%n\n",cur(CBarrelThinker*)->explode_start_tS);
     }
@@ -143,7 +154,17 @@ U0 SaveGame(U8 *filename,U8 *title) {
       DocPrint(doc,"%n\n",cur(CMissileThinker*)->state_start_tS);
       DocPrint(doc,"%d\n",cur(CMissileThinker*)->hit);
     }
-    else if(!StrCmp(cur(CDoomThinker*)->cls_name,"CStairsThinker")) {
+    else if(!StrCmp(cur(CDoomThinker*)->cls_name,"CCubeThinker")) {
+      DocPrint(doc,"%d\n",GetThingIndex(l,cur(CMissileThinker*)->shooter));
+      DocPrint(doc,"%d\n",GetThingIndex(l,cur(CMissileThinker*)->self));
+      DocPrint(doc,"%n\n",cur(CMissileThinker*)->vslope);
+      DocPrint(doc,"%n\n",cur(CMissileThinker*)->state_start_tS);
+      DocPrint(doc,"%d\n",cur(CMissileThinker*)->hit);
+      DocPrint(doc,"%n\n",cur(CCubeThinker*)->start.x);
+      DocPrint(doc,"%n\n",cur(CCubeThinker*)->start.y);
+      DocPrint(doc,"%n\n",cur(CCubeThinker*)->end.x);
+      DocPrint(doc,"%n\n",cur(CCubeThinker*)->end.y);
+    } else if(!StrCmp(cur(CDoomThinker*)->cls_name,"CStairsThinker")) {
       DocPrint(doc,"%d\n",GetSectorIndex(l,cur(CStairsThinker*)->s));
       DocPrint(doc,"%n\n",cur(CStairsThinker*)->start_h);
       DocPrint(doc,"%n\n",cur(CStairsThinker*)->start_tS);
@@ -238,13 +259,24 @@ U0 SaveGame(U8 *filename,U8 *title) {
     } else if(!StrCmp("CBFGPuffThinker",cur(CDoomThinker*)->cls_name)) {
       DocPrint(doc,"%d\n",GetThingIndex(l,cur(CBFGPuffThinker*)->self));
       DocPrint(doc,"%n\n",cur(CBFGPuffThinker*)->start_tS);
-    } else {
+    } else if(!StrCmp("CSkelMissileThinker",cur(CDoomThinker*)->cls_name)) {
+      DocPrint(doc,"%d\n",GetThingIndex(l,cur(CSkelMissileThinker*)->self));
+      DocPrint(doc,"%d\n",GetThingIndex(l,cur(CSkelMissileThinker*)->shooter));
+      DocPrint(doc,"%n\n",cur(CSkelMissileThinker*)->vslope);
+      DocPrint(doc,"%n\n",cur(CSkelMissileThinker*)->state_start_tS);
+      DocPrint(doc,"%d\n",cur(CSkelMissileThinker*)->hit);
+      DocPrint(doc,"%d\n",GetThingIndex(l,cur(CSkelMissileThinker*)->target));
+    }else {
 //Do Nothing
     }
   }
   DocPrint(doc,"ARSENAL:\n");
   DocPrint(doc,"EQUIP:%d\n",weaponIndex);
+#ifdef DOOM2
+  for(idx=0;idx!=9;idx++) {
+#else
   for(idx=0;idx!=8;idx++) {
+#endif
     avail=&p->arsenal[idx];
     DocPrint(doc,"%d\n",avail->available);
     if(avail->load)
@@ -292,7 +324,9 @@ union COmniThinker {
   CMonsterThinker monster;
   CBarrelThinker barrel;
   CDoorThinker door;
+  CFireThinker fire;
   CLiftThinker lift;
+  CCubeThinker cube;
 };
 CDoomThinker *GetNthThinker(CDoomLevel *l,I64 n) {
   CQue *head=&l->thinkers,*cur;
@@ -353,7 +387,7 @@ U0 LoadGame(U8 *filename) {
   U8 *optr,*ptr;
   U8 buf[STR_LEN],*buf_ptr=buf,buf2[STR_LEN];
   GunAvail *avail;
-  I64 cnt,idx,i64,idx2,red,blue,yellow,weapon;
+  I64 cnt,idx,i64,idx2,red,blue,yellow,weapon,skill;
   I64 texture_changed,texture_src;
   F64 f64,level_time;
   ptr=FileRead(filename);
@@ -363,6 +397,7 @@ U0 LoadGame(U8 *filename) {
   ptr=StrScan(ptr,"TIME:%n\n",&level_time);
   ptr=StrScan(ptr,"MAP:%s\n",&buf_ptr);
   ptr=StrScan(ptr,"SKILL:%d\n",&i64);
+  skill=i64;
   if(l) FreeLevel(l);
   l=NULL;
   l=LoadWadLevel(buf,i64);
@@ -381,7 +416,7 @@ U0 LoadGame(U8 *filename) {
         ptr=StrScan(ptr,"THING_CNT:%d\n",&cnt);
         state=1;
         for(idx=0;idx!=cnt;idx++) {
-	  thing=CAlloc(sizeof CDoomPlayer); //CDoomPlayer is the biggest one
+	  thing=CAlloc(sizeof(CDoomPlayer),doom_task); //CDoomPlayer is the biggest one
 	  QueIns(thing,l->things.last);
         }
         break;
@@ -392,6 +427,12 @@ U0 LoadGame(U8 *filename) {
 	    throw('fuck');
 	  ptr=StrScan(ptr,"[%s]:\n",&buf_ptr);
 	  StrCpy(buf2,buf);
+	  if(skill==5) {
+	    ptr=StrScan(ptr,"%n\n",&f64);
+	    thing->spawn_x=f64;
+	    ptr=StrScan(ptr,"%n\n",&f64);
+	    thing->spawn_y=f64;
+	  }
 	  ptr=StrScan(ptr,"%n\n",&f64);
 	  thing->x=f64;
 	  ptr=StrScan(ptr,"%n\n",&f64);
@@ -449,7 +490,7 @@ U0 LoadGame(U8 *filename) {
         ptr=StrScan(ptr,"THINKER_CNT:%d\n",&cnt);
         state=3;
         for(idx=0;idx!=cnt;idx++) {
-	  thinker=CAlloc(sizeof COmniThinker);
+	  thinker=CAlloc(sizeof(COmniThinker),doom_task);
 	  QueIns(thinker,l->thinkers.last);
         }
         break;
@@ -463,7 +504,17 @@ U0 LoadGame(U8 *filename) {
 	  }
 	  ptr=StrScan(ptr,"[Thinker:%s]:\n",&buf_ptr);
 	  StrCpy(thinker->doom.cls_name,buf);
-	  if(!StrCmp(buf,"CBarrelThinker")) {
+	  if(!StrCmp(buf,"CFireThinker")) {
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker->fire.self=GetNthThing(l,i64);
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker->fire.vile=GetNthThing(l,i64);
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker->fire.target=GetNthThing(l,i64);
+	    ptr=StrScan(ptr,"%n\n",&f64);
+	    thinker->fire.end_tS=f64;
+	    thinker->doom.fun_ptr=&FireThinker;
+	  } else if(!StrCmp(buf,"CBarrelThinker")) {
 	    thinker->doom.fun_ptr=&BarrelThinker;
 	    ptr=StrScan(ptr,"%d\n",&i64);
 	    ptr=StrScan(ptr,"%n\n",&f64);
@@ -511,6 +562,24 @@ U0 LoadGame(U8 *filename) {
 	    thinker->missile.state_start_tS=f64;
 	    ptr=StrScan(ptr,"%d\n",&i64);
 	    thinker->missile.hit=i64;
+	  } else if(!StrCmp(buf,"CCubeThinker")) {
+	    thinker->doom.fun_ptr=&SpawnFly;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker->missile.shooter=GetNthThing(l,i64);
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker->missile.self=GetNthThing(l,i64);
+	    ptr=StrScan(ptr,"%n\n",&f64);
+	    thinker->missile.vslope=f64;
+	    ptr=StrScan(ptr,"%n\n",&f64);
+	    thinker->missile.state_start_tS=f64;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker->missile.hit=i64;
+	    ptr=StrScan(ptr,"%n\n%n\n%n\n%n\n",
+		&thinker->cube.start.x,
+		&thinker->cube.start.y,
+		&thinker->cube.end.x,
+		&thinker->cube.end.y
+		);
 	  } else if(!StrCmp(buf,"CTeleportThinker")) {
 	    thinker->doom.fun_ptr=&TeleportFogThinker;
 	    ptr=StrScan(ptr,"%d\n",&i64);
@@ -640,8 +709,26 @@ U0 LoadGame(U8 *filename) {
 	    ptr=StrScan(ptr,"%d\n",&i64);
 	    thinker(CBFGPuffThinker*)->self=GetNthThing(l,i64);
 	    ptr=StrScan(ptr,"%n\n",&thinker(CBFGPuffThinker*)->start_tS);
-	  }else {
-	    PrintI("fuk",thinker);
+	  } else if(!StrCmp("CBFGPuffThinker",thinker(CDoomThinker*)->cls_name)) {
+	    thinker->doom.fun_ptr=&BFGPuffThinker;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CBFGPuffThinker*)->self=GetNthThing(l,i64);
+	    ptr=StrScan(ptr,"%n\n",&thinker(CBFGPuffThinker*)->start_tS);
+	  } else if(!StrCmp("CSkelMissileThinker",thinker(CDoomThinker*)->cls_name)) {
+	    thinker->doom.fun_ptr=&SkelMissileThinker;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CSkelMissileThinker*)->self=GetNthThing(l,i64);
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CSkelMissileThinker*)->shooter=GetNthThing(l,i64);
+	    ptr=StrScan(ptr,"%n\n",&f64);
+	    thinker(CSkelMissileThinker*)->vslope=f64;
+	    ptr=StrScan(ptr,"%n\n",&f64);
+	    thinker(CSkelMissileThinker*)->state_start_tS=f64;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CSkelMissileThinker*)->hit=i64;
+	    ptr=StrScan(ptr,"%d\n",&i64);
+	    thinker(CSkelMissileThinker*)->target=GetNthThing(l,i64);
+	  } else {
 	    next=thinker->doom.next;
 	    QueRem(thinker);
 	    Free(thinker);
@@ -656,13 +743,17 @@ skip_thinker:;
       case 4: //Arsenal
         ptr=StrScan(ptr,"ARSENAL:\n");
         ptr=StrScan(ptr,"EQUIP:%d\n",&weapon);
+#ifdef DOOM2
+        for(idx=0;idx!=9;idx++) {
+#else
         for(idx=0;idx!=8;idx++) {
+#endif
 	  avail=&p->arsenal[idx];
 	  switch(idx) {
 	    case 0...2:
 	    case 4:
 	    case 6:
-	      avail->load=CAlloc(sizeof(AmmoType));
+	      avail->load=CAlloc(sizeof(AmmoType),doom_task);
 	      break;
 	    case 3:
 	      avail->load=p->arsenal[1].load;
@@ -672,6 +763,9 @@ skip_thinker:;
 	      break;
 	    case 7:
 	      avail->load=p->arsenal[6].load;
+	      break;
+	    case 8:
+	      avail->load=p->arsenal[2].load;
 	      break;
 	  }
 	  ptr=StrScan(ptr,"%d\n",&i64);
@@ -762,3 +856,4 @@ fin:
   Unpause(level_time);
   PlayLevel(FALSE);
 }
+#endif

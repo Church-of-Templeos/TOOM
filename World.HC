@@ -146,7 +146,7 @@ U0 LoadDonuts() {
     if(*ln=='#'||*ln==0)
       goto skip;
     StrScan(ln,"%d\t%s\t%s\n",&num,&cls_ptr,&trig_ptr);
-    d=CAlloc(sizeof CDoomDonut);
+    d=CAlloc(sizeof(CDoomDonut),doom_task);
     d->type='Donut';
     d->trigger=trig[0](U16);
     action_sector_types[num]=d;
@@ -194,7 +194,7 @@ U0 LoadTeleporters() {
 	&player_ptr,
 	&orient_ptr,
 	&dest_ptr);
-    t=CAlloc(sizeof CDoomTeleporter); 
+    t=CAlloc(sizeof(CDoomTeleporter),doom_task); 
     action_sector_types[num]=t;
     t->type='Teleport';
     t->trigger=trig[0](U16);
@@ -267,7 +267,7 @@ U0 LoadCeils() {
 	  &crush_ptr,
 	  &dst_ptr
 	  );
-    ceil=CAlloc(sizeof CDoomLift);
+    ceil=CAlloc(sizeof(CDoomLift),doom_task);
     ceil->type='Ceil';
     action_sector_types[num]=ceil;
     ceil->trigger=trig[0](U16);
@@ -341,7 +341,7 @@ U0 LoadLifts() {
 	&monster_ptr,
 	&target_ptr
     );
-    lift=CAlloc(sizeof CDoomLift);
+    lift=CAlloc(sizeof(CDoomLift),doom_task);
     lift->type='Lift';
     action_sector_types[num]=lift;
     lift->trigger=trig[0](U16);
@@ -437,7 +437,7 @@ U0 LoadFloors() {
 	  &crush_ptr,
 	  &target_ptr
 	  );
-    floor=CAlloc(sizeof CDoomFloor);
+    floor=CAlloc(sizeof(CDoomFloor),doom_task);
     floor->type='Floor';
     action_sector_types[num]=floor;
 //Todo What the poo poo ants
@@ -560,7 +560,7 @@ U0 LoadDoors() {
 	&monster_ptr,
 	&action_ptr
 	);
-   door=CAlloc(sizeof CDoomDoor);
+   door=CAlloc(sizeof(CDoomDoor),doom_task);
    door->type='Door';
    action_sector_types[num]=door;
    //Trigger
@@ -630,7 +630,7 @@ U0 LoadExits() {
 	&cls_ptr,
 	&trig_ptr,
 	&sec_ptr);
-    exit=CAlloc(sizeof CDoomExit);
+    exit=CAlloc(sizeof(CDoomExit),doom_task);
     exit->type='Exit';
     action_sector_types[num]=exit;
     exit->trigger=trig[0](U16);
@@ -662,7 +662,7 @@ U0 LoadStairs() {
 	&trig_ptr,
 	&speed_ptr,
 	&step);
-    stairs=CAlloc(sizeof(CDoomStairs));
+    stairs=CAlloc(sizeof(CDoomStairs),doom_task);
     stairs->trigger=trig[0](U16);
     stairs->type='Stairs';
     action_sector_types[num]=stairs;
@@ -734,7 +734,7 @@ U0 LoadCrushers() {
     if(!*ln||*ln=='#')
       goto skip;
     StrScan(ln,"%d\t%s\t%s\t%s\t%s\t%s\t%s\n",&num,&cls_ptr,&trig_ptr,&speed_ptr,&mon_ptr,&silent_ptr,&action_ptr);
-    new=CAlloc(sizeof CDoomCrusher);
+    new=CAlloc(sizeof(CDoomCrusher),doom_task);
     action_sector_types[num]=new;
     new->type='Crush';
 
@@ -788,7 +788,7 @@ U0 LoadLights() {
     if(!*ln||*ln=='#')
       goto skip;
     StrScan(ln,"%d\t\%s\t%s\t%s\n",&num,&cls_ptr,&trig_ptr,&what_ptr);
-    new=CAlloc(sizeof CDoomLight);
+    new=CAlloc(sizeof(CDoomLight),doom_task);
     action_sector_types[num]=new;
     new->type='Light';
 

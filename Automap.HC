@@ -8,7 +8,43 @@ class CAutomapState {
 MemSet(&am_state,0,sizeof CAutomapState);
 am_state.follow=TRUE;
 am_state.zoom=1;
+#ifdef DOOM2
+#define HUSTR_1	"level 1: entryway"
+#define HUSTR_2	"level 2: underhalls"
+#define HUSTR_3	"level 3: the gantlet"
+#define HUSTR_4	"level 4: the focus"
+#define HUSTR_5	"level 5: the waste tunnels"
+#define HUSTR_6	"level 6: the crusher"
+#define HUSTR_7	"level 7: dead simple"
+#define HUSTR_8	"level 8: tricks and traps"
+#define HUSTR_9	"level 9: the pit"
+#define HUSTR_10	"level 10: refueling base"
+#define HUSTR_11	"level 11: 'o' of destruction!"
 
+#define HUSTR_12	"level 12: the factory"
+#define HUSTR_13	"level 13: downtown"
+#define HUSTR_14	"level 14: the inmost dens"
+#define HUSTR_15	"level 15: industrial zone"
+#define HUSTR_16	"level 16: suburbs"
+#define HUSTR_17	"level 17: tenements"
+#define HUSTR_18	"level 18: the courtyard"
+#define HUSTR_19	"level 19: the citadel"
+#define HUSTR_20	"level 20: gotcha!"
+
+#define HUSTR_21	"level 21: nirvana"
+#define HUSTR_22	"level 22: the catacombs"
+#define HUSTR_23	"level 23: barrels o' fun"
+#define HUSTR_24	"level 24: the chasm"
+#define HUSTR_25	"level 25: bloodfalls"
+#define HUSTR_26	"level 26: the abandoned mines"
+#define HUSTR_27	"level 27: monster condo"
+#define HUSTR_28	"level 28: the spirit world"
+#define HUSTR_29	"level 29: the living end"
+#define HUSTR_30	"level 30: icon of sin"
+
+#define HUSTR_31	"level 31: wolfenstein"
+#define HUSTR_32	"level 32: grosse"
+#else
 #define HUSTR_E1M1	"E1M1: Hangar"
 #define HUSTR_E1M2	"E1M2: Nuclear Plant"
 #define HUSTR_E1M3	"E1M3: Toxin Refinery"
@@ -48,7 +84,7 @@ am_state.zoom=1;
 #define HUSTR_E4M7	"E4M7: And Hell Followed"
 #define HUSTR_E4M8	"E4M8: Unto The Cruel"
 #define HUSTR_E4M9	"E4M9: Fear"
-
+#endif
 U0 AutomapInteract() {
   static F64 button_delay=0;
   if(Bt(kbd.down_bitmap,Char2ScanCode('\t')))
@@ -98,8 +134,14 @@ U0 DrawAutomap(CDC *dc,CDoomLevel *l) {
   Mat4x4TranslationAdd(dc->r,GR_WIDTH/2,GR_HEIGHT/2,0);
   CDoomLinedef *ld,*head;
   CDoomActionSector *special;
+  CDoomThing *t;
   head=&l->linedefs;
+#ifdef DOOM2
+  StrScan(l->map_name,"MAP%d",&mat);
+  StrPrint(buf,"HUSTR_%d",mat);
+#else
   StrPrint(buf,"HUSTR_%s",l->map_name);
+#endif
   title=Define(buf);   
   for(ld=head->next;ld!=head;ld=ld->next) {
     if(!ld->seen&&!all)

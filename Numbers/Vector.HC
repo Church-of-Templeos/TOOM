@@ -16,7 +16,7 @@ Vector *CreateVector(I32 size)
 {
  Vector *v = MAlloc(sizeof(Vector));
  v->size = size;
- v->data = CAlloc(sizeof(F64)*size,Fs->parent_task);
+ v->data = CAlloc(sizeof(F64)*size,Fs);
  return v;
 
 }

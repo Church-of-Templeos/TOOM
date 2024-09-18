@@ -11,7 +11,7 @@
 "you're stuck on The Shores of Hell.\n"\
 "The only way out is through.\n"\
 "\n"\
-"To continue the TOOM experience, play\n"\
+"To continue the DOOM experience, play\n"\
 "The Shores of Hell and its amazing\n"\
 "sequel, Inferno!\n"
 
@@ -32,7 +32,7 @@
 "Hell.\n"\
 "\n" \
 "Now, it's on to the final chapter of\n"\
-"TOOM! -- Inferno."
+"DOOM! -- Inferno."
 
 #define E3TEXT \
 "The loathsome spiderdemon that\n"\
@@ -54,7 +54,7 @@
 "door with you ..."
 
 #define E4TEXT \
-"the demon frasier must have sent forth\n"\
+"the spider mastermind must have sent forth\n"\
 "its legions of hellspawn before your\n"\
 "final confrontation with that terrible\n"\
 "beast from hell.  but you stepped forward\n"\
@@ -63,24 +63,143 @@
 "would in the face of something so evil.\n"\
 "\n"\
 "besides, someone was gonna pay for what\n"\
-"happened to diana, your girlfriend.\n"\
+"happened to daisy, your pet rabbit.\n"\
 "\n"\
 "but now, you see spread before you more\n"\
 "potential pain and gibbitude as a nation\n"\
-"of cia demons run amok among our cities.\n"\
+"of demons run amok among our cities.\n"\
 "\n"\
 "next stop, hell on earth!"
+
+#define C1TEXT \
+"YOU HAVE ENTERED DEEPLY INTO THE INFESTED\n" \
+"STARPORT. BUT SOMETHING IS WRONG. THE\n" \
+"MONSTERS HAVE BROUGHT THEIR OWN REALITY\n" \
+"WITH THEM, AND THE STARPORT'S TECHNOLOGY\n" \
+"IS BEING SUBVERTED BY THEIR PRESENCE.\n" \
+"\n"\
+"AHEAD, YOU SEE AN OUTPOST OF HELL, A\n" \
+"FORTIFIED ZONE. IF YOU CAN GET PAST IT,\n" \
+"YOU CAN PENETRATE INTO THE HAUNTED HEART\n" \
+"OF THE STARBASE AND FIND THE CONTROLLING\n" \
+"SWITCH WHICH HOLDS EARTH'S POPULATION\n" \
+"HOSTAGE."
+
+// After level 11, put this:
+
+#define C2TEXT \
+"YOU HAVE WON! YOUR VICTORY HAS ENABLED\n" \
+"HUMANKIND TO EVACUATE EARTH AND ESCAPE\n"\
+"THE NIGHTMARE.  NOW YOU ARE THE ONLY\n"\
+"HUMAN LEFT ON THE FACE OF THE PLANET.\n"\
+"CANNIBAL MUTATIONS, CARNIVOROUS ALIENS,\n"\
+"AND EVIL SPIRITS ARE YOUR ONLY NEIGHBORS.\n"\
+"YOU SIT BACK AND WAIT FOR DEATH, CONTENT\n"\
+"THAT YOU HAVE SAVED YOUR SPECIES.\n"\
+"\n"\
+"BUT THEN, EARTH CONTROL BEAMS DOWN A\n"\
+"MESSAGE FROM SPACE: \"SENSORS HAVE LOCATED\n"\
+"THE SOURCE OF THE ALIEN INVASION. IF YOU\n"\
+"GO THERE, YOU MAY BE ABLE TO BLOCK THEIR\n"\
+"ENTRY.  THE ALIEN BASE IS IN THE HEART OF\n"\
+"YOUR OWN HOME CITY, NOT FAR FROM THE\n"\
+"STARPORT.\" SLOWLY AND PAINFULLY YOU GET\n"\
+"UP AND RETURN TO THE FRAY."
+
+
+// After level 20, put this:
+
+#define C3TEXT \
+"YOU ARE AT THE CORRUPT HEART OF THE CITY,\n"\
+"SURROUNDED BY THE CORPSES OF YOUR ENEMIES.\n"\
+"YOU SEE NO WAY TO DESTROY THE CREATURES'\n"\
+"ENTRYWAY ON THIS SIDE, SO YOU CLENCH YOUR\n"\
+"TEETH AND PLUNGE THROUGH IT.\n"\
+"\n"\
+"THERE MUST BE A WAY TO CLOSE IT ON THE\n"\
+"OTHER SIDE. WHAT DO YOU CARE IF YOU'VE\n"\
+"GOT TO GO THROUGH HELL TO GET TO IT?"
+
+
+// After level 29, put this:
+
+#define C4TEXT \
+"THE HORRENDOUS VISAGE OF THE BIGGEST\n"\
+"DEMON YOU'VE EVER SEEN CRUMBLES BEFORE\n"\
+"YOU, AFTER YOU PUMP YOUR ROCKETS INTO\n"\
+"HIS EXPOSED BRAIN. THE MONSTER SHRIVELS\n"\
+"UP AND DIES, ITS THRASHING LIMBS\n"\
+"DEVASTATING UNTOLD MILES OF HELL'S\n"\
+"SURFACE.\n"\
+"\n"\
+"YOU'VE DONE IT. THE INVASION IS OVER.\n"\
+"EARTH IS SAVED. HELL IS A WRECK. YOU\n"\
+"WONDER WHERE BAD FOLKS WILL GO WHEN THEY\n"\
+"DIE, NOW. WIPING THE SWEAT FROM YOUR\n"\
+"FOREHEAD YOU BEGIN THE LONG TREK BACK\n"\
+"HOME. REBUILDING EARTH OUGHT TO BE A\n"\
+"LOT MORE FUN THAN RUINING IT WAS.\n"
+
+
+
+// Before level 31, put this:
+
+#define C5TEXT \
+"CONGRATULATIONS, YOU'VE FOUND THE SECRET\n"\
+"LEVEL! LOOKS LIKE IT'S BEEN BUILT BY\n"\
+"HUMANS, RATHER THAN DEMONS. YOU WONDER\n"\
+"WHO THE INMATES OF THIS CORNER OF HELL\n"\
+"WILL BE."
+
+
+// Before level 32, put this:
+
+#define C6TEXT \
+"CONGRATULATIONS, YOU'VE FOUND THE\n"\
+"SUPER SECRET LEVEL!  YOU'D BETTER\n"\
+"BLAZE THROUGH THIS ONE!\n"
+
 
 #define TEXT_SPEED 5
 #define TEXT_WAIT 3
 extern Bool BunnyScroll(CDC *dc);
 U0 Finale(CDC *dc,I64 ep) {
-  U8 *str,buf[TEXT_COLS*TEXT_ROWS+1];
+  U8 *str=NULL,buf[TEXT_COLS*TEXT_ROWS+1];
   CDC *flat;
   I64 ch,cnt,coff,ascii;
   I64 i,i2;
   F64 start_tS;
   F64 wait_start_tS=0;
+  FlushMsgs;
+#ifdef DOOM2
+  switch(ep) {
+    case 6:
+      str=C1TEXT;
+      flat=GetFlatDC("SLIME16");
+      break;
+    case 11:
+      str=C2TEXT;
+      flat=GetFlatDC("RROCK14");
+      break;
+    case 20:
+      str=C3TEXT;
+      flat=GetFlatDC("RROCK07");
+      break;
+    case 30:
+      str=C4TEXT;
+      flat=GetFlatDC("RROCK17");
+      break;
+    case 15:
+      str=C5TEXT;
+      flat=GetFlatDC("RROCK13");
+      break;
+    case 31:
+      str=C6TEXT;
+      flat=GetFlatDC("RROCK19");
+      break;
+  }
+  if(!str) return;
+#else
   switch(ep) {
     case 1:
       str=E1TEXT;
@@ -100,6 +219,7 @@ U0 Finale(CDC *dc,I64 ep) {
       flat=GetFlatDC("MFLR8_3");
       break;
   }
+#endif
   start_tS=Server_tS;
   MemSet(buf,0,TEXT_COLS*TEXT_ROWS+1);
   cnt=StrLen(str);
@@ -117,6 +237,13 @@ U0 Finale(CDC *dc,I64 ep) {
       if(ascii==CH_ESC)
 	paused=TRUE;
       //Refresh to regen keys
+#ifdef DOOM2
+//Just quit to net level
+      if(ascii=='\n')
+	break;
+      if(ascii==' ')
+	break;
+#endif
       Refresh;
     }
     for(i=0;i<GR_WIDTH/2;i++) {
@@ -140,6 +267,7 @@ U0 Finale(CDC *dc,I64 ep) {
     GrBlot(,0,0,doom_scrn);
     Refresh;
   }
+  Refresh;
   DCFill;
 }
 Bool BunnyScroll(CDC *dc) {

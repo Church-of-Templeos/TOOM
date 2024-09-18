@@ -266,23 +266,36 @@ U0 DrawStats(CDC *to_dc,CDoomLevel *l,I64 ep,I64 l2,I64 tick=0) {
 //TODO par
 }
 
-
+extern U8 *NextLevel(U8 *nm,Bool special=FALSE);
+extern U0 Finale(CDoomLevel*level,I64 ep);
 U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
   U8 buf[16];
   I64 state=0;
   I64 sc,ch,hit,y;
   CDC *dc;
+  U8 *next=NextLevel(lev->map_name);
+  AIWNIOS_SetCaptureMouse(0);
+#ifndef DOOM2
   IntermessionLoadData(ep,l);
+#endif
   F64 start_ts=tS;
   FlushMsgs;
   while(state<2) {
+    
+#ifndef DOOM2
     GrBlot(doom_scrn,0,0,background);
     DrawAnimatedBackground(doom_scrn,ep,l);
+#else
+    LoadGrLump(wad,"INTERPIC");
+    dc=GetGrLump("INTERPIC");
+    GrBlot(doom_scrn,0,0,dc);
+#endif
     if(!state) {
       y=TITLEY;
       dc=GetGrLump("WIF");
       GrBlot(doom_scrn,(GR_WIDTH-dc->width)/2,y,dc);
       y+=(5*dc->height)/4;
+#ifndef DOOM2
       StrPrint(buf,"WILV%d%d",ep,l); //Lvel name
       LoadGrLump(wad,buf); //Will load once
       dc=GetGrLump(buf);
@@ -293,11 +306,21 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
       }
       GrBlot(doom_scrn,(GR_WIDTH-dc->width)/2,y,dc);
       DrawSplats(doom_scrn,ep,l);
+#else
+//'MAP'XX (XX is map number(0 indexed))
+      StrPrint(buf,"CWILV%02d",Str2I64(lev->map_name+3)-1); //-1 as levels start from 00(but are named MAP01-MAPXXX)
+      LoadGrLump(wad,buf); //Will load once
+      dc=GetGrLump(buf);
+      GrBlot(doom_scrn,(GR_WIDTH-dc->width)/2,y,dc);
+      y+=(5*dc->height)/4;
+#endif
+
     } else {
       y=TITLEY;
       dc=GetGrLump("WIENTER");
       GrBlot(doom_scrn,(GR_WIDTH-dc->width)/2,y,dc);
       y+=(5*dc->height)/4;
+#ifndef DOOM2
       StrPrint(buf,"WILV%d%d",ep,l+1); //Lvel name
       LoadGrLump(wad,buf); //Will load once
       dc=GetGrLump(buf);
@@ -309,6 +332,16 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
       if(!dc) return; //??? TODO text intermission
       GrBlot(doom_scrn,(GR_WIDTH-dc->width)/2,y,dc);
       DrawStats(doom_scrn,lev,ep,l,(tS-start_ts)*30.);
+#else
+     if(next) {
+//'MAP'XX (XX is map number)
+        StrPrint(buf,"CWILV%02d",Str2I64(lev->map_name+3));
+        LoadGrLump(wad,buf); //Will load once
+        dc=GetGrLump(buf);
+        GrBlot(doom_scrn,(GR_WIDTH-dc->width)/2,y,dc);
+      }
+      DrawStats(doom_scrn,lev,ep,l,(tS-start_ts)*30.);
+#endif
     }
     while(ScanKey) {
 	FlushMsgs;
@@ -317,5 +350,8 @@ U0 Intermission(CDoomLevel *lev,I64 ep,I64 l) {
     GrBlot(,0,0,doom_scrn);
     Refresh;
   }
+#ifdef DOOM2
+    Finale(doom_scrn,Str2I64(lev->map_name+3));
+#endif
 }
 #endif

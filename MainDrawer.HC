@@ -381,10 +381,9 @@ U0 SectorPlot(CDC *dc,CDC *texture,I64 x,I64 y,I64 idist,I64 wx,I64 wy,I64 light
   to(U8*)+=dc->width_internal;
   *to=color>>16;
 }
-U0 FillPoly(CDC *dc,CDoomCamera *cam,CDoomSector *s,CDC *texture,CD4 *points,I64 cnt,F64 level,Bool floor) {
+U0 FillPoly(CDC *dc,CDoomCamera *cam,CDoomSector *s,CDC *texture,CD4 *points,I64 cnt,F64 level,Bool floor,I64 af) {
   Bool god_mode=GodModeFilter;
   I64 idx,idx2,idx3;
-  I64 af=Server_tS*4;
   I64 minx,x,y,miny,maxy;
   I64 maxx,cap;
   CD3 dummya,dummyb;
@@ -938,7 +937,7 @@ CDC *GetLowerTexture(CDoomSidedef *s) {
   return s->lower_texture[t];
 }
 Bool DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
-  if(cam->seg_cnts_per_core[Gs->num]>=0x100) return FALSE;
+  //if(cam->seg_cnts_per_core[Gs->num]>=0x100) return FALSE;
   CD2 start_floor,start_ceil;
   CD2 end_floor,end_ceil;
   I64 seg_idx,wall,fail_cnt;
@@ -1228,12 +1227,12 @@ skip:;
   }
 }
 
-U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE) {
+U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE,I64 frame) {
   if(!texture) return;
   if(GetFlatDC("F_SKY1")==texture) return;
   I64 in_view;
   CD4 *poodle=GetFlatPoints(cam,sector,at,&in_view);
-  FillPoly(to_dc,cam,sector,texture,poodle,in_view,at,floor);
+  FillPoly(to_dc,cam,sector,texture,poodle,in_view,at,floor,frame);
   Free(poodle);
 }
 class CMPDrawJob {
@@ -1255,10 +1254,10 @@ U0 MPDrawFlatsJob(CMPDrawJob *md) {
     if(sector->drawn) {
       if(sector->floor_dc)
         if(sector->floor_height<cam->h&&sector->ceil_height!=sector->floor_height)
-	  DrawTexturedFlat(l,md->to_dc,cam,sector,sector->floor_height,sector->floor_dc[af%FrameCnt(sector->floor_dc)],TRUE);
+	  DrawTexturedFlat(l,md->to_dc,cam,sector,sector->floor_height,sector->floor_dc[af%FrameCnt(sector->floor_dc)],TRUE,af);
       if(sector->ceil_dc)
         if(sector->ceil_height>cam->h&&sector->ceil_height!=sector->floor_height)
-	  DrawTexturedFlat(l,md->to_dc,cam,sector,sector->ceil_height,sector->ceil_dc[af%FrameCnt(sector->ceil_dc)],FALSE);
+	  DrawTexturedFlat(l,md->to_dc,cam,sector,sector->ceil_height,sector->ceil_dc[af%FrameCnt(sector->ceil_dc)],FALSE,af);
     }
   }
   LBts(&mp_done,Gs->num);

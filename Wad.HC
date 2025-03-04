@@ -225,8 +225,8 @@ class CBoundBoxF64 {
 
 class CDoomBSPNode:CQue {
   U64 signature;
-  CDoomBSPNode *left_child,*right_child;
   CDoomBSPNode *parent;
+  CDoomBSPNode *left_child,*right_child;
   F64 x,y;
   F64 dx,dy;  
   CBoundBoxF64 left,right;
@@ -272,9 +272,11 @@ class CDoomBSPSeg {
 
 class CDoomSubsector:CQue {
   U64 signature;
+  CDoomBSPNode *parent;
   I64 cnt;
   CDoomSector *sector;
   CDoomBSPSeg *first;
+  Bool drawn;
 };
 class CDoomSector:CQue {
   CDC *floor_dc[4];
@@ -549,20 +551,26 @@ CDoomBSPNode *DoomWhichBSPNode(F64 x,F64 y,CDoomLevel *level,CDoomSubsector **ss
 //Check which side of parition line
     x2=x-cur_node->x;
     y2=y-cur_node->y;
+    Bool l=BoundBoxF64Inside(x,y,&cur_node->left),r=BoundBoxF64Inside(x,y,&cur_node->right);
+    if(l^^r) {
+      if(l) goto l_left;
+      goto l_right;
+    }
     if(y2*cur_node->dx-x2*cur_node->dy<0.) {
+l_left:;
       if(cur_node->left_child->signature!='NODE') {
         if(ss) *ss=cur_node->left_child;
         return cur_node;
       }
       cur_node=cur_node->left_child;
-    }  else {
+    } else {
+l_right:;
       if(cur_node->right_child->signature!='NODE') {
         if(ss) *ss=cur_node->right_child;
         return cur_node;
       }
       cur_node=cur_node->right_child;
     }
-//
   }
   return NULL;
 }
@@ -1232,6 +1240,7 @@ skip_thing:
     } else {
 //SSECTORS
       dnode_list[idx]->left_child=sslist[wnode->left_child&(1<<15-1)];
+      dnode_list[idx]->left_child->parent=dnode_list[idx];
     }
     if(!(wnode->right_child&(1<<15))) {
       dnode_list[idx]->right_child=dnode_list[wnode->right_child&(1<<15-1)];
@@ -1239,6 +1248,7 @@ skip_thing:
     } else {
 //SSECTORS
       dnode_list[idx]->right_child=sslist[wnode->right_child&(1<<15-1)];
+      dnode_list[idx]->right_child->parent=dnode_list[idx];
     }
     wnode++;
   }

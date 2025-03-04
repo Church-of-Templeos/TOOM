@@ -159,18 +159,66 @@ CI64Set *ThingsInRadius(CDoomLevel *l,I64 x,I64 y,F64 radius) {
         }
   return homies;
 }
-
+F64 D2Dist(CD2 *a,CD2 *b) {
+  return Sqrt(Sqr(a->x-b->x)+Sqr(a->y-b->y));
+}
+F64 NearestHitBox(CD2 *hit,CD2 *from,F64 angle,F64 x,F64 y,F64 r) {
+  CD2 tr,tl,br,bl;
+  tr.x=x-r;
+  br.x=x-r;
+  tl.x=x+r;
+  bl.x=x+r;
+  tl.y=y+r;
+  tr.y=y+r;
+  bl.y=y+r;
+  br.y=y+r;
+  F64 bestd=65000*65000;
+  CD2 en,best,tmp;
+  en.x=Cos(angle)*65000+from->x;
+  en.y=Sin(angle)*65000+from->y;
+  if(PlaneIntersect(&tmp,from,&en,&tr,&tl)) {
+    if(D2Dist(from,&tmp)<bestd) {
+      bestd=D2Dist(from,&best);
+      best.x=tmp.x;
+      best.y=tmp.y;
+    }
+  }
+  if(PlaneIntersect(&tmp,from,&en,&tl,&bl)) {
+    if(D2Dist(from,&tmp)<bestd) {
+      bestd=D2Dist(from,&best);
+      best.x=tmp.x;
+      best.y=tmp.y;
+    }
+  }
+  if(PlaneIntersect(&tmp,from,&en,&br,&bl)) {
+    if(D2Dist(from,&tmp)<bestd) {
+      bestd=D2Dist(from,&best);
+      best.x=tmp.x;
+      best.y=tmp.y;
+    }
+  }
+  if(PlaneIntersect(&tmp,from,&en,&tl,&br)) {
+    if(D2Dist(from,&tmp)<bestd) {
+      bestd=D2Dist(from,&best);
+      best.x=tmp.x;
+      best.y=tmp.y;
+    }
+  }
+  if(hit) {
+    hit->x=best.x;
+    hit->y=best.y;
+  }
+  if(bestd>65000)
+   return 0;
+  return bestd;
+}
 CDoomThing *RayHitsAThing(CDoomLevel *l,CD2 *dummy,F64 dist,F64 angle,CDoomThing *exclude=NULL,CD2 *hit_at=NULL,F64 radius=0) {
   F64 best_dist=dist;
   CDoomThing *cur,*max=NULL;
   I64 idx,br,xo,yo,i,blockx,blocky,idx2;
   CI64Set *bmthings=NULL;
   CI64Set *checked=I64SetNew;
-  F64 min_dist=I16_MAX;
-  CD2 bb_tl;
-  CD2 bb_bl;
-  CD2 bb_tr;
-  CD2 bb_br;
+  F64 min_dist=I16_MAX,tmpd;
   CD2 ray_end,hit_at2,ray2,ray3;
   CD2 start2,start3;
   CD2 *ptr1,*ptr2;
@@ -223,51 +271,36 @@ CDoomThing *RayHitsAThing(CDoomLevel *l,CD2 *dummy,F64 dist,F64 angle,CDoomThing
 	      for(i=0;i!=bmthings->cnt;i++) {
 	        cur=bmthings->body[i];
 	        if(cur->flags&(TF_OBSTACLE|TF_SHOOTABLE)) {
-		  if((d=Sqrt(Sqr(cur->x-dummy->x)+Sqr(cur->y-dummy->y)))<best_dist&&cur!=exclude) {
-		    F64 bbl_t=cur->y+cur->template->radius+radius;
-		    F64 bbl_b=cur->y-cur->template->radius+radius;
-		    F64 bbl_r=cur->x+cur->template->radius+radius;
-		    F64 bbl_l=cur->x-cur->template->radius+radius;
-		    bb_tl.x=bbl_l;
-		    bb_bl.x=bbl_l;
-		    bb_tr.x=bbl_r;
-		    bb_br.x=bbl_r;
-		    bb_tl.y=bbl_t;
-		    bb_bl.y=bbl_b;
-		    bb_tr.y=bbl_t;
-		    bb_br.y=bbl_b;
-		    for(idx2=0;idx2!=3;idx2++) {
-		      switch(idx2) {
-		        case 0:
-			  ptr1=dummy;
-			  ptr2=&ray_end;
-			  break;
-		        case 1:
-			  ptr1=&start2;
-			  ptr2=&ray2;
-			  break;
-		        case 2:
-			  ptr1=&start3;
-			  ptr2=&ray3;
-			  break;
-		      }
-		      if(PlaneIntersect(&hit_at2,ptr1,ptr2,&bb_tl,&bb_tr)) {
-pass:
-		        if(hit_at) {
-			  hit_at->x=hit_at2.x;
-			  hit_at->y=hit_at2.y;
+		  if(cur->template)
+		    if((d=Sqrt(Sqr(cur->x-dummy->x)+Sqr(cur->y-dummy->y)))<best_dist&&cur!=exclude) {
+		      for(idx2=0;idx2!=3;idx2++) {
+		        switch(idx2) {
+			  case 0:
+			    ptr1=dummy;
+			    ptr2=&ray_end;
+			    break;
+			  case 1:
+			    ptr1=&start2;
+			    ptr2=&ray2;
+			    break;
+			  case 2:
+			    ptr1=&start3;
+			    ptr2=&ray3;
+			    break;
 		        }
-		        best_dist=d;
-		        max=cur;
-		      } else if(PlaneIntersect(&hit_at2,ptr1,ptr2,&bb_br,&bb_tr)) {
-		        goto pass;
-		      } else if(PlaneIntersect(&hit_at2,ptr1,ptr2,&bb_bl,&bb_br)) {
-		        goto pass;
-		      } else if(PlaneIntersect(&hit_at2,ptr1,ptr2,&bb_tl,&bb_bl)) {
-		        goto pass;
+		        if(0.<(tmpd=NearestHitBox(&hit_at2,ptr1,ptr2,cur->x,cur->y,cur->template->radius))) {
+			  if(tmpd<best_dist) {
+			    if(hit_at) {
+			      hit_at->x=hit_at2.x;
+			      hit_at->y=hit_at2.y;
+			    }
+			    best_dist=tmpd;
+			    max=cur;
+			  }
+		        }
+
 		      }
 		    }
-		  }
 	        }
 	      }
 	    }
@@ -608,16 +641,12 @@ fail_walk2:
 	  goto monster_on_monster;
         }
       }
-      if(hit_thing) {
-        if(hit_thing->template)
-	  if(hit_thing->template->mass)
-	    mass_friction=80./hit_thing->template->mass;
-      }
+      mass_friction=0;
       if(_hit_thing) _hit_thing[0]=hit_thing;
       cap=Sqrt(Sqr(cur_pos.x-move1.x)+Sqr(cur_pos.y-move1.y));
       cap=Max(0,cap-radius-hit_thing->template->radius);
-      cur_pos.x=move1.x+cos*cap;
-      cur_pos.y=move1.y+sin*cap;
+      cur_pos.x=move1.x;
+      cur_pos.y=move1.y;
     }
   }
 monster_on_monster:;

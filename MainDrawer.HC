@@ -615,6 +615,10 @@ Bool RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 le
 //2x2 dithering super pixels
 	  cam->cutoff_dists[ix>>1]=dist;
         }
+        if(floor==2||floor==0) {
+	  if(ceilh-flrh<1.)
+	  cam->cutoff_dists[ix>>1]=dist;
+	}
       }
       if(ih&1) ih--;
       if(iy&1) iy--;
@@ -1123,7 +1127,7 @@ done:;
 //Returns TRUEon keep rendering
 Bool DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
 //Assumes we drew all the closest things as we cant draw anymore
-  if(cam->seg_cnts_per_core[Gs->num]>=0x100) return FALSE;
+//  if(cam->seg_cnts_per_core[Gs->num]>=0x100) return FALSE;
   if(node->signature!='NODE') {
     DrawSubsector(to_dc,cam,node);
     return TRUE;

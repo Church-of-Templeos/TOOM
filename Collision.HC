@@ -168,8 +168,8 @@ F64 NearestHitBox(CD2 *hit,CD2 *from,F64 angle,F64 x,F64 y,F64 r) {
   br.x=x-r;
   tl.x=x+r;
   bl.x=x+r;
-  tl.y=y+r;
-  tr.y=y+r;
+  tl.y=y-r;
+  tr.y=y-r;
   bl.y=y+r;
   br.y=y+r;
   F64 bestd=65000*65000;
@@ -273,7 +273,7 @@ CDoomThing *RayHitsAThing(CDoomLevel *l,CD2 *dummy,F64 dist,F64 angle,CDoomThing
 	        if(cur->flags&(TF_OBSTACLE|TF_SHOOTABLE)) {
 		  if(cur->template)
 		    if((d=Sqrt(Sqr(cur->x-dummy->x)+Sqr(cur->y-dummy->y)))<best_dist&&cur!=exclude) {
-		      for(idx2=0;idx2!=3;idx2++) {
+		      for(idx2=0;idx2!=1;idx2++) {
 		        switch(idx2) {
 			  case 0:
 			    ptr1=dummy;
@@ -632,23 +632,6 @@ fail_walk2:
   }
   wall_idx=o;
 
-  if(flags&COLLISF_NO_HIT_THING) {
-    if(hit_thing=RayHitsAThing(l,&move1,cap+radius,angle,exclude,&hit_at,radius)) {
-      if(flags&COLLISF_MONSTER) {
-//Dont let monsters hit other monsters,DOOM gets croweded
-        if(hit_thing->template->flags&TF_MONSTER) {
-	  hit_thing=NULL;
-	  goto monster_on_monster;
-        }
-      }
-      mass_friction=0;
-      if(_hit_thing) _hit_thing[0]=hit_thing;
-      cap=Sqrt(Sqr(cur_pos.x-move1.x)+Sqr(cur_pos.y-move1.y));
-      cap=Max(0,cap-radius-hit_thing->template->radius);
-      cur_pos.x=move1.x;
-      cur_pos.y=move1.y;
-    }
-  }
 monster_on_monster:;
   if(best) {
     dist=0.;
@@ -719,49 +702,6 @@ pass:
       }
     }
 //Make sure to slide against thing "walls"
-    if(hit_thing) {
-//Make a dummy linedef that will block the things from transgrsseing
-      //Make it on the North,West,East or South side,
-      //do it "around the clock" and dist the cloestest side
-      //
-      static CDoomLinedef dummy_ld[4];
-      static CDoomSidedef dummy_sd[4];
-      static CD2 dummy_ld_s[4],dummy_ld_e[4];
-      MemSet(&dummy_ld,0,4*sizeof CDoomLinedef);
-      MemSet(&dummy_sd,0,4*sizeof CDoomSidedef);
-      min_dist=I16_MAX;
-      xoff=0;
-      for(try_wall=0;try_wall!=4;try_wall++) {
-        off=2*pi/4*try_wall;
-        dummy_ld[try_wall].start=&dummy_ld_s[try_wall];
-        dummy_ld[try_wall].end=&dummy_ld_e[try_wall];
-        dummy_ld[try_wall].front=&dummy_sd; //Make a 1 sided(solid) sidedef
-        dummy_ld[try_wall].flags=3; //Block moonsters and players
-        dummy_ld_s[try_wall].x=hit_thing->x+Cos(off-pi/4)*hit_thing->template->radius;
-        dummy_ld_s[try_wall].y=hit_thing->y+Sin(off-pi/4)*hit_thing->template->radius;
-        dummy_ld_e[try_wall].x=hit_thing->x+Cos(off+pi/4)*hit_thing->template->radius;
-        dummy_ld_e[try_wall].y=hit_thing->y+Sin(off+pi/4)*hit_thing->template->radius;
-        if(CheckLineWithBox(&dummy_ld[try_wall],&cur_pos,radius+1.5)) {
-	  dist=DistFromLine(&move1,&dummy_ld_s,&dummy_ld_e);
-	  if(dist<min_dist) {
-	    min_dist=dist;
-	    xoff=try_wall;
-	  }
-        }
-      }
-      off=2*pi/4*xoff;
-      best=&dummy_ld[xoff];
-
-      for(i=0;i!=4;i++) {
-        wall=&dummy_ld[i];
-        tmp=NormalScore(wall,&cur_pos,angle);
-        if(Abs(tmp)>Abs(cap)) {
-	  cap=tmp;
-	  wall2=wall;
-        }
-      }
-      cap=0; //Whoops
-    }
     static I64 recur_depth=0;
     static F64 portion=0;
     if(wall2&&recur_depth<3) { //???
@@ -810,6 +750,34 @@ look_for_hot:
     }
 
     abs_end:
+  if(flags&COLLISF_NO_HIT_THING) {
+    CI64Set *things=ThingsInRadius(l,result->x,result->y,radius);
+    if(things) {
+      for(i=0;i!=things->cnt;i++) {
+        hit_thing=things->body[i];
+        if(hit_thing!=exclude)
+	  if(hit_thing->template&&hit_thing->flags&TF_OBSTACLE) {
+	    F64 rad2=hit_thing->template->radius;
+	    if(hit_thing->x-rad2-radius<result->x<hit_thing->x+rad2+radius) {
+	      if(hit_thing->y-rad2-radius<result->y<hit_thing->y+rad2+radius) {
+//Dumb hack,check if we got stuck in a thing(move1 is inside other things radius)
+		if(hit_thing->x-rad2-radius<move1.x<hit_thing->x+rad2+radius)
+		  if(hit_thing->y-rad2-radius<move1.y<hit_thing->y+rad2+radius)
+			goto skip_thing;
+	        result->x=move1.x;
+	        result->y=move1.y;
+		if(_hit_thing) *_hit_thing=hit_thing;
+	        I64SetDel(things);
+	        goto abs_end;
+skip_thing:;
+	      }
+	    }
+	  }
+      }
+    }
+    I64SetDel(things);
+    hit_thing=NULL;
+  }
   I64SetDel(fail_walls);
   I64SetDel(walls_in_way);
   I64SetDel(checked_blockmaps);

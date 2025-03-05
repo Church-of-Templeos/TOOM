@@ -551,11 +551,11 @@ CDoomBSPNode *DoomWhichBSPNode(F64 x,F64 y,CDoomLevel *level,CDoomSubsector **ss
 //Check which side of parition line
     x2=x-cur_node->x;
     y2=y-cur_node->y;
-    Bool l=BoundBoxF64Inside(x,y,&cur_node->left),r=BoundBoxF64Inside(x,y,&cur_node->right);
+/*    Bool l=BoundBoxF64Inside(x,y,&cur_node->left),r=BoundBoxF64Inside(x,y,&cur_node->right);
     if(l^^r) {
       if(l) goto l_left;
       goto l_right;
-    }
+    }*/
     if(y2*cur_node->dx-x2*cur_node->dy<0.) {
 l_left:;
       if(cur_node->left_child->signature!='NODE') {

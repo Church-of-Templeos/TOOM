@@ -125,7 +125,7 @@ U8 *ReadALine(U8 **fbuf) {
   U8 *en,*st=*fbuf,*buf;
   if(!*st) return NULL;
   if(en=StrFirstOcc(st,"\n")) {
-    buf=MAlloc(en-st+2);
+    buf=CAlloc(en-st+2);
     MemCpy(buf,st,en-st+1);
     buf[en-st+1]=0;
     *fbuf=en+1;

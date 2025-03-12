@@ -212,6 +212,41 @@ F64 NearestHitBox(CD2 *hit,CD2 *from,F64 angle,F64 x,F64 y,F64 r) {
    return 0;
   return bestd;
 }
+CDoomThing *InThingBBox(CDoomLevel *l,CDoomThing *me) {
+  if(!me->template) return NULL;
+  F64 r=me->template->radius;
+  CD2 *dummy=&me->x;
+  CI64Set *bmthings=NULL;
+  I64 blockx,blocky;
+  blockx=ToI64(dummy->x-l->block_map_x_off)/128;
+  blocky=ToI64(dummy->y-l->block_map_y_off)/128;
+  I64 br=1+Floor(r/128.);
+  I64 idx,xo,yo;
+  F64 r2;
+  CDoomThing *thing;
+  for(xo=-br;xo<=br;xo++)
+    for(yo=-br;yo<=br;yo++)
+      if(0<=blockx+xo<l->block_map_cols)
+        if(0<=blocky+yo<l->block_map_rows) {
+	  bmthings=l->block_map_things[
+	        blockx+xo+
+	        (yo+blocky)*l->block_map_cols];
+	  if(bmthings) {
+	    for(idx=0;idx!=bmthings->cnt;idx++) {
+	      thing=bmthings->body[idx];
+	      if(thing->template&&thing!=me) {
+	        if(thing->flags&(TF_OBSTACLE|TF_SHOOTABLE)){
+		  r2=thing->template->radius;
+		  if(Max(dummy->x-r,thing->x-r2)<=Min(dummy->x+r,thing->x+r2))
+		    if(Max(dummy->y-r,thing->y-r2)<=Min(dummy->y+r,thing->y+r2))
+		      return thing;
+	        }
+	      }
+	    }
+	  }
+        }
+  return NULL;
+}
 CDoomThing *RayHitsAThing(CDoomLevel *l,CD2 *dummy,F64 dist,F64 angle,CDoomThing *exclude=NULL,CD2 *hit_at=NULL,F64 radius=0) {
   F64 best_dist=dist;
   CDoomThing *cur,*max=NULL;
@@ -734,9 +769,23 @@ look_for_hot:
       }
   }
 
+  if(exclude) {
+    CD2 old_pos;
+    old_pos.x=exclude->x;
+    old_pos.y=exclude->y;
+    if(InThingBBox(l,exclude)) {
+      dist=0;
+      exclude->x=old_pos.x;
+      exclude->y=old_pos.y;
+      result->x=move1.x;
+      result->y=move1.y;
+    } else {
+      exclude->x=old_pos.x;
+      exclude->y=old_pos.y;
+    }
+  }
 
-
-  //Final test Pt.2,if COLLISF_NO_DROP,make sure we dont drop
+    //Final test Pt.2,if COLLISF_NO_DROP,make sure we dont drop
   if(flags&COLLISF_NO_DROP)
     if(s=GetSectorForCoord(l,result->x,result->y)) {
       if(s->floor_height<cur_height-STEP_HEIGHT) {

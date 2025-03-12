@@ -344,6 +344,7 @@ class CDoomLevel {
   U8 *reject;
   I64 sector_cnt;
   U8 map_name[8]; //EXMY
+  CDoomSector *floor_pixels;
 };
 
 class CWadTexturePatch {
@@ -530,7 +531,7 @@ U8 *W_GetLumpPtrFromName(U8 *name,CWad *wad=NULL,I64 *lump_len=NULL,I64 which=1)
 
 
 U0 AddLinedefToSector(CDoomSector *ld,CDoomSector *s) {
-  CDoomLinedef **list=MAlloc(8*(s->linedef_cnt+1));
+  CDoomLinedef **list=CAlloc(8*(s->linedef_cnt+1));
   if(s->linedef_cnt)
     MemCpy(list,s->linedefs,8*s->linedef_cnt);
   Free(s->linedefs);
@@ -706,7 +707,7 @@ found_pnames:
       pnames=wad->body+wad_dir->ptr;
       ret->pname_cnt=pnames->len;
       Free(ret->pnames);
-      ret->pnames=MAlloc(ret->pname_cnt*8);
+      ret->pnames=CAlloc(ret->pname_cnt*8);
       MemCpy(ret->pnames,pnames->names,ret->pname_cnt*8);
 //Load wall patches
       wad_dir=wad->body+wad->directory_ptr;
@@ -1054,7 +1055,7 @@ skip_thing:
   cnt=wad_dir[3].lump_size/sizeof(CWadVertex);
   vertex=wad_dir[3].ptr+wad->body;
   level->vertice_cnt=cnt;
-  level->vertices=MAlloc(sizeof(CD2)*cnt);
+  level->vertices=CAlloc(sizeof(CD2)*cnt);
   UH2("LVERTS",level->vertices);
   if(StrCmp8("VERTEXES",wad_dir[3].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
@@ -1065,7 +1066,7 @@ skip_thing:
 //SIDEDEFS
   cnt=wad_dir[2].lump_size/sizeof(CWadSidedef);
   wside=wad_dir[2].ptr+wad(U8*);
-  dside_list=MAlloc(8*cnt);
+  dside_list=CAlloc(8*cnt);
   if(StrCmp8("SIDEDEFS",wad_dir[2].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
     dside=CAlloc(sizeof CDoomSidedef);
@@ -1177,7 +1178,7 @@ skip_thing:
   cnt=wad_dir[6].lump_size/sizeof(CWadBSPNode);
   wnode=wad_dir[6].ptr+wad(U8*);
   if(StrCmp8("NODES",wad_dir[6].lump_name)) throw('Wad');
-  dnode_list=MAlloc(cnt*8);
+  dnode_list=CAlloc(cnt*8);
   for(idx=0;idx!=cnt;idx++) {
     dnode=CAlloc(sizeof CDoomBSPNode);
     StrPrint(name,"ND.%d",idx);
@@ -1378,11 +1379,11 @@ skip_thing:
   offs=wbmh+1;
   level->block_map_y_off=wbmh->y_off;
   level->block_map_x_off=wbmh->x_off;
-  level->block_map_offsets=MAlloc(8*cnt);
+  level->block_map_offsets=CAlloc(8*cnt);
   UH2("BMO",level->block_map_offsets);
   level->block_map_cols=wbmh->num_cols;
   level->block_map_rows=wbmh->num_rows;
-  level->block_map_things=MAlloc(8*wbmh->num_cols*wbmh->num_rows);
+  level->block_map_things=CAlloc(8*wbmh->num_cols*wbmh->num_rows);
   x=wbmh->num_cols*wbmh->num_rows;
   while(--x>=0) {
     level->block_map_things[x]=I64SetNew;
@@ -1403,7 +1404,7 @@ skip_thing:
   }
   offs+=cnt;
   cnt=(wad_dir[9].lump_size-sizeof(CWadBlockMapHeader)-cnt*sizeof(I16))/sizeof(I16);
-  level->block_map_data=MAlloc(8*cnt);
+  level->block_map_data=CAlloc(8*cnt);
   UH2("BMD",level->block_map_data);
   while(--cnt>=0) {
     if(offs[cnt]==0xFFFF)

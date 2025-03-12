@@ -1005,8 +1005,8 @@ draw_wall:
 	      if(!no_draw) {
 		if(wall==3) drawn++;
 	        if(seg->back_side)
-		  keep_draw|=QueRayCastJob(to_dc,texture,seg->end,seg->start,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,TRUE);
-	        else
+ 		  keep_draw|=QueRayCastJob(to_dc,texture,seg->end,seg->start,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,TRUE);
+ 	        else
 		  keep_draw|=QueRayCastJob(to_dc,texture,seg->start,seg->end,cam,floor,ceil-floor,sector->floor_height,highest_ceil,wall,seg->linedef,sidedef,FALSE);
 	        if(wall==3&&opposite&&opposite->sector) {
 		  sector=opposite->sector;
@@ -1032,6 +1032,7 @@ draw_wall:
         ceil=Min(sector->ceil_height,CeilDepress(seg->linedef,sector));
         goto draw_wall;
       } else if(wall==3) {
+	texture=gr.dc;
         floor=sector->floor_height;
         ceil=sector->ceil_height;
 	goto draw_wall;
@@ -1140,7 +1141,7 @@ Bool DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
     if(BoxIsVisible(cam,&node->right)) DrawBSP0(to_dc,cam,node->right_child);
   } else {
     if(BoxIsVisible(cam,&node->right)) DrawBSP0(to_dc,cam,node->right_child);
-    if(BoxIsVisible(cam,&node->left)) DrawBSP0(to_dc,cam,node->left_child);
+     if(BoxIsVisible(cam,&node->left)) DrawBSP0(to_dc,cam,node->left_child);
   }
   if(node->parent)
     DrawBSP0(to_dc,cam,node->parent);
@@ -1255,13 +1256,16 @@ U0 MPDrawFlatsJob(CMPDrawJob *md) {
   CDoomCamera *cam=md->cam;
   I64 af=Server_tS*4;
   for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next) {
-    if(sector->drawn) {
+    if(sector->drawn) {
       if(sector->floor_dc)
-        if(sector->floor_height<cam->h&&sector->ceil_height!=sector->floor_height)
-	  DrawTexturedFlat(l,md->to_dc,cam,sector,sector->floor_height,sector->floor_dc[af%FrameCnt(sector->floor_dc)],TRUE,af);
+        if(sector->floor_height<cam->h&&sector->ceil_height!=sector->floor_height) {
+	  if(FrameCnt(sector->floor_dc))
+	    DrawTexturedFlat(l,md->to_dc,cam,sector,sector->floor_height,sector->floor_dc[af%FrameCnt(sector->floor_dc)],TRUE,af);
+        }
       if(sector->ceil_dc)
         if(sector->ceil_height>cam->h&&sector->ceil_height!=sector->floor_height)
-	  DrawTexturedFlat(l,md->to_dc,cam,sector,sector->ceil_height,sector->ceil_dc[af%FrameCnt(sector->ceil_dc)],FALSE,af);
+	  if(FrameCnt(sector->ceil_dc))
+	    DrawTexturedFlat(l,md->to_dc,cam,sector,sector->ceil_height,sector->ceil_dc[af%FrameCnt(sector->ceil_dc)],FALSE,af);
     }
   }
   LBts(&mp_done,Gs->num);

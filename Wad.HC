@@ -344,7 +344,9 @@ class CDoomLevel {
   U8 *reject;
   I64 sector_cnt;
   U8 map_name[8]; //EXMY
-  CDoomSector *floor_pixels;
+  CD2I32 floor_map_origin;
+  I64 floor_map_w,floor_map_h;
+  CDoomSector **floor_map8x8;
 };
 
 class CWadTexturePatch {
@@ -953,7 +955,7 @@ CDC *GetFlatDC(U8 *name) {
 extern U0 LoadLightingThinkers(CDoomLevel *l);
 extern U0 InitPosDataForThing(CDoomLevel *l,CDoomThing *t);
 CDoomLevel *LoadWadLevel(U8 *level_name,I64 skill=1) {
-  I64 idx,cnt,x,y,min,max;
+  I64 idx,cnt,x,y,min,max,w,h,x2,y2;
   U16 *offs;
   U8 name[STR_LEN],*reject;
   CDC **arr;
@@ -967,7 +969,7 @@ CDoomLevel *LoadWadLevel(U8 *level_name,I64 skill=1) {
   CDoomBSPNode *dnode,**dnode_list;
   CWadLinedef *wlinedef;
   CDoomLinedef *dlinedef,**dlinedef_list;
-  CDoomSubsector *dss,**sslist;
+  CDoomSubsector *dss,**sslist,*dss2;
   CWadSubsector *wss;
   CWadSeg *wseg;
   CDoomBSPSeg *dseg,*dseg_list;
@@ -976,6 +978,7 @@ CDoomLevel *LoadWadLevel(U8 *level_name,I64 skill=1) {
   CWadSidedef *wside;
   CDoomSidedef *dside,**dside_list;
   CWadBlockMapHeader *wbmh;
+  F64 maxx,maxy,minx,miny;
   QueInit(&level->sidedefs);
   QueInit(&level->thinkers);
   QueInit(&level->sectors);
@@ -1008,7 +1011,7 @@ found:
   wthing=wad_dir->ptr+wad->body;
   for(idx=0;idx!=cnt;idx++) {
 //https://doomwiki.org/wiki/E4M3:_Sever_the_Wicked_(Doom)
-//If no flags are set for the spawns,stil handle them
+    //If no flags are set for the spawns,stil handle them
     if(wthing->thing_type==1)
       goto pass_thing;
     if(wthing->flags&WAD_THINGF_MULTIPLAYER&&!IsNetworkGameServer)
@@ -1059,6 +1062,17 @@ skip_thing:
   UH2("LVERTS",level->vertices);
   if(StrCmp8("VERTEXES",wad_dir[3].lump_name)) throw('Wad');
   for(idx=0;idx!=cnt;idx++) {
+    if(!idx) {
+      minx=vertex->x;
+      maxx=vertex->x;
+      miny=vertex->y;
+      maxy=vertex->y;
+    } else {
+      minx=Min(vertex->x,minx);
+      miny=Min(vertex->y,miny);
+      maxx=Max(vertex->x,maxx);
+      maxy=Max(vertex->y,maxy);
+    }
     level->vertices[idx].x=vertex->x;
     level->vertices[idx].y=vertex->y;
     vertex++;
@@ -1422,6 +1436,33 @@ skip_thing:
   for(dthing=level->things.next;dthing!=&level->things;dthing=dthing->next) {
     InitPosDataForThing(level,dthing);
   }
+
+  w=maxx-minx+7;
+  h=maxy-miny+7;
+  level->floor_map_origin.x=minx;
+  level->floor_map_origin.y=miny;
+  level->floor_map_w=w/8;
+  level->floor_map_h=h/8;
+
+  level->floor_map8x8=CAlloc(w/8*h/8*8);
+  idx=0;
+  for(y=0;y<h/8;y++)
+    for(x=0;x<w/8;x++){
+      dnode=DoomWhichBSPNode(minx+x*8,miny+y*8,level,&dss);
+      for(x2=0;x2!=8;x2++)
+        for(y2=0;y2!=8;y2++) {
+	  if(dnode!=DoomWhichBSPNode(minx+x*8+x2,miny+y*8+y2,level,&dss2)) {
+	    goto skip;
+	  }
+	  if(dss!=dss2)	
+	   goto skip;
+        }
+      if(dss) {
+        level->floor_map8x8[idx]=dss->sector;
+      }
+skip:;
+      idx++;
+    }
   return level;
 }
 

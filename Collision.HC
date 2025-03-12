@@ -235,7 +235,7 @@ CDoomThing *InThingBBox(CDoomLevel *l,CDoomThing *me) {
 	    for(idx=0;idx!=bmthings->cnt;idx++) {
 	      thing=bmthings->body[idx];
 	      if(thing->template&&thing!=me) {
-	        if(thing->flags&(TF_OBSTACLE|TF_SHOOTABLE)){
+	        if(thing->flags&(TF_OBSTACLE|TF_SHOOTABLE)){
 		  r2=thing->template->radius;
 		  if(Max(dummy->x-r,thing->x-r2)<=Min(dummy->x+r,thing->x+r2))
 		    if(Max(dummy->y-r,thing->y-r2)<=Min(dummy->y+r,thing->y+r2))

@@ -384,7 +384,7 @@ U0 SectorPlot(CDC *dc,CDC *texture,I64 x,I64 y,I64 idist,I64 wx,I64 wy,I64 light
 U0 FillPoly(CDC *dc,CDoomCamera *cam,CDoomSector *s,CDC *texture,CD4 *points,I64 cnt,F64 level,Bool floor,I64 af) {
   Bool god_mode=GodModeFilter;
   I64 idx,idx2,idx3;
-  I64 minx,x,y,miny,maxy;
+  I64 minx,x,y,miny,maxy,x2,y2;
   I64 maxx,cap;
   CD3 dummya,dummyb;
   F64 slope,wxf,wyf,midx,slope2,angle,dist;
@@ -437,22 +437,31 @@ U0 FillPoly(CDC *dc,CDoomCamera *cam,CDoomSector *s,CDC *texture,CD4 *points,I64
       dist=DIST_SCALE/(ToF64(y-GR_HEIGHT/2)/(cam->h-level));
       dist/=ray_cast_table_cos[ToI64(x)>>1];
       if(dist>5+cam->cutoff_dists[ToI64(x)>>1]) {
-	break;
+        break;
       }
       wyf=cam->y+dist*sin_table[ToI64(x)];
       wxf=cam->x+dist*cos_table[ToI64(x)];
-      s=GetSectorForCoord(l,wxf,wyf);
+      x2=(wxf-l->floor_map_origin.x)/8;
+      y2=(wyf-l->floor_map_origin.y)/8;
+      if(!(0<=x2<l->floor_map_w))
+        goto next;
+      if(!(0<=y2<l->floor_map_h))
+        goto next;
+      s=l->floor_map8x8[y2*l->floor_map_w+x2];
+      if(!s) {
+        s=GetSectorForCoord(l,wxf,wyf);
+      }
       if(s&&dist>0.01) {
         if(floor) {
 	  if(texture==s->floor_dc[af%FrameCnt(s->floor_dc)])
 	    if(s->floor_height==level) {
 pass:;
 	      SectorPlot(dc,texture,x,y,
-		  dist,
-		  wxf,
-		  wyf,
-		  s->cur_light_level,
-		  god_mode);
+		    dist,
+		    wxf,
+		    wyf,
+		    s->cur_light_level,
+		    god_mode);
 	    }
         } else if(!floor) {
 	  if(texture==s->ceil_dc[af%FrameCnt(s->ceil_dc)])
@@ -1256,7 +1265,7 @@ U0 MPDrawFlatsJob(CMPDrawJob *md) {
   CDoomCamera *cam=md->cam;
   I64 af=Server_tS*4;
   for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next) {
-    if(sector->drawn) {
+    if(sector->drawn) {
       if(sector->floor_dc)
         if(sector->floor_height<cam->h&&sector->ceil_height!=sector->floor_height) {
 	  if(FrameCnt(sector->floor_dc))

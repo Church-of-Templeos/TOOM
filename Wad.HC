@@ -346,7 +346,7 @@ class CDoomLevel {
   U8 map_name[8]; //EXMY
   CD2I32 floor_map_origin;
   I64 floor_map_w,floor_map_h;
-  CDoomSector **floor_map8x8;
+  CDoomSector **floor_map16x16;
 };
 
 class CWadTexturePatch {
@@ -1441,24 +1441,24 @@ skip_thing:
   h=maxy-miny+7;
   level->floor_map_origin.x=minx;
   level->floor_map_origin.y=miny;
-  level->floor_map_w=w/8;
-  level->floor_map_h=h/8;
+  level->floor_map_w=w/16;
+  level->floor_map_h=h/16;
 
-  level->floor_map8x8=CAlloc(w/8*h/8*8);
+  level->floor_map16x16=CAlloc(w/16*h/16*8);
   idx=0;
-  for(y=0;y<h/8;y++)
-    for(x=0;x<w/8;x++){
-      dnode=DoomWhichBSPNode(minx+x*8,miny+y*8,level,&dss);
-      for(x2=0;x2!=8;x2++)
-        for(y2=0;y2!=8;y2++) {
-	  if(dnode!=DoomWhichBSPNode(minx+x*8+x2,miny+y*8+y2,level,&dss2)) {
+  for(y=0;y<h/16;y++)
+    for(x=0;x<w/16;x++){
+      dnode=DoomWhichBSPNode(minx+x*16,miny+y*16,level,&dss);
+      for(x2=0;x2!=16;x2++)
+        for(y2=0;y2!=16;y2++) {
+	  if(dnode!=DoomWhichBSPNode(minx+x*16+x2,miny+y*16+y2,level,&dss2)) {
 	    goto skip;
 	  }
 	  if(dss!=dss2)	
 	   goto skip;
         }
       if(dss) {
-        level->floor_map8x8[idx]=dss->sector;
+        level->floor_map16x16[idx]=dss->sector;
       }
 skip:;
       idx++;

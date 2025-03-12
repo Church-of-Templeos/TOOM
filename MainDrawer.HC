@@ -441,13 +441,13 @@ U0 FillPoly(CDC *dc,CDoomCamera *cam,CDoomSector *s,CDC *texture,CD4 *points,I64
       }
       wyf=cam->y+dist*sin_table[ToI64(x)];
       wxf=cam->x+dist*cos_table[ToI64(x)];
-      x2=(wxf-l->floor_map_origin.x)/8;
-      y2=(wyf-l->floor_map_origin.y)/8;
+      x2=(wxf-l->floor_map_origin.x)/16;
+      y2=(wyf-l->floor_map_origin.y)/16;
       if(!(0<=x2<l->floor_map_w))
         goto next;
       if(!(0<=y2<l->floor_map_h))
         goto next;
-      s=l->floor_map8x8[y2*l->floor_map_w+x2];
+      s=l->floor_map16x16[y2*l->floor_map_w+x2];
       if(!s) {
         s=GetSectorForCoord(l,wxf,wyf);
       }
@@ -3425,6 +3425,7 @@ U0 FreeLevel(CDoomLevel *l) {
   QueDel(&l->sidedefs);
   Free(l->vertices);
   QueDel(&l->linedefs);
+  Free(l->floor_map16x16);
   Free(l->block_map_data);
   Free(l->action_linedefs);
   Free(l);

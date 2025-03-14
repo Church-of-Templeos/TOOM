@@ -55,8 +55,11 @@ U0 PickWads() {
   if(!wad) {
     PopUpOk("Can't find a main WAD aborting.\n");
     Exit;
-  } else
+  } else {
+    if(StrOcc(wad,'2'))
+      FramePtrAdd("DOOM2",1);
     LoadWad(iwad=wad);
+  }
   if(pwad&&FileFind(pwad))
     LoadWad(pwad);
 

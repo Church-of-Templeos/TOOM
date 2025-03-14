@@ -1064,6 +1064,7 @@ Bool BoxIsVisible(CDoomCamera *cam,CBoundBoxF64 *bbox) {
   Bool ret=FALSE;
   CD2 a,b,c,d,zero,ra,rb,*p1,*p2,dummya,dummyb;
   F64 closest,xd,yd,py,py2,dists[4];
+
   I64 iter,dir,sx,ex,ix;
   zero.x=0,zero.y=0;
   if(InRange(bbox->x,x,bbox->x2)&&InRange(bbox->y,y,bbox->y2))
@@ -1095,17 +1096,54 @@ check:
     dists[1]=Sqrt(Sqr(b.x)+Sqr(b.y));
     dists[2]=Sqrt(Sqr(c.x)+Sqr(c.y));
     dists[3]=Sqrt(Sqr(d.x)+Sqr(d.y));
-    sx=ClampI64(0,ToF64(Gs->num)/mp_cnt*GR_WIDTH,ToF64(Gs->num+1)/mp_cnt*GR_WIDTH)&~1;
-    ex=ClampI64(GR_WIDTH,ToF64(Gs->num)/mp_cnt*GR_WIDTH,ToF64(Gs->num+1)/mp_cnt*GR_WIDTH)&~1;
-    closest=Min(Min(Min(dists[0],dists[1]),dists[2]),dists[3]);
+    sx=GR_WIDTH;
+    ex=0;
+    closest=I32_MAX;
+    if(rb.x*a.y-rb.y*a.x<=0.) {
+      closest=Min(closest,Sqrt(Sqr(a.x)+Sqr(a.y)));
+      angle=Wrap(FArg(a.x,a.y)-cam->angle);
+      iter=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2);
+      sx=MinI64(sx,iter-2);
+      ex=MaxI64(ex,iter-2);
+    } else
+      closest=0;
+    if(rb.x*b.y-rb.y*b.x<=0.) {
+      closest=Min(closest,Sqrt(Sqr(b.x)+Sqr(b.y)));
+      angle=Wrap(FArg(b.x,b.y)-cam->angle);
+      iter=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2);
+      sx=MinI64(sx,iter-2);
+      ex=MaxI64(ex,iter-2);
+    } else
+      closest=0;
+    if(rb.x*c.y-rb.y*c.x<=0.) {
+      closest=Min(closest,Sqrt(Sqr(c.x)+Sqr(c.y)));
+      angle=Wrap(FArg(c.x,c.y)-cam->angle);
+      iter=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2);
+      sx=MinI64(sx,iter-2);
+      ex=MaxI64(ex,iter-2);
+    } else
+      closest=0;
+    if(rb.x*d.y-rb.y*d.x<=0.) {
+      closest=Min(closest,Sqrt(Sqr(d.x)+Sqr(d.y)));
+      angle=Wrap(FArg(d.x,d.y)-cam->angle);
+      iter=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2);
+      sx=MinI64(sx,iter-2);
+      ex=MaxI64(ex,iter-2);
+    } else
+      closest=0;
+    if(closest<1.) {
+        ret=TRUE;
+        goto done;
+    }
+    ex=ClampI64(ex,0,GR_WIDTH-2);
+    sx=ClampI64(sx,0,GR_WIDTH-2);
     while(sx<ex) {
       if(cam->cutoff_dists[sx/2]>=closest) {
         ret=TRUE;
-	goto done;
+        goto done;
       }
       sx+=2;
     }
-    
   } else if(!FrontSide(v2,&b)&&FrontSide(v,&b)) {
     ret=TRUE;
     goto check;
@@ -1150,7 +1188,7 @@ Bool DrawBSP0(CDC *to_dc,CDoomCamera *cam,CDoomBSPNode *node) {
     if(BoxIsVisible(cam,&node->right)) DrawBSP0(to_dc,cam,node->right_child);
   } else {
     if(BoxIsVisible(cam,&node->right)) DrawBSP0(to_dc,cam,node->right_child);
-     if(BoxIsVisible(cam,&node->left)) DrawBSP0(to_dc,cam,node->left_child);
+    if(BoxIsVisible(cam,&node->left)) DrawBSP0(to_dc,cam,node->left_child);
   }
   if(node->parent)
     DrawBSP0(to_dc,cam,node->parent);

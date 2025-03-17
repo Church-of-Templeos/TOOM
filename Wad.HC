@@ -191,7 +191,9 @@ class CDoomThing:CQue {
   I64 flags;
   I64 hash;
   I64 server_id;
-  Bool solid,anim_no_repeat,pad[6];
+  Bool solid,anim_no_repeat,pad[4];
+  Bool delete_frame_has_passed;
+  Bool delete_is_referenced;
   U8 *thinker;
 };
 extern class CDoomSector;

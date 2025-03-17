@@ -353,7 +353,8 @@ U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
   //Exlucude the shooter,remove missile from the Que to avoid checking for it
   QueRem(self);
 //No speeding through targets
-  ld=MoveThingFinal(l,self,self->angle,dist,COLLISF_NO_HIT_THING|COLLISF_PROJECTILE,NULL,t->shooter,&hit);
+  if(!t->hit)
+    ld=MoveThingFinal(l,self,self->angle,dist,COLLISF_NO_HIT_THING,NULL,t->shooter,&hit);
   QueIns(self,&l->things);
   CDoomSector *s=GetSectorForCoord(l,self->x,self->y);
   if(!t->hit&&!hit) {
@@ -364,7 +365,7 @@ U0 MissileThinker(CDoomLevel *l,CMissileThinker *t) {
     for(i=0;i!=things->cnt;i++) {
       hit=things->body[i];
       if(hit->template&&hit!=t->shooter&&hit->health>0.) {
-         if(ApproxDist(hit->x-self->x,hit->y-self->y)<template->radius+hit->template->radius) {
+         if(ApproxDist(hit->x-self->x,hit->y-self->y)<(template->radius+hit->template->radius)+dist) {
 	  goto now;
         }
       }
@@ -385,8 +386,10 @@ now:;
   if(hit) {
     if(hit==t->shooter)
       goto next;
+    self->x=hit->x;
+    self->y=hit->y;
     DamageMob(l,hit,t->shooter,template->direct*(RandU16&7+1));
-explode:
+explode:;
     t->hit=TRUE;
     self->anim_start_tS=Server_tS;
     self->anim_no_repeat=TRUE;

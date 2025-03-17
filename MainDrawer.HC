@@ -159,8 +159,8 @@ class CDoomCamera {
   CDC *floor_dc; //This is black or white,this is used for reducing floor overdraw
   CI64Set *draw_walls;
   F64 cutoff_dists[GR_WIDTH/2];
-  F64 min_ceils[GR_WIDTH/2];
-  F64 max_floors[GR_WIDTH/2];
+  F64 ceil_cutoffs[GR_WIDTH/2];
+  F64 floor_cutoffs[GR_WIDTH/2];
   I64 seg_cnts_per_core[mp_cnt]; //Only draw 128 segs per core
 } cam;
 cam.fov=pi/4;
@@ -436,7 +436,16 @@ U0 FillPoly(CDC *dc,CDoomCamera *cam,CDoomSector *s,CDC *texture,CD4 *points,I64
     for(;y!=cap;y+=Sign(cap-y)*2) {
       dist=DIST_SCALE/(ToF64(y-GR_HEIGHT/2)/(cam->h-level));
       dist/=ray_cast_table_cos[ToI64(x)>>1];
-      if(dist>5+cam->cutoff_dists[ToI64(x)>>1]) {
+      if(floor) {
+	if(dist>2+cam->floor_cutoffs[ToI64(x)>>1]) {
+	  break;
+	}
+      } else {
+	if(dist>2+cam->ceil_cutoffs[ToI64(x)>>1]) {
+	  break;
+	}
+      }
+      if(dist>2+cam->cutoff_dists[ToI64(x)>>1]) {
         break;
       }
       wyf=cam->y+dist*sin_table[ToI64(x)];
@@ -622,12 +631,21 @@ Bool RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 le
         if(floor==1) { //Solid wall
 	  cutoff_changed=TRUE;
 //2x2 dithering super pixels
-	  cam->cutoff_dists[ix>>1]=dist;
+	  cam->cutoff_dists[ix>>1]=Min(cam->cutoff_dists[ix>>1],dist);
         }
         if(floor==2||floor==0) {
-	  if(ceilh-flrh<1.)
-	  cam->cutoff_dists[ix>>1]=dist;
+	  if(ceilh-flrh<2.)
+	    cam->cutoff_dists[ix>>1]=Min(cam->cutoff_dists[ix>>1],dist);
 	}
+	if(floor==0) {
+	    if(iy+ih<=GR_HEIGHT/2)
+	      cam->floor_cutoffs[ix>>1]=Min(cam->floor_cutoffs[ix>>1],dist);
+	} else if(floor==2) {
+	    if(iy+ih>=GR_HEIGHT/2)
+	      cam->ceil_cutoffs[ix>>1]=Min(cam->ceil_cutoffs[ix>>1],dist);
+        }
+	if(iy<=0&&iy+ih>=GR_HEIGHT)
+	  cam->cutoff_dists[ix>>1]=Min(cam->cutoff_dists[ix>>1],dist);
       }
       if(ih&1) ih--;
       if(iy&1) iy--;
@@ -950,7 +968,7 @@ CDC *GetLowerTexture(CDoomSidedef *s) {
   return s->lower_texture[t];
 }
 Bool DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
-  //if(cam->seg_cnts_per_core[Gs->num]>=0x100) return FALSE;
+  if(cam->seg_cnts_per_core[Gs->num]>=0x100) return FALSE;
   CD2 start_floor,start_ceil;
   CD2 end_floor,end_ceil;
   I64 seg_idx,wall,fail_cnt;
@@ -1331,8 +1349,8 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
 //F64
   while(--idx>=0) {
     cam->cutoff_dists[idx]=I32_MAX;
-    cam->min_ceils[idx]=I32_MAX;
-    cam->max_floors[idx]=I32_MIN;
+    cam->ceil_cutoffs[idx]=I32_MAX;
+    cam->floor_cutoffs[idx]=I32_MAX;
   }
   MemSetI64(cam->seg_cnts_per_core,0,mp_cnt);
   if(!cam->floor_dc) {
@@ -3949,14 +3967,7 @@ have:
 U0 ThingDel(CDoomLevel *l,CDoomThing *t) {
   RemovePosDataForThing(l,t);
   QueRem(t);
-  if(t->thinker) {
-    if(t->thinker(CMonsterThinker*)->signature!='Monster')
-     goto defacto;
-    QueIns(t,l->obselete_things.last);
-  } else {
-defacto:;
-    Free(t);
-  }
+  QueIns(t,l->obselete_things.last);
 }
 #include "Save.HC";
 #include "Multiplayer.HC";

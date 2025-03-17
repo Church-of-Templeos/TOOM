@@ -186,15 +186,6 @@ U0 SaveGame(U8 *filename,U8 *title) {
     }
     else if(!StrCmp("CDoomThinker",cur(CDoomThinker*)->cls_name)) {
       DocPrint(doc,"%d\n",cur(CDoomThinker*)->user_data1);
-      DocPrint(doc,"%d\n",cur(CDoomThinker*)->user_data2);
-      DocPrint(doc,"%d\n",cur(CDoomThinker*)->user_data3);
-      DocPrint(doc,"%d\n",cur(CDoomThinker*)->user_data4);
-      DocPrint(doc,"%d\n",cur(CDoomThinker*)->user_data5);
-      DocPrint(doc,"%d\n",cur(CDoomThinker*)->user_data6);
-      DocPrint(doc,"%d\n",cur(CDoomThinker*)->user_data7);
-      DocPrint(doc,"%d\n",cur(CDoomThinker*)->user_data8);
-      DocPrint(doc,"%d\n",cur(CDoomThinker*)->user_data9);
-      DocPrint(doc,"%d\n",cur(CDoomThinker*)->user_data10);
     } else if(!StrCmp("CButtonThinker",cur(CDoomThinker*)->cls_name)) {
       DocPrint(doc,"%d\n",GetSidedefIndex(l,cur(CButtonThinker*)->s));
       DocPrint(doc,"%n\n",cur(CButtonThinker*)->switch_tS);
@@ -409,8 +400,10 @@ U0 LoadGame(U8 *filename) {
     ThingDel(l,thing);
   }
   QueDel(&l->things);
+  QueDel(&l->obselete_things);
   QueDel(&l->thinkers);
   QueInit(&l->thinkers);
+  QueInit(&l->obselete_things);
   QueInit(&l->things);
   while(*ptr) {
     switch(state) {

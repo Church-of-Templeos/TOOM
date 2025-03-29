@@ -301,7 +301,7 @@ class CDoomSector:CQue {
   CI64Set *things;
   F64 door_height_offset;
   I64 visplane_idx;
-  Bool drawn;
+  Bool drawn,full_drawn;
   Bool paused; //Pause the action on the sector
   Bool bumped_into; //used for re-opening doors
   Bool sound_check;
@@ -968,7 +968,7 @@ CDoomLevel *LoadWadLevel(U8 *level_name,I64 skill=1) {
   CWadVertex *vertex;
   CWadDirectory *wad_dir;
   CWadBSPNode *wnode;
-  CDoomBSPNode *dnode,**dnode_list;
+  CDoomBSPNode *dnode,**dnode_list,*dnode2;
   CWadLinedef *wlinedef;
   CDoomLinedef *dlinedef,**dlinedef_list;
   CDoomSubsector *dss,**sslist,*dss2;
@@ -1448,18 +1448,44 @@ skip_thing:
 
   level->floor_map16x16=CAlloc(w/16*h/16*8);
   idx=0;
+  Bool passes=FALSE;
+  CBoundBoxF64 *bbox;
   for(y=0;y<h/16;y++)
     for(x=0;x<w/16;x++){
-      dnode=DoomWhichBSPNode(minx+x*16,miny+y*16,level,&dss);
+      dnode=DoomWhichBSPNode(minx+x*16+4,miny+y*16+4,level,&dss);
+      passes=TRUE;
       for(x2=0;x2!=16;x2++)
         for(y2=0;y2!=16;y2++) {
-	  if(dnode!=DoomWhichBSPNode(minx+x*16+x2,miny+y*16+y2,level,&dss2)) {
-	    goto skip;
+	  dnode2=DoomWhichBSPNode(minx+x*16+x2,miny+y*16+y2,level,&dss2);
+	  if(dnode!=dnode2) {
+	    passes=FALSE;
 	  }
 	  if(dss!=dss2)	
-	   goto skip;
+	   passes=FALSE;
+	  if(dss2&&dnode2) {
+	     if(dss2==dnode2->left_child) {
+		bbox=&dnode2->left;
+	     } else {
+		bbox=&dnode2->right;
+	     }
+//Adjust "real" bounds box
+	     if(bbox->x>bbox->x2) {
+		bbox->x=Max(bbox->x,minx+x*16+x2);
+		bbox->x2=Min(bbox->x2,minx+x*16+x2);
+	     } else {
+		bbox->x2=Max(bbox->x2,minx+x*16+x2);
+		bbox->x=Min(bbox->x,minx+x*16+x2);
+	     }
+	     if(bbox->y>bbox->y2) {
+		bbox->y=Max(bbox->y,miny+y*16+y2);
+		bbox->y2=Min(bbox->y2,miny+y*16+y2);
+	     } else {
+		bbox->y2=Max(bbox->y2,miny+y*16+y2);
+		bbox->y=Min(bbox->y,miny+y*16+y2);
+	     }
+	  }
         }
-      if(dss) {
+      if(dss&&passes) {
         level->floor_map16x16[idx]=dss->sector;
       }
 skip:;

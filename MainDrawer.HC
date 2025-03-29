@@ -226,7 +226,7 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
   TransformPointToCamera(cam,p2);
   s.x=0,s.y=0;
   slump=1.75;
-  e.y=I16_MAX*Sin(cam->fov/2),e.x=I16_MAX*Cos(cam->fov/2);
+  e.y=I16_MAX*Sin(cam->fov/2.),e.x=I16_MAX*Cos(cam->fov/2.);
   slump=cam->fov/2.;
   angle=FArg(p->x,p->y);
   angle2=FArg(p2->x,p2->y);
@@ -248,11 +248,11 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
   if(clamp) {
 //Use intersect if above the line
     PlaneIntersect(&at,&s,&e,p,p2,FALSE);
-    if(p->x*e.y-e.x*p->y<-.1) {
+    if(p->x*e.y-e.x*p->y<.1) {
       p->x=at.x;
       p->y=at.y;
     }
-    if(p2->x*e.y-e.x*p2->y<-.1) {
+    if(p2->x*e.y-e.x*p2->y<.1) {
       p2->x=at.x;
       p2->y=at.y;
     }
@@ -260,21 +260,20 @@ Bool ClipLineToScrenCoords(CDoomCamera *cam,CD2 *p,CD2 *p2,F64 level=0.,Bool *ou
     //Use intersect if below the line
     e.y=-e.y;
     PlaneIntersect(&at,&s,&e,p,p2,FALSE);
-    if(p->x*e.y-e.x*p->y>.1) {
+    if(p->x*e.y-e.x*p->y>-.1) {
       p->x=at.x;
       p->y=at.y;
     }
-    if(p2->x*e.y-e.x*p2->y>.1) {
+    if(p2->x*e.y-e.x*p2->y>-.1) {
       p2->x=at.x;
       p2->y=at.y;
     }
   }
-
+  e.y=-e.y;
   for(cnt=0;cnt!=2;cnt++) {
     if(!cnt) ptr=p;
     else ptr=p2;
     angle=FArg(ptr->x,ptr->y);
-
     at.x=GR_WIDTH/2+angle/(cam->fov/2)*(GR_WIDTH/2);
     at.y=GR_HEIGHT/2+DIST_SCALE/(Sqrt(ptr->x*ptr->x+ptr->y*ptr->y)*Cos(angle))*(cam->h-level);
     ptr->x=at.x;
@@ -321,40 +320,47 @@ I64 YSort(CD4 *a,CD4 *b) {
   if(a->start.y<b->start.y) return -1;
   return 0;
 }
-CD4 *GetFlatPoints(CDoomCamera *cam,CDoomSector *s,F64 level,I64 *cnt) {
-  CD4 *ret=CAlloc(sizeof(CD4)*s->linedef_cnt);
-  CDoomLinedef *ld;
-  I64 idx,idx2=0;
-  CD2 dummy;
-  Bool out_of_view=0;
-  for(idx=0;idx!=s->linedef_cnt;idx++) {
-    ld=s->linedefs[idx];    
-    ret[idx2].start.x=ld->start->x;
-    ret[idx2].start.y=ld->start->y;
-    ret[idx2].end.x=ld->end->x;
-    ret[idx2].end.y=ld->end->y;
-    ClipLineToScrenCoords(cam,&ret[idx2].start,&ret[idx2].end,level,&out_of_view);
-
-    ret[idx2].start.x=ret[idx2].start.x;
-    ret[idx2].end.x=ret[idx2].end.x;
-
-    if(ret[idx2].start.x>ret[idx2].end.x) {
-      SwapI64(&ret[idx2].start.x,&ret[idx2].end.x);
-    }
-    if(ret[idx2].start.y>ret[idx2].end.y) {
-      SwapI64(&ret[idx2].start.y,&ret[idx2].end.y);
-    }
-    if(!out_of_view) {
-      idx2++;
-    } else  {
-//Cap the the top/bottom of screen if ceiling or floor.
-      ret[idx2].start.y=0;
-      ret[idx2].end.y=GR_HEIGHT;
-      idx2++;
+CD4 *GetFlatPoints(CDoomCamera *cam,CDoomSubsector *s,F64 level,I64 *cnt) {
+  CD4 *a=CAlloc(sizeof(CD4)*6);
+  I64 ptr=0,idx;
+  CBoundBoxF64 *box;
+  if(s->parent->left_child==s)
+    box=&s->parent->left;
+  else if(s->parent->right_child==s)
+    box=&s->parent->right;
+  Bool out_of_view;
+  a[0].start.x=box->x;
+  a[0].start.y=box->y;
+  a[0].end.x=box->x2;
+  a[0].end.y=box->y;
+  a[1].start.x=box->x2;
+  a[1].start.y=box->y;
+  a[1].end.x=box->x2;
+  a[1].end.y=box->y2;
+  a[2].start.x=box->x2;
+  a[2].start.y=box->y2;
+  a[2].end.x=box->x;
+  a[2].end.y=box->y2;
+  a[3].start.x=box->x;
+  a[3].start.y=box->y2;
+  a[3].end.x=box->x;
+  a[3].end.y=box->y;
+  for(idx=0;idx!=4;idx++)  {
+    if(0&&ClipLineToScrenCoords(cam,&a[idx].start,&a[idx].end,level,&out_of_view,TRUE)) {
+      if(ptr!=idx) {
+        MemCpy(a+ptr++,a+idx,sizeof CD4);
+      }
+    } else {
+      a[ptr].start.x=0;
+      a[ptr].end.x=GR_WIDTH; 
+      a[ptr].start.y=0;
+      a[ptr].end.y=GR_HEIGHT; 
+ptr++;
+	break;
     }
   }
-  if(cnt) *cnt=idx2;
-  return ret;
+  if(cnt) *cnt=ptr;
+  return a;
 }
 I64 class CLine64 {
   I16 sx,sy,ex,ey;
@@ -381,7 +387,49 @@ U0 SectorPlot(CDC *dc,CDC *texture,I64 x,I64 y,I64 idist,I64 wx,I64 wy,I64 light
   to(U8*)+=dc->width_internal;
   *to=color>>16;
 }
-U0 FillPoly(CDC *dc,CDoomCamera *cam,CDoomSector *s,CDC *texture,CD4 *points,I64 cnt,F64 level,Bool floor,I64 af) {
+Bool RayPassesThroughBox(CBoundBoxF64 *bbox,CD2 *o,F64 cos,F64 sin,F64 *_best,F64 *_worst) {
+  CD2 tr,tl,br,bl;
+  CD2 e,A,B,C,D;
+  F64 best=I16_MAX,worst=-I16_MAX,tmp;
+  e.x=o->x+I16_MAX*cos;
+  e.y=o->y+I16_MAX*sin;
+  tr.x=bbox->x;
+  tl.x=bbox->x2;
+  tr.y=bbox->y;
+  tl.y=bbox->y;
+  br.x=bbox->x;
+  bl.x=bbox->x2;
+  br.y=bbox->y2;
+  bl.y=bbox->y2;
+  I64 hits=0;
+  if(PlaneIntersect(&A,o,&e,&tl,&tr)) {
+    best=Min(best,tmp=Sqrt(Sqr(A.y-o->y)+Sqr(A.x-o->x)));
+    worst=Max(worst,tmp);
+    hits++;
+  }
+  if(PlaneIntersect(&B,o,&e,&tr,&br)) {
+    best=Min(best,tmp=Sqrt(Sqr(B.y-o->y)+Sqr(B.x-o->x)));
+    worst=Max(worst,tmp);
+    hits++;
+  }
+  if(PlaneIntersect(&C,o,&e,&br,&bl)) {
+    best=Min(best,tmp=Sqrt(Sqr(C.y-o->y)+Sqr(C.x-o->x)));
+    worst=Max(worst,tmp);
+    hits++;
+  }
+  if(PlaneIntersect(&D,o,&e,&bl,&tl)) {
+    best=Min(best,tmp=Sqrt(Sqr(D.y-o->y)+Sqr(D.x-o->x)));
+    worst=Max(worst,tmp);
+    hits++;
+  }
+  if(BoundBoxF64Inside(o->x,o->y,bbox))
+    best=3;
+  if(_best) *_best=best;
+  if(_worst) *_worst=worst;
+  return worst>0.;
+}
+U0 FillPoly(CDC *dc,CDoomCamera *cam,CDoomSector *os,CDC *texture,CD4 *points,I64 cnt,F64 level,Bool floor,I64 af,CBoundBoxF64 *bbox) {
+  CDoomSector *s;
   Bool god_mode=GodModeFilter;
   I64 idx,idx2,idx3;
   I64 minx,x,y,miny,maxy,x2,y2;
@@ -426,12 +474,25 @@ U0 FillPoly(CDC *dc,CDoomCamera *cam,CDoomSector *s,CDC *texture,CD4 *points,I64
   maxx=ClampI64(maxx,GR_WIDTH/mp_cnt*Gs->num+2,GR_WIDTH/mp_cnt*(Gs->num+1)-2);
 
   for(x=minx-2;x<maxx+2;x+=2) {
+    F64 worst,best;
+    if(!RayPassesThroughBox(bbox,&cam->x,cos_table[x],sin_table[x],&best,&worst))
+       goto nextx;
+    best=Floor(best);
+    worst=Ceil(worst);
+    y=GR_HEIGHT/2+DIST_SCALE/(1+best*ray_cast_table_cos[ToI64(x)>>1])*(cam->h-level);
+    cap=GR_HEIGHT/2+DIST_SCALE/(1+worst*ray_cast_table_cos[ToI64(x)>>1])*(cam->h-level);
+    y=y&~1;
+    cap=cap&~1;
     if(floor) {
-      cap=ClampI64(miny-4,GR_HEIGHT/2,GR_HEIGHT-2);
-      y=ClampI64(maxy+4,GR_HEIGHT/2,GR_HEIGHT-2);
+      if(cap>y)
+        SwapI64(&cap,&y);
+      cap=ClampI64(cap-4,GR_HEIGHT/2,GR_HEIGHT-2);
+      y=ClampI64(y+4,GR_HEIGHT/2,GR_HEIGHT-2);
     } else {
-      cap=ClampI64(maxy+4,0,GR_HEIGHT/2);
-      y=ClampI64(miny-4,0,GR_HEIGHT/2);;
+      if(cap<y)
+        SwapI64(&cap,&y);
+      cap=ClampI64(cap+4,0,GR_HEIGHT/2);
+      y=ClampI64(y-4,0,GR_HEIGHT/2);;
     }
     for(;y!=cap;y+=Sign(cap-y)*2) {
       dist=DIST_SCALE/(ToF64(y-GR_HEIGHT/2)/(cam->h-level));
@@ -480,6 +541,7 @@ pass:;
       }
 next:;
     }
+nextx:;
   }
 }
 
@@ -565,11 +627,11 @@ Bool RayCastWall(CDC *to_dc,CDC *texture,CD2 *st,CD2 *en,CDoomCamera *cam,I64 le
   if(opposite&&floor==2&&opposite->sector->ceil_dc[0]==GetFlatDC("F_SKY1")) {
     return TRUE;
   }
-  ClipLineToScrenCoords(cam,&scrn_st,&scrn_en,level,&clipped);
+  clipped=FALSE;
+  if(!ClipLineToScrenCoords(cam,&scrn_st,&scrn_en,level))
+    return TRUE;
   repeat=TRUE;
 
-
-  if(clipped) return TRUE;
 
   start_angle=FArg(en->x-st->x,en->y-st->y);
 
@@ -968,7 +1030,8 @@ CDC *GetLowerTexture(CDoomSidedef *s) {
   return s->lower_texture[t];
 }
 Bool DrawSubsector(CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss) {
-  if(cam->seg_cnts_per_core[Gs->num]>=0x100) return FALSE;
+//  if(cam->seg_cnts_per_core[Gs->num]>=0x100) return FALSE;
+  ss->drawn=TRUE;
   CD2 start_floor,start_ceil;
   CD2 end_floor,end_ceil;
   I64 seg_idx,wall,fail_cnt;
@@ -1068,7 +1131,7 @@ draw_wall:
 skip:;
   }
   DestroyVector(wall_vect);
-  cam->seg_cnts_per_core[Gs->num]+=drawn;
+  //cam->seg_cnts_per_core[Gs->num]+=drawn;
   return keep_draw||!drawn;
 }
 Bool FrontSide(Vector *v,CD2 *p) {
@@ -1297,12 +1360,18 @@ skip:;
   }
 }
 
-U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSector *sector,F64 at,CDC *texture,Bool floor=TRUE,I64 frame) {
+U0 DrawTexturedFlat(CDoomLevel *l,CDC *to_dc,CDoomCamera *cam,CDoomSubsector *ss,F64 at,CDC *texture,Bool floor=TRUE,I64 frame) {
+  CDoomSector *sector=ss->sector;
   if(!texture) return;
   if(GetFlatDC("F_SKY1")==texture) return;
   I64 in_view;
-  CD4 *poodle=GetFlatPoints(cam,sector,at,&in_view);
-  FillPoly(to_dc,cam,sector,texture,poodle,in_view,at,floor,frame);
+  CD4 *poodle=GetFlatPoints(cam,ss,at,&in_view);
+  CBoundBoxF64 *bbox;
+  if(ss->parent->left_child==ss)
+    bbox=&ss->parent->left;
+  else
+    bbox=&ss->parent->right;
+  FillPoly(to_dc,cam,sector,texture,poodle,in_view,at,floor,frame,bbox);
   Free(poodle);
 }
 class CMPDrawJob {
@@ -1317,20 +1386,22 @@ U0 MPDrawJob(CMPDrawJob *j) {
 }
 U0 MPDrawFlatsJob(CMPDrawJob *md) {
   CDoomLevel *level=md->level;
+  CDoomSubsector *ss;
   CDoomSector *sector;
   CDoomCamera *cam=md->cam;
   I64 af=Server_tS*4;
-  for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next) {
-    if(sector->drawn) {
+  for(ss=level->subsectors.next;ss!=&level->subsectors;ss=ss->next) {
+    sector=ss->sector;
+    if(sector&&sector->drawn) {
       if(sector->floor_dc)
         if(sector->floor_height<cam->h&&sector->ceil_height!=sector->floor_height) {
 	  if(FrameCnt(sector->floor_dc))
-	    DrawTexturedFlat(l,md->to_dc,cam,sector,sector->floor_height,sector->floor_dc[af%FrameCnt(sector->floor_dc)],TRUE,af);
+	    DrawTexturedFlat(l,md->to_dc,cam,ss,sector->floor_height,sector->floor_dc[af%FrameCnt(sector->floor_dc)],TRUE,af);
         }
       if(sector->ceil_dc)
         if(sector->ceil_height>cam->h&&sector->ceil_height!=sector->floor_height)
 	  if(FrameCnt(sector->ceil_dc))
-	    DrawTexturedFlat(l,md->to_dc,cam,sector,sector->ceil_height,sector->ceil_dc[af%FrameCnt(sector->ceil_dc)],FALSE,af);
+	    DrawTexturedFlat(l,md->to_dc,cam,ss,sector->ceil_height,sector->ceil_dc[af%FrameCnt(sector->ceil_dc)],FALSE,af);
     }
   }
   LBts(&mp_done,Gs->num);
@@ -1339,6 +1410,7 @@ extern U0 WorldLock(Bool read=FALSE);
 extern U0 WorldUnlock(Bool read=FALSE);
 U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   WorldLock;
+  CDoomSubsector *ss;
   CDoomSector *sector;  
   CDoomThing *thing;
   CVisplane *sorted[256];
@@ -1360,8 +1432,11 @@ U0 DrawDoomWorld(CDoomCamera *cam,CDoomLevel *level,CDC *to_dc) {
   DCDepthBufRst(cam->floor_dc);
   DCFill(to_dc,SKY_PIXEL);
   DCFill(cam->floor_dc,BLACK);
+  for(ss=level->subsectors.next;ss!=&level->subsectors;ss=ss->next) {
+    ss->drawn=FALSE;
+  }
   for(sector=level->sectors.next;sector!=&level->sectors;sector=sector->next)
-    sector->drawn=FALSE;
+    sector->drawn=FALSE,sector->full_drawn=FALSE;
   if(!to_dc->depth_buf)
     DCDepthBufAlloc(to_dc);
   else

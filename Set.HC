@@ -26,7 +26,7 @@ Bool I64SetHas(CI64Set *s,I64 v) {
  return FALSE;
 }
 Bool I64SetAdd(CI64Set *s,I64 v) {
-  I64 *new,idx;
+  I64 *new,idx,idx2;
   if(s->cnt+1>=s->cap) {
      new=CAlloc(MSize(s->body)+16*8,doom_task);
      s->cap+=16;
@@ -38,7 +38,8 @@ Bool I64SetAdd(CI64Set *s,I64 v) {
     if(s->body[idx]==v) {
       return FALSE;
     } else if(s->body[idx]>v) {
-      MemCpy(s->body+idx+1,s->body+idx,(s->cnt-idx)*8);
+      for(idx2=s->cnt;idx2>idx;--idx2)
+	s->body[idx2]=s->body[idx2-1];
       s->body[idx]=v;
       s->cnt++;
       return TRUE;

@@ -1,4 +1,4 @@
-#define mp_cnt 1
+#exe {Cd(__DIR__);};;
 #include "MainDrawer.HC";
 U64 r;
 CDC *title=GetGrLump("TITLEPIC");

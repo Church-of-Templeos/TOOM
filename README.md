@@ -4,7 +4,7 @@ A TempleOS source port of the DOOM engine
 ![TITLEPICTOOM](https://github.com/austings/TOOM/blob/4e6dfe75987af22f88d2dd718f2151d9dae820ae/TITLEPICTOOM.png)
 
 # Install
-Run the following command to copy the game to your C drive. Then play the game with Load.HC
+Run the following command to copy the game to your C drive. Then play the game with SinglePlayer.HC of MultiPlayer.HC
 
 >#include "T:/Install.HC";
 >
@@ -12,6 +12,8 @@ Run the following command to copy the game to your C drive. Then play the game w
 >
 >#include "SinglePlayer.HC";
 
+The video below will show you how to mod TOOM or add other wad files
+https://www.youtube.com/watch?v=zLAkvFr4XmE
 
 # Controls
 
